@@ -1,85 +1,139 @@
-<p align="center"><img src="core/swarlexbattery-icon.png" width="96" alt="SwarlexBattery icon"></p>
+<p align="center">
+  <img src="docs/images/banner.png" alt="SwarlexBattery: wireless mouse, keyboard and headset batteries in the Windows system tray">
+</p>
 
-# SwarlexBattery
+<p align="center">
+  <a href="https://github.com/swarlex/SwarlexBattery/releases/latest"><img src="https://img.shields.io/github/v/release/swarlex/SwarlexBattery?style=flat-square&label=release&color=3fd16a" alt="Latest release"></a>
+  <a href="https://github.com/swarlex/SwarlexBattery/releases"><img src="https://img.shields.io/github/downloads/swarlex/SwarlexBattery/total?style=flat-square&color=3fd16a" alt="Downloads"></a>
+  <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=flat-square" alt="Windows 10 | 11">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/swarlex/SwarlexBattery?style=flat-square" alt="License: GPL-3.0"></a>
+</p>
 
-Battery levels of your wireless mouse, keyboard and headset in the Windows system tray, without
-vendor software. One icon next to the clock: the left half of the ring is the mouse, the right half
-the headset. A bolt appears while charging and the icon dims while a device sleeps.
-Left click shows the details, right click opens the menu.
+<p align="center">
+  <a href="https://github.com/swarlex/SwarlexBattery/releases/latest/download/SwarlexBattery-Setup.exe"><b>Download SwarlexBattery-Setup.exe</b></a>
+  &nbsp;·&nbsp; <a href="#install">Install</a>
+  &nbsp;·&nbsp; <a href="#supported-devices">Supported devices</a>
+  &nbsp;·&nbsp; <a href="CHANGELOG.md">Changelog</a>
+  &nbsp;·&nbsp; <a href="#türkçe">Türkçe</a>
+</p>
 
-- Single portable `SwarlexBattery.exe` (about 250 KB), nothing to install
-- English and Turkish (follows the Windows display language; switch from the menu)
-- Updates itself from GitHub Releases, after you click "Update"
-- Free and open source under the GNU GPL v3
+---
+
+SwarlexBattery shows the battery of your wireless **mouse, keyboard and headset** next to the clock,
+without vendor software running in the background. One small icon: the left half of the ring is the
+mouse, the right half the headset. Left click for details, right click for the menu.
+
+<p align="center">
+  <img src="docs/images/flyout.png" width="380" alt="Flyout with battery levels">
+  &nbsp;&nbsp;
+  <img src="docs/images/menu.png" width="300" alt="Right-click menu">
+</p>
+
+<p align="center">
+  <img src="docs/images/tray-icons.png" width="760" alt="Tray icon: normal, charging, low battery, asleep, one device; on dark and light taskbars">
+</p>
+
+## Features
+
+- **One tray icon** for mouse and headset, white like the Windows icons (black on a light taskbar).
+  A bolt while charging, dimmed while a device sleeps, a notification when a battery runs low.
+- **Talks to the devices directly** over HID: Razer, Logitech, SteelSeries, HyperX, Corsair, ATK / VXE
+  and more, plus Bluetooth devices, Xbox controllers and the laptop battery.
+- **Honest numbers**: a value is shown only when the device itself answered (see [below](#how-honest-are-the-numbers)).
+- **Small and light**: about 200 KB, no runtime to install, nothing running besides the tray icon.
+- **English and Turkish**, following the Windows display language.
+- **Updates itself** from GitHub Releases when you click *Update*, with a SHA-256 check.
+- **Free and open source** under the GNU GPL v3.
 
 ## Install
 
-**[Download the latest release](https://github.com/swarlex/SwarlexBattery/releases/latest)** and run
-`SwarlexBattery-Setup.exe`. The wizard (English / Türkçe) installs it for your user only, without
-administrator rights, into `%LOCALAPPDATA%\Programs\SwarlexBattery`, and can add Start menu and desktop
-shortcuts and start it with Windows. Running the setup again upgrades an existing install and keeps your settings.
+1. Download **[SwarlexBattery-Setup.exe](https://github.com/swarlex/SwarlexBattery/releases/latest/download/SwarlexBattery-Setup.exe)**
+   from the [latest release](https://github.com/swarlex/SwarlexBattery/releases/latest).
+2. Run it and follow the wizard. It installs for your user only, **without administrator rights**,
+   into `%LOCALAPPDATA%\Programs\SwarlexBattery`, and can add Start menu / desktop shortcuts and
+   start SwarlexBattery with Windows.
+3. The battery icon appears next to the clock.
 
-To uninstall, use **Settings > Apps > SwarlexBattery**; you are asked whether to delete your settings too.
+Running the setup again upgrades an existing install and keeps your settings. To uninstall, use
+**Settings > Apps > SwarlexBattery**; you are asked whether to delete your settings too.
 
-Prefer no installer? `SwarlexBattery.exe` from the same release is portable: put it in a folder you keep
-and run it.
+<p align="center">
+  <img src="docs/images/setup-welcome.png" width="31%" alt="Setup: welcome">
+  <img src="docs/images/setup-license.png" width="31%" alt="Setup: license">
+  <img src="docs/images/setup-options.png" width="31%" alt="Setup: options">
+</p>
 
-Silent install: `SwarlexBattery-Setup.exe /silent [/dir:<folder>] [/noautostart]`.
+<details>
+<summary>Portable version and silent install</summary>
 
-> The files are not code-signed. Windows SmartScreen may warn on first launch
-> (*More info* > *Run anyway*). You can also build them yourself from this source, see [Building](#building).
+- **Portable:** `SwarlexBattery.exe` from the same release runs without installing. Put it in a folder
+  you keep, run it, and enable *Start with Windows* from the right-click menu.
+- **Silent install:** `SwarlexBattery-Setup.exe /silent [/dir:<folder>] [/noautostart] [/lang:en|tr]`
+- **Silent uninstall:** `"%LOCALAPPDATA%\Programs\SwarlexBattery\Uninstall.exe" /uninstall /silent`
+</details>
+
+> [!NOTE]
+> The files are not code-signed, so Windows SmartScreen may warn on the first launch
+> (*More info* > *Run anyway*). You can also [build them yourself](#building) from this source.
 
 ## Supported devices
 
-| Brand | Devices | Method |
-|---|---|---|
-| Razer | BlackShark V2 HyperSpeed (dongle and cable), BlackShark V2 Pro, wireless Razer mice and keyboards | MediaTek frames / "PA" frames / 90-byte feature report |
-| Logitech | Mice and keyboards on Lightspeed, Unifying and Bolt receivers, cabled G series, G533/535/633/635/733/933/935, G PRO X (2) | HID++ 2.0 |
-| SteelSeries | Arctis Nova 7 / 7X / 7P / 5 / 3, Arctis 7+, GameBuds, Nova Pro Wireless, Aerox 3/5/9, Rival 3 Wireless | vendor queries |
-| HyperX | Cloud II Wireless, Cloud III Wireless, Cloud Alpha 2 | vendor queries |
-| Corsair | Void v2 Wireless, Virtuoso Max, HS80 Max | vendor queries |
-| ATK / VXE / Pulsar / Hitscan | MAD series and other mice using the same 17-byte protocol (receiver and cable) | power query |
-| Others | Bluetooth devices whose battery Windows Settings shows, Xbox / XInput controllers, laptop battery | Windows APIs |
+| Brand | Devices |
+|---|---|
+| **Razer** | BlackShark V2 HyperSpeed (dongle and cable), BlackShark V2 Pro, wireless Razer mice and keyboards |
+| **Logitech** | Mice and keyboards on Lightspeed, Unifying and Bolt receivers; cabled G series; G533 / 535 / 633 / 635 / 733 / 933 / 935, G PRO X (2) headsets |
+| **SteelSeries** | Arctis Nova 7 / 7X / 7P / 5 / 3, Arctis 7+, GameBuds, Arctis Nova Pro Wireless; Aerox 3 / 5 / 9 and Rival 3 Wireless mice |
+| **HyperX** | Cloud II Wireless, Cloud III Wireless, Cloud Alpha 2 |
+| **Corsair** | Void v2 Wireless, Virtuoso Max, HS80 Max |
+| **ATK / VXE / Pulsar / Hitscan** | MAD series and other mice using the same protocol (receiver and cable) |
+| **Others** | Bluetooth devices whose battery Windows Settings shows, Xbox / XInput controllers, laptop battery |
 
-Only the Razer BlackShark V2 HyperSpeed and a VXE MAD mouse have been tested on real hardware so far.
-The other readers follow published protocol documentation; reports (working or not) are welcome in
-[Issues](https://github.com/swarlex/SwarlexBattery/issues).
+So far the Razer BlackShark V2 HyperSpeed and a VXE MAD mouse are tested on real hardware; the other
+readers follow published protocol documentation. **Does yours work, or not?** Please tell us with a
+[device report](https://github.com/swarlex/SwarlexBattery/issues/new?template=device_request.yml).
 
-Your device is not listed? Put a script in `%APPDATA%\SwarlexBattery\gadgets\collectors.d\` that prints a JSON array:
+<details>
+<summary>Your device is not listed? Add it with a script</summary>
+
+Put a script (`.ps1`, `.cmd` or `.exe`) in `%APPDATA%\SwarlexBattery\gadgets\collectors.d\` that prints a JSON array:
+
 ```json
-[{"id":"speaker","name":"Speaker","kind":"speaker","pct":64,"charging":false}]
+[{"id": "speaker", "name": "Speaker", "kind": "speaker", "pct": 64, "charging": false}]
 ```
+
+`kind` is one of `mouse`, `keyboard`, `headphones`, `earbuds`, `gamepad`, `speaker`, `phone`, `watch`.
+</details>
 
 ## How honest are the numbers?
 
 - A value is shown **only when the device itself answered**. Nothing is estimated or made up.
-- If an answer is missed, the last reading stays for 45 seconds; after that the device is shown
-  dimmed as *asleep* with the age of its last reading, and it disappears after 24 hours.
-- Devices that only report coarse levels (for example 4-step headsets, or Logitech values computed
-  from the battery voltage) are marked *approximate* in the panel and with `~` in the tooltip.
-- Wireless dongles sometimes repeat the old value of a device that is switched off. SwarlexBattery
-  asks the BlackShark whether the headset is linked and checks the battery voltage of ATK mice;
-  answers that fail these checks are not shown.
+- A missed answer keeps the last reading for 45 seconds; after that the device is shown dimmed as
+  *asleep* with the age of its last reading, and it disappears after 24 hours.
+- Devices that only report coarse levels (4-step headsets, Logitech values computed from the battery
+  voltage) are marked *approximate* in the panel and with `~` in the tooltip.
+- Wireless dongles sometimes repeat the old value of a device that is switched off. SwarlexBattery asks
+  the BlackShark whether the headset is linked and checks the battery voltage of ATK mice; answers that
+  fail these checks are not shown.
 - A device on its cable at 100 % is shown as *full*, not *charging*.
 - Batteries are read every 10 seconds, and 1.5 seconds after a device or cable is plugged in or out.
 
-Only read-only battery and status queries are sent to devices. Device settings are never changed.
+Only **read-only** battery and status queries are sent to devices; their settings are never changed.
 
 ## Updates
 
 SwarlexBattery checks the latest release of this repository at start and every 6 hours. When a newer
 version exists it shows a notification and an **Update** item at the top of the right-click menu.
-Clicking it downloads the new `SwarlexBattery.exe`, verifies it against the `SwarlexBattery.exe.sha256`
-published with the same release, swaps it in and restarts. Nothing is installed without your click.
-*Check for updates* in the menu checks right away. See [SECURITY.md](SECURITY.md) for details.
+Clicking it downloads the new version, verifies it against the SHA-256 published with the same release,
+swaps it in and restarts. Nothing is installed without your click. See [SECURITY.md](SECURITY.md).
 
 ## Settings
 
+Right-click menu: *Start with Windows*, *Language*, *Check for updates*. Everything else is in
 `%APPDATA%\SwarlexBattery\config.json`:
 
 | Setting | Effect |
 |---|---|
-| `"language": "en"` / `"tr"` / `"auto"` | interface language (also in the right-click menu) |
+| `"language": "en"` / `"tr"` / `"auto"` | interface language |
 | `"plugins": { "gadgets": { "combine": false } }` | one tray icon per device |
 | `"plugins": { "gadgets": { "lowThreshold": 20 } }` | low battery notification threshold (%) |
 | `"monochrome": false` | coloured icons (orange / red when low, green while charging) |
@@ -90,34 +144,54 @@ Log file: `%LOCALAPPDATA%\SwarlexBattery\swarlexbattery.log`
 
 ## Building
 
-Requirements: Windows 10 or 11. The C# compiler that ships with Windows (.NET Framework 4.x) is used;
-nothing has to be downloaded.
+Windows 10 or 11 is all you need: the build uses the C# compiler that ships with Windows (.NET Framework 4.x).
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\build.ps1     # -> dist\SwarlexBattery-Setup.exe, dist\SwarlexBattery.exe (+ .sha256)
+powershell -ExecutionPolicy Bypass -File .\build.ps1
+# -> dist\SwarlexBattery-Setup.exe, dist\SwarlexBattery.exe, dist\SwarlexBattery.exe.sha256
 ```
 
-Publishing a release (maintainers, needs the GitHub CLI signed in with `gh auth login`):
+<details>
+<summary>Project layout and releasing</summary>
+
+| Path | What it is |
+|---|---|
+| `SwarlexBattery.ps1` | host: tray icon, flyout, menu, languages, updater |
+| `core/Devices.cs`, `core/Hid.cs` | vendor battery protocols over HID |
+| `core/Native.cs`, `core/Launcher.cs` | Win32 helpers, exe entry point |
+| `core/Setup.cs` | install wizard and uninstaller |
+| `plugins/gadgets` | the battery plugin |
+| `lang/` | interface texts (English, Turkish) |
+
+Maintainers publish with the GitHub CLI (`gh auth login`):
+
 ```powershell
-.\tools\release.ps1 -Notes "What changed"                   # patch: 1.2.0 -> 1.2.1
-.\tools\release.ps1 -Version 1.3.0 -Notes "What changed"
+.\tools\release.ps1 -Notes "What changed"                   # patch: 1.3.1 -> 1.3.2
+.\tools\release.ps1 -Version 1.4.0 -Notes "What changed"
 ```
-It raises `VERSION`, builds, commits, pushes and creates the GitHub release with the exe and its checksum.
-If the build fails, nothing is pushed.
 
-### Project layout
-- `SwarlexBattery.ps1`: host (tray icon, flyout, menu, languages, updater)
-- `core/Devices.cs`, `core/Hid.cs`: vendor battery protocols over HID
-- `core/Native.cs`: Win32 helpers; `core/Launcher.cs`: exe entry point; `core/Setup.cs`: install wizard and uninstaller
-- `plugins/gadgets`: the battery plugin; `lang/`: interface texts
+It raises `VERSION`, builds, commits, pushes and creates the GitHub release. If the build fails, nothing is pushed.
+</details>
+
+## Contributing
+
+Bug reports, device reports and pull requests are welcome. For a new device, the
+[device report](https://github.com/swarlex/SwarlexBattery/issues/new?template=device_request.yml)
+form explains how to find its USB ids. Security problems: please use a
+[private advisory](https://github.com/swarlex/SwarlexBattery/security/advisories/new).
 
 ## Türkçe
 
-SwarlexBattery, kablosuz mouse, klavye ve kulaklık pillerini üretici yazılımı olmadan Windows sistem
-tepsisinde gösterir. Arayüz Windows dili Türkçeyse Türkçe açılır; sağ tık menüsündeki *Dil* ile
-değiştirilebilir. [Son sürümü indir](https://github.com/swarlex/SwarlexBattery/releases/latest),
-`SwarlexBattery-Setup.exe` dosyasını çalıştır; kurulum sihirbazı Türkçedir ve yönetici izni istemez.
-Kaldırmak için: **Ayarlar > Uygulamalar > SwarlexBattery**.
+SwarlexBattery, kablosuz **mouse, klavye ve kulaklık** pillerini üretici yazılımı olmadan, saatin
+yanında tek bir ikonla gösterir. Halkanın sol yarısı mouse, sağ yarısı kulaklık; şarj olurken
+şimşek çıkar, cihaz uyurken ikon soluklaşır.
+
+- **Kurulum:** [SwarlexBattery-Setup.exe](https://github.com/swarlex/SwarlexBattery/releases/latest/download/SwarlexBattery-Setup.exe)
+  dosyasını indirip çalıştır. Sihirbaz Türkçedir ve yönetici izni istemez.
+- **Dil:** Windows dili Türkçeyse Türkçe açılır; sağ tık menüsündeki *Dil* ile değiştirilebilir.
+- **Güncelleme:** Yeni sürüm çıkınca sağ tık menüsünde *Güncelle* görünür.
+- **Kaldırma:** Ayarlar > Uygulamalar > SwarlexBattery.
+- Cihazın çalışmıyorsa bir [cihaz bildirimi](https://github.com/swarlex/SwarlexBattery/issues/new?template=device_request.yml) aç.
 
 ## License
 

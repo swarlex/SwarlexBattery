@@ -29,3 +29,8 @@ After a change is finished and verified (parse check, plugin run, exe builds and
 
 It bumps the patch version (use `-Version X.Y.Z` for bigger changes), builds, commits, pushes and
 creates the GitHub release. Do not publish a change that fails to build or was not tested; say so instead.
+
+Changes that do not touch what ships in the exe or the setup (README, docs/, CHANGELOG, .github/,
+CLAUDE.md) are committed and pushed without a release, so users are not offered an empty update.
+Add each release to `CHANGELOG.md`. Screenshots in `docs/images` must not show personal data
+(user names in paths, other apps' windows).

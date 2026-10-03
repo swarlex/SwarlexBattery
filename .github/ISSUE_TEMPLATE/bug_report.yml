@@ -1,0 +1,42 @@
+name: Bug report
+description: Something does not work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. Please do not paste personal information
+        (user names, paths with your user name, serial numbers) into the issue.
+  - type: input
+    id: version
+    attributes:
+      label: SwarlexBattery version
+      description: Right-click the tray icon; the version is shown next to "Check for updates".
+      placeholder: v1.3.1
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 24H2
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead? Screenshots help.
+    validations:
+      required: true
+  - type: textarea
+    id: devices
+    attributes:
+      label: Devices involved
+      description: Mouse / keyboard / headset models, and whether they use a receiver, a cable or Bluetooth.
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: The last lines of `%LOCALAPPDATA%\SwarlexBattery\swarlexbattery.log` (remove anything personal).
+      render: text

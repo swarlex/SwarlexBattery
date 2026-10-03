@@ -1,0 +1,51 @@
+name: Device support request
+description: Your mouse, keyboard or headset is not shown, or shows a wrong value
+labels: [device]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        SwarlexBattery reads batteries with each vendor's own protocol, so new devices need their
+        USB ids. Only read-only battery queries are ever sent to devices.
+  - type: input
+    id: model
+    attributes:
+      label: Device model
+      placeholder: Logitech G Pro X Superlight 2
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Device type
+      options: [Mouse, Keyboard, Headset, Controller, Other]
+    validations:
+      required: true
+  - type: dropdown
+    id: connection
+    attributes:
+      label: How is it connected?
+      options: [2.4 GHz receiver / dongle, USB cable, Bluetooth, Several of these]
+    validations:
+      required: true
+  - type: textarea
+    id: ids
+    attributes:
+      label: USB ids (VID:PID)
+      description: |
+        Device Manager > the device (often under "Human Interface Devices" or "Mice") > Properties >
+        Details > "Hardware Ids". Paste the lines that look like `HID\VID_046D&PID_C547...`.
+        For a receiver, include the receiver's ids.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What do you see?
+      description: Not shown at all, or a wrong / stuck value? What does the vendor's own app show?
+  - type: input
+    id: version
+    attributes:
+      label: SwarlexBattery version
+      placeholder: v1.3.1
