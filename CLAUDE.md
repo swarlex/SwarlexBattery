@@ -1,7 +1,7 @@
 # SwarlexBattery
 
 Windows tray app (PowerShell + WPF host, C# HID readers) that shows wireless mouse / keyboard /
-headset batteries. Public repo: https://github.com/yukicanclaude/SwarlexBattery (GPL-3.0-or-later).
+headset batteries. Public repo: https://github.com/swarlex/SwarlexBattery (GPL-3.0-or-later).
 
 ## Layout
 - `SwarlexBattery.ps1` - host: tray icon, flyout, menu, languages, updater

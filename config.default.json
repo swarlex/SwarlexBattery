@@ -5,7 +5,7 @@
   "quietWhileGaming": true,
   "alwaysShowInTray": true,
   "update": {
-    "repo": "yukicanclaude/SwarlexBattery",
+    "repo": "swarlex/SwarlexBattery",
     "check": true,
     "intervalHours": 6
   },

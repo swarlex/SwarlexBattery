@@ -13,7 +13,7 @@
 
 ## Updates
 
-- The app reads `https://api.github.com/repos/yukicanclaude/SwarlexBattery/releases/latest`.
+- The app reads `https://api.github.com/repos/swarlex/SwarlexBattery/releases/latest`.
 - A download whose address is not on `github.com` is refused.
 - The downloaded exe must start with an `MZ` header and match the SHA-256 in
   `SwarlexBattery.exe.sha256` from the same release; otherwise it is deleted and not installed.
@@ -24,5 +24,5 @@
 ## Reporting a vulnerability
 
 Please report security problems privately through
-[GitHub security advisories](https://github.com/yukicanclaude/SwarlexBattery/security/advisories/new)
+[GitHub security advisories](https://github.com/swarlex/SwarlexBattery/security/advisories/new)
 instead of a public issue.

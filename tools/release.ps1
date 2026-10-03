@@ -15,7 +15,7 @@
 param(
     [string]$Version,
     [Parameter(Mandatory)] [string]$Notes,
-    [string]$Repo = 'yukicanclaude/SwarlexBattery',
+    [string]$Repo = 'swarlex/SwarlexBattery',
     [switch]$ByClaude          # adds the Co-Authored-By trailer to the commit
 )
 $ErrorActionPreference = 'Stop'

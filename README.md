@@ -12,7 +12,7 @@ Left click shows the details, right click opens the menu.
 - Updates itself from GitHub Releases, after you click "Update"
 - Free and open source under the GNU GPL v3
 
-**[Download the latest release](https://github.com/yukicanclaude/SwarlexBattery/releases/latest)**: get
+**[Download the latest release](https://github.com/swarlex/SwarlexBattery/releases/latest)**: get
 `SwarlexBattery.exe`, put it in a folder you keep (for example `%LOCALAPPDATA%\Programs\SwarlexBattery`),
 run it, and enable *Start with Windows* from the right-click menu.
 
@@ -33,7 +33,7 @@ run it, and enable *Start with Windows* from the right-click menu.
 
 Only the Razer BlackShark V2 HyperSpeed and a VXE MAD mouse have been tested on real hardware so far.
 The other readers follow published protocol documentation; reports (working or not) are welcome in
-[Issues](https://github.com/yukicanclaude/SwarlexBattery/issues).
+[Issues](https://github.com/swarlex/SwarlexBattery/issues).
 
 Your device is not listed? Put a script in `%APPDATA%\SwarlexBattery\gadgets\collectors.d\` that prints a JSON array:
 ```json
@@ -105,7 +105,7 @@ If the build fails, nothing is pushed.
 
 SwarlexBattery, kablosuz mouse, klavye ve kulaklık pillerini üretici yazılımı olmadan Windows sistem
 tepsisinde gösterir. Arayüz Windows dili Türkçeyse Türkçe açılır; sağ tık menüsündeki *Dil* ile
-değiştirilebilir. [Son sürümü indir](https://github.com/yukicanclaude/SwarlexBattery/releases/latest).
+değiştirilebilir. [Son sürümü indir](https://github.com/swarlex/SwarlexBattery/releases/latest).
 
 ## License
 

@@ -687,10 +687,14 @@ $UpdateCheckScript = {
 }
 
 $UpdateDownloadScript = {
-    param($url, $shaUrl, $dest)
+    param($url, $shaUrl, $dest, $repo)
     $ErrorActionPreference = 'Stop'
     [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
-    foreach ($u in $url, $shaUrl) { if (([uri]$u).Host -ne 'github.com') { throw "unexpected download address: $u" } }
+    # only files of this repository's releases: https://github.com/<owner>/<repo>/releases/download/...
+    foreach ($u in $url, $shaUrl) {
+        $x = [uri]$u
+        if ($x.Scheme -ne 'https' -or $x.Host -ne 'github.com' -or -not $x.AbsolutePath.StartsWith("/$repo/releases/download/", [StringComparison]::OrdinalIgnoreCase)) { throw "unexpected download address: $u" }
+    }
     $wc = New-Object Net.WebClient; $wc.Headers['User-Agent'] = 'SwarlexBattery-updater'
     $expected = ($wc.DownloadString($shaUrl).Trim() -split '\s+')[0].ToLowerInvariant()
     if ($expected -notmatch '^[0-9a-f]{64}$') { throw 'invalid SHA-256 file' }
@@ -716,7 +720,7 @@ function Start-UpdateInstall {
     if (-not $ExePath) { Show-Toast $null 'SwarlexBattery' (T 'updExeOnly'); return }
     if (-not $UpdateInfo.url -or -not $UpdateInfo.sha) { Show-Toast $null 'SwarlexBattery' (T 'updNoAssets'); Start-Process $UpdateInfo.page; return }
     $ps = [PowerShell]::Create(); $ps.RunspacePool = $Pool
-    $null = $ps.AddScript($UpdateDownloadScript).AddArgument($UpdateInfo.url).AddArgument($UpdateInfo.sha).AddArgument("$ExePath.new")
+    $null = $ps.AddScript($UpdateDownloadScript).AddArgument($UpdateInfo.url).AddArgument($UpdateInfo.sha).AddArgument("$ExePath.new").AddArgument([string]$Config.update.repo)
     $script:UpdateJob = @{ ps = $ps; handle = $ps.BeginInvoke(); kind = 'install'; started = Get-Date }
     Show-Toast $null 'SwarlexBattery' (T 'updDownloading' $UpdateInfo.version)
 }
