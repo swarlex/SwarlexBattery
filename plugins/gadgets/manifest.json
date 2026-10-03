@@ -1,0 +1,21 @@
+{
+  "id": "gadgets",
+  "name": "Piller",
+  "description": "Bluetooth / Xbox / laptop / kendi script'lerinden pil seviyeleri tek pill'de (gadget-batteries Windows portu).",
+  "version": "1.0.0",
+  "icon": "E83F",
+  "interval": 10,
+  "intervalOpen": 5,
+  "settings": {
+    "systemBattery": true,
+    "bluetooth": true,
+    "xinput": true,
+    "showDisconnected": false,
+    "showPercentage": true,
+    "lowThreshold": 15,
+    "names": {},
+    "externalPath": "",
+    "hid": true,
+    "combine": true
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "id": "sync",
+  "name": "Sync",
+  "description": "Syncthing + rclone bisync durumu tek pill'de (omabisync + syncthing.bar birlesimi, Windows).",
+  "version": "1.0.0",
+  "icon": "E895",
+  "interval": 10,
+  "intervalOpen": 3,
+  "settings": {
+    "syncthing": {
+      "enabled": true,
+      "apiBase": "http://127.0.0.1:8384",
+      "apiKey": "",
+      "configPath": "",
+      "webUrl": "",
+      "dockerContainer": ""
+    },
+    "rclone": {
+      "enabled": true,
+      "taskName": "rclone-bisync",
+      "logFile": ""
+    }
+  }
+}

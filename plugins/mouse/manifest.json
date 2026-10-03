@@ -1,0 +1,10 @@
+{
+  "id": "mouse",
+  "name": "Mousekit",
+  "description": "Imlec hizi, hassasiyet, kaydirma, cift tik, tus degisimi (mousekit Windows portu).",
+  "version": "1.0.0",
+  "icon": "E962",
+  "interval": 120,
+  "intervalOpen": 30,
+  "settings": {}
+}
