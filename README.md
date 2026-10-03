@@ -39,12 +39,14 @@ Yeni sürüm varsa bir bildirim gösterir ve sağ tık menüsünün en üstünde
 Tıklayınca yeni exe indirilir, sürümle birlikte yayınlanan SHA-256 değeriyle doğrulanır, eskisiyle değiştirilir ve uygulama yeniden başlar.
 Menüdeki "Güncellemeleri denetle" hemen kontrol eder.
 
-Yeni sürüm yayınlamak için:
+Yeni sürüm yayınlamak için tek komut yeterli:
 ```powershell
-.\tools\release.ps1 -Version 1.2.0 -Notes "Yenilikler"
+.\tools\release.ps1 -Notes "Yenilikler"                  # 1.1.1 -> 1.1.2
+.\tools\release.ps1 -Version 1.2.0 -Notes "Yenilikler"   # büyük değişiklik
 ```
-Bu komut `VERSION` dosyasını günceller, exe'yi derler ve GitHub CLI (`gh`) kuruluysa `v1.2.0` sürümünü `SwarlexBattery.exe` ve `SwarlexBattery.exe.sha256` ile yayınlar.
-`gh` yoksa iki dosyayı GitHub'da yeni bir sürüme elle yüklemen yeterli; etiket `v` ile başlamalı (ör. `v1.2.0`).
+Bu komut `VERSION` dosyasını artırır, exe'yi derler, tüm değişiklikleri commit'leyip GitHub'a gönderir ve
+`SwarlexBattery.exe` + `SwarlexBattery.exe.sha256` ile yeni sürümü yayınlar. Derleme başarısız olursa hiçbir şey gönderilmez.
+GitHub CLI (`gh`) kurulu ve `gh auth login` ile giriş yapılmış olmalı.
 
 ## Ayarlar
 

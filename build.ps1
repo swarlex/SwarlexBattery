@@ -98,6 +98,11 @@ $cscArgs = @('/nologo', '/target:winexe', '/optimize+', '/platform:anycpu', "/ou
     @($resArgs) + @((Join-Path $here 'core\Launcher.cs'), (Join-Path $here 'core\Native.cs'), (Join-Path $here 'core\Hid.cs'), (Join-Path $here 'core\Devices.cs'), $asmInfo)
 & $csc @cscArgs
 if ($LASTEXITCODE -ne 0) { throw "csc basarisiz ($LASTEXITCODE)" }
+# a copy started from dist\ keeps the exe locked: a running exe can be renamed, so move it aside
+if (Test-Path -LiteralPath $exe) {
+    try { [IO.File]::Open($exe, 'Open', 'ReadWrite', 'None').Dispose() }
+    catch { Remove-Item -LiteralPath "$exe.old" -Force -ErrorAction SilentlyContinue; Rename-Item -LiteralPath $exe -NewName 'SwarlexBattery.exe.old' }
+}
 Copy-Item -LiteralPath $tmpExe -Destination $exe -Force
 Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
 # checksum published next to the exe in each GitHub release; the updater refuses a download that does not match
