@@ -105,6 +105,20 @@ if (Test-Path -LiteralPath $exe) {
     catch { Remove-Item -LiteralPath "$exe.old" -Force -ErrorAction SilentlyContinue; Rename-Item -LiteralPath $exe -NewName 'SwarlexBattery.exe.old' }
 }
 Copy-Item -LiteralPath $tmpExe -Destination $exe -Force
+
+# ---- the install wizard: SwarlexBattery-Setup.exe carries the app exe and LICENSE
+Copy-Item -LiteralPath (Join-Path $here 'core\setup.manifest') -Destination "$work\setup.manifest" -Force
+Copy-Item -LiteralPath (Join-Path $here 'LICENSE') -Destination "$work\LICENSE" -Force
+$tmpSetup = Join-Path $work 'SwarlexBattery-Setup.exe'
+$setup = Join-Path $dist 'SwarlexBattery-Setup.exe'
+$setupArgs = @('/nologo', '/target:winexe', '/optimize+', '/platform:anycpu', '/codepage:65001', "/out:$tmpSetup",
+    "/win32icon:$work\swarlexbattery.ico", "/win32manifest:$work\setup.manifest",
+    '/reference:System.Windows.Forms.dll', '/reference:System.Drawing.dll', '/reference:System.Core.dll',
+    "/resource:$tmpExe,app.exe", "/resource:$work\LICENSE,LICENSE",
+    (Join-Path $here 'core\Setup.cs'), $asmInfo)
+& $csc @setupArgs
+if ($LASTEXITCODE -ne 0) { throw "csc (setup) failed ($LASTEXITCODE)" }
+Copy-Item -LiteralPath $tmpSetup -Destination $setup -Force
 Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
 # checksum published next to the exe in each GitHub release; the updater refuses a download that does not match
 $hash = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash.ToLowerInvariant()

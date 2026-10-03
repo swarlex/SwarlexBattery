@@ -12,12 +12,22 @@ Left click shows the details, right click opens the menu.
 - Updates itself from GitHub Releases, after you click "Update"
 - Free and open source under the GNU GPL v3
 
-**[Download the latest release](https://github.com/swarlex/SwarlexBattery/releases/latest)**: get
-`SwarlexBattery.exe`, put it in a folder you keep (for example `%LOCALAPPDATA%\Programs\SwarlexBattery`),
-run it, and enable *Start with Windows* from the right-click menu.
+## Install
 
-> The exe is not code-signed. Windows SmartScreen may warn on first launch
-> (*More info* > *Run anyway*). You can also build it yourself from this source, see [Building](#building).
+**[Download the latest release](https://github.com/swarlex/SwarlexBattery/releases/latest)** and run
+`SwarlexBattery-Setup.exe`. The wizard (English / Türkçe) installs it for your user only, without
+administrator rights, into `%LOCALAPPDATA%\Programs\SwarlexBattery`, and can add Start menu and desktop
+shortcuts and start it with Windows. Running the setup again upgrades an existing install and keeps your settings.
+
+To uninstall, use **Settings > Apps > SwarlexBattery**; you are asked whether to delete your settings too.
+
+Prefer no installer? `SwarlexBattery.exe` from the same release is portable: put it in a folder you keep
+and run it.
+
+Silent install: `SwarlexBattery-Setup.exe /silent [/dir:<folder>] [/noautostart]`.
+
+> The files are not code-signed. Windows SmartScreen may warn on first launch
+> (*More info* > *Run anyway*). You can also build them yourself from this source, see [Building](#building).
 
 ## Supported devices
 
@@ -84,7 +94,7 @@ Requirements: Windows 10 or 11. The C# compiler that ships with Windows (.NET Fr
 nothing has to be downloaded.
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\build.ps1     # -> dist\SwarlexBattery.exe (+ .sha256)
+powershell -ExecutionPolicy Bypass -File .\build.ps1     # -> dist\SwarlexBattery-Setup.exe, dist\SwarlexBattery.exe (+ .sha256)
 ```
 
 Publishing a release (maintainers, needs the GitHub CLI signed in with `gh auth login`):
@@ -98,14 +108,16 @@ If the build fails, nothing is pushed.
 ### Project layout
 - `SwarlexBattery.ps1`: host (tray icon, flyout, menu, languages, updater)
 - `core/Devices.cs`, `core/Hid.cs`: vendor battery protocols over HID
-- `core/Native.cs`: Win32 helpers; `core/Launcher.cs`: exe entry point
+- `core/Native.cs`: Win32 helpers; `core/Launcher.cs`: exe entry point; `core/Setup.cs`: install wizard and uninstaller
 - `plugins/gadgets`: the battery plugin; `lang/`: interface texts
 
 ## Türkçe
 
 SwarlexBattery, kablosuz mouse, klavye ve kulaklık pillerini üretici yazılımı olmadan Windows sistem
 tepsisinde gösterir. Arayüz Windows dili Türkçeyse Türkçe açılır; sağ tık menüsündeki *Dil* ile
-değiştirilebilir. [Son sürümü indir](https://github.com/swarlex/SwarlexBattery/releases/latest).
+değiştirilebilir. [Son sürümü indir](https://github.com/swarlex/SwarlexBattery/releases/latest),
+`SwarlexBattery-Setup.exe` dosyasını çalıştır; kurulum sihirbazı Türkçedir ve yönetici izni istemez.
+Kaldırmak için: **Ayarlar > Uygulamalar > SwarlexBattery**.
 
 ## License
 

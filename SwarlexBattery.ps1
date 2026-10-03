@@ -672,6 +672,12 @@ function Invoke-MenuAction($t) {
 # place of the running exe (a running exe can be renamed, not overwritten) and restarts.
 function Norm-Version($v) { try { $x = [version]("$v".Trim().TrimStart('v', 'V')); [version]"$($x.Major).$($x.Minor).$([Math]::Max(0, $x.Build))" } catch { $null } }
 $AppVersion = Norm-Version $AppVersion
+# installed with SwarlexBattery-Setup: keep the version shown in Settings > Apps current after self-updates
+try {
+    $uk = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\SwarlexBattery'
+    $loc = (Get-ItemProperty -Path $uk -ErrorAction Stop).InstallLocation
+    if ($ExePath -and $loc -and $ExePath.StartsWith($loc, [StringComparison]::OrdinalIgnoreCase)) { Set-ItemProperty -Path $uk -Name DisplayVersion -Value "$AppVersion" }
+} catch {}
 $UpdateInfo = $null; $UpdateJob = $null; $UpdateManual = $false; $UpdateNotified = ''
 $NextUpdateCheck = (Get-Date).AddSeconds(20)
 

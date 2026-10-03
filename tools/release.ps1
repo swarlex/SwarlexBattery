@@ -56,7 +56,8 @@ git push -q origin HEAD:main
 if ($LASTEXITCODE -ne 0) { throw 'git push failed' }
 
 # 4. GitHub release (the tag is created on the pushed commit)
-& $gh release create "v$Version" $exe $sha --repo $Repo --target main --title "SwarlexBattery v$Version" --notes $Notes
+$setup = Join-Path $root 'dist\SwarlexBattery-Setup.exe'
+& $gh release create "v$Version" $setup $exe $sha --repo $Repo --target main --title "SwarlexBattery v$Version" --notes $Notes
 if ($LASTEXITCODE -ne 0) { throw 'gh release create failed (the code was pushed, the release was not created)' }
 Write-Host "Published: v$Version  https://github.com/$Repo/releases/tag/v$Version"
 Write-Host 'Installed copies see the update within 6 hours (or right away with right-click > Check for updates).'

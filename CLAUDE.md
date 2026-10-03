@@ -6,7 +6,7 @@ headset batteries. Public repo: https://github.com/swarlex/SwarlexBattery (GPL-3
 ## Layout
 - `SwarlexBattery.ps1` - host: tray icon, flyout, menu, languages, updater
 - `core/Devices.cs`, `core/Hid.cs` - vendor battery protocols (read-only queries only)
-- `core/Native.cs` - Win32 helpers, `core/Launcher.cs` - exe entry point
+- `core/Native.cs` - Win32 helpers, `core/Launcher.cs` - exe entry point, `core/Setup.cs` - install wizard / uninstaller (its texts are inside the file; keep en + tr)
 - `plugins/gadgets` - the battery plugin (its texts: `plugins/gadgets/lang.json`)
 - `lang/en.json`, `lang/tr.json` - host texts; every user-visible string goes through these
 - `build.ps1` -> `dist/SwarlexBattery.exe` (+ `.sha256`); version comes from `VERSION`
