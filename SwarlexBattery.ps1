@@ -781,11 +781,13 @@ $Timer = New-Object Windows.Threading.DispatcherTimer
 $Timer.Interval = [TimeSpan]::FromMilliseconds(250)
 $Timer.Add_Tick({
     try {
-        if ($script:ReloadRequested) { $script:ReloadRequested = $false; Init-Plugins; $script:PromoteAt = (Get-Date).AddSeconds(4) }
+        if ($script:ReloadRequested) { $script:ReloadRequested = $false; Init-Plugins; $script:PromoteAt = (Get-Date).AddSeconds(3); $script:PromoteCount = 0 }
         $now = Get-Date
-        # Explorer registers new icons a moment after they appear; promote them then (and again at 60 s for late gadget icons)
+        # Explorer registers a new icon a few seconds after it appears (and again for an exe in a new folder):
+        # keep the icons pinned next to the clock - every 5 s for the first 90 s, then every 10 min
         if ($script:PromoteAt -and $now -ge $script:PromoteAt) {
-            $script:PromoteAt = if ($script:PromoteCount++ -lt 1) { $now.AddSeconds(60) } else { $null }
+            $script:PromoteCount++
+            $script:PromoteAt = if ($script:PromoteCount -lt 18) { $now.AddSeconds(5) } else { $now.AddMinutes(10) }
             try { Promote-TrayIcons } catch { Write-Log "promote: $_" }
         }
         # a device was plugged in or out (receiver, charging cable): refresh after it settles, and once more later
@@ -822,7 +824,7 @@ $dispatcher = [Windows.Threading.Dispatcher]::CurrentDispatcher
 $dispatcher.Add_UnhandledException({ Write-Log "UI: $($_.Exception)"; $_.Handled = $true })
 
 Init-Plugins
-$PromoteAt = (Get-Date).AddSeconds(4); $PromoteCount = 0
+$PromoteAt = (Get-Date).AddSeconds(3); $PromoteCount = 0
 [SwarlexBattery.DeviceWatch]::Start(); $SeenDeviceChanges = 0; $DevicePollAt = $null
 $Timer.Start()
 Write-Log "SwarlexBattery basladi (PID $PID, ikon $IconSize px, $GlyphFont)"
