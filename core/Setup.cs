@@ -2,7 +2,7 @@
 // SwarlexBattery-Setup.exe: per-user install wizard (no administrator rights) and uninstaller.
 // The app exe and LICENSE are embedded as resources ("app.exe", "LICENSE").
 //   SwarlexBattery-Setup.exe                     wizard
-//   SwarlexBattery-Setup.exe /silent [/dir:<folder>] [/noautostart]   install without UI
+//   SwarlexBattery-Setup.exe /silent [/dir:<folder>] [/noautostart] [/lang:en|tr]   install without UI
 //   Uninstall.exe /uninstall [/silent]           (copied into the install folder; listed in Settings > Apps)
 using System;
 using System.Collections.Generic;
@@ -29,7 +29,7 @@ namespace SwarlexBatterySetup
             { "upgrade",      new[] { "SwarlexBattery {0} is already installed. It will be upgraded; your settings are kept.", "SwarlexBattery {0} zaten kurulu. Yükseltilecek; ayarların korunur." } },
             { "language",     new[] { "Language:", "Dil:" } },
             { "licenseH",     new[] { "License", "Lisans" } },
-            { "licenseS",     new[] { "SwarlexBattery is free software under the GNU GPL v3.", "SwarlexBattery, GNU GPL v3 lisanslı özgür bir yazılımdır." } },
+            { "licenseS",     new[] { "SwarlexBattery is free software under the GNU GPL v3.", "GNU GPL v3 lisanslı özgür yazılım. Lisansın geçerli resmî metni İngilizcedir." } },
             { "accept",       new[] { "I accept the license", "Lisansı kabul ediyorum" } },
             { "optionsH",     new[] { "Options", "Seçenekler" } },
             { "optionsS",     new[] { "Choose where to install and what to set up.", "Nereye kurulacağını ve nelerin ayarlanacağını seç." } },
@@ -147,6 +147,8 @@ namespace SwarlexBatterySetup
                 else if (run.GetValue(AppName) != null) run.DeleteValue(AppName, false);
             }
 
+            SetAppLanguage(S.Tr ? "tr" : "en");   // the language picked in the wizard is the app's language too
+
             progress(S.Get("stRegister"), 85);
             using (var k = Registry.CurrentUser.CreateSubKey(UninstallKey))
             {
@@ -169,6 +171,25 @@ namespace SwarlexBatterySetup
         }
 
         static void TryDelete(string f) { try { if (File.Exists(f)) File.Delete(f); } catch { } }
+
+        // Writes "language" into %APPDATA%\SwarlexBattery\config.json and keeps every other setting.
+        // A config file that cannot be read is left alone rather than overwritten.
+        static void SetAppLanguage(string lang)
+        {
+            string dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppName);
+            string file = Path.Combine(dir, "config.json");
+            var js = new System.Web.Script.Serialization.JavaScriptSerializer();
+            Dictionary<string, object> cfg = null;
+            if (File.Exists(file))
+            {
+                try { cfg = js.Deserialize<Dictionary<string, object>>(File.ReadAllText(file)); }
+                catch { return; }
+            }
+            if (cfg == null) cfg = new Dictionary<string, object>();
+            cfg["language"] = lang;
+            Directory.CreateDirectory(dir);
+            File.WriteAllText(file, js.Serialize(cfg), new System.Text.UTF8Encoding(false));
+        }
 
         public static void Uninstall(string dir, bool deleteSettings)
         {
@@ -357,7 +378,12 @@ namespace SwarlexBatterySetup
         static int Main(string[] args)
         {
             var a = new HashSet<string>(StringComparer.OrdinalIgnoreCase); string dirArg = null;
-            foreach (var x in args) { if (x.StartsWith("/dir:", StringComparison.OrdinalIgnoreCase)) dirArg = x.Substring(5); else a.Add(x); }
+            foreach (var x in args)
+            {
+                if (x.StartsWith("/dir:", StringComparison.OrdinalIgnoreCase)) dirArg = x.Substring(5);
+                else if (x.StartsWith("/lang:", StringComparison.OrdinalIgnoreCase)) S.Tr = x.Substring(6).Equals("tr", StringComparison.OrdinalIgnoreCase);
+                else a.Add(x);
+            }
             bool silent = a.Contains("/silent") || a.Contains("/S");
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);

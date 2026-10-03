@@ -40,6 +40,16 @@ namespace SwarlexBattery
 
         // A tray click gives this process foreground rights; the flyout uses them.
         public static void ForceForeground(IntPtr h) { if (h != IntPtr.Zero) SetForegroundWindow(h); }
+
+        [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr h, int attr, ref int val, int size);
+        // Windows 11 look for the flyout: rounded corners, the system border and shadow, dark frame.
+        // (DWM draws them itself, so there is exactly one frame; ignored on Windows 10.)
+        public static void FlyoutFrame(IntPtr h, bool dark)
+        {
+            if (h == IntPtr.Zero) return;
+            int round = 2;            DwmSetWindowAttribute(h, 33, ref round, 4);   // DWMWA_WINDOW_CORNER_PREFERENCE = round
+            int d = dark ? 1 : 0;     DwmSetWindowAttribute(h, 20, ref d, 4);       // DWMWA_USE_IMMERSIVE_DARK_MODE
+        }
     }
 
     // ---------------------------------------------------------------- device plug / unplug

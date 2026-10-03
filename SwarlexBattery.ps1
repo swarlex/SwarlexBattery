@@ -438,27 +438,24 @@ $OpenPanel = $null
 $PanelHwnd = [IntPtr]::Zero
 $FlyoutAbove = $true
 $LastInteraction = [datetime]::MinValue
+# The flyout is an ordinary (non-transparent) window: Windows 11 draws its rounded corners, border
+# and shadow (Win.FlyoutFrame). A transparent window with a hand-drawn frame used to get a second,
+# system-drawn box around it now and then.
+$solid = '#' + ($Config.theme.panel -replace '^#', '' -replace '^([0-9A-Fa-f]{2})?([0-9A-Fa-f]{6})$', '$2')
 $Panel = New-Object Windows.Window
-$Panel.WindowStyle = 'None'; $Panel.AllowsTransparency = $true; $Panel.Background = [Windows.Media.Brushes]::Transparent
+$Panel.WindowStyle = 'None'; $Panel.AllowsTransparency = $false; $Panel.Background = Brush $solid
 $Panel.ShowInTaskbar = $false; $Panel.Topmost = $true; $Panel.ResizeMode = 'NoResize'; $Panel.SizeToContent = 'Height'
 $Panel.Width = $Config.panel.width; $Panel.FontFamily = $TextFont; $Panel.Foreground = $Theme.fg; $Panel.Title = 'SwarlexBattery'
 $PanelBorder = New-Object Windows.Controls.Border
-$PanelBorder.Background = $Theme.panel; $PanelBorder.CornerRadius = 8; $PanelBorder.Padding = 14
-$PanelBorder.BorderBrush = Brush '#26FFFFFF'; $PanelBorder.BorderThickness = 1
-# one drawn surface only: a soft shadow in a transparent margin (no window-level blur / DWM frame,
-# which drew a second box around this one)
-$PanelBorder.Margin = 12
-$shadow = New-Object Windows.Media.Effects.DropShadowEffect
-$shadow.BlurRadius = 18; $shadow.ShadowDepth = 2; $shadow.Opacity = 0.45; $shadow.Direction = 270; $shadow.Color = [Windows.Media.Colors]::Black
-$PanelBorder.Effect = $shadow
+$PanelBorder.Padding = 14
 $PanelScroll = New-Object Windows.Controls.ScrollViewer
 $PanelScroll.VerticalScrollBarVisibility = 'Auto'; $PanelScroll.MaxHeight = $Config.panel.maxHeight
 $PanelBorder.Child = $PanelScroll
 $Panel.Content = $PanelBorder
-$Panel.Add_SourceInitialized({ $script:PanelHwnd = (New-Object Windows.Interop.WindowInteropHelper $Panel).Handle })
+$Panel.Add_SourceInitialized({ $script:PanelHwnd = (New-Object Windows.Interop.WindowInteropHelper $Panel).Handle; [SwarlexBattery.Win]::FlyoutFrame($PanelHwnd, $true) })
 $Panel.Add_Deactivated({ if ($script:OpenPanel) { Close-Panel } })
 $Panel.Add_KeyDown({ if ($_.Key -eq 'Escape') { Close-Panel } })
-$Panel.Add_SizeChanged({ if ($script:OpenPanel -and $script:FlyoutAbove) { $wa = [Windows.SystemParameters]::WorkArea; $Panel.Top = $wa.Bottom - $Panel.ActualHeight } })
+$Panel.Add_SizeChanged({ if ($script:OpenPanel -and $script:FlyoutAbove) { $wa = [Windows.SystemParameters]::WorkArea; $Panel.Top = $wa.Bottom - $Panel.ActualHeight - 8 } })
 
 $LastClosed = @{ id = $null; at = [datetime]::MinValue }
 function Close-Panel {
@@ -472,12 +469,11 @@ function Show-Flyout([double]$width) {
     $scale = Get-Scale; $wa = [Windows.SystemParameters]::WorkArea
     $cur = [Windows.Forms.Cursor]::Position
     $cx = $cur.X / $scale; $cy = $cur.Y / $scale
-    # the window is the panel plus a 12 px shadow margin on every side
-    $Panel.Left = [Math]::Max($wa.Left, [Math]::Min($wa.Right - $width, $cx - $width / 2))
+    $Panel.Left = [Math]::Max($wa.Left + 8, [Math]::Min($wa.Right - $width - 8, $cx - $width / 2))
     $script:FlyoutAbove = $cy -gt ($wa.Top + $wa.Bottom) / 2
     if (-not $Panel.IsVisible) { $Panel.Top = $wa.Top - 5000; $Panel.Show() }
     $Panel.UpdateLayout()
-    $Panel.Top = if ($FlyoutAbove) { $wa.Bottom - $Panel.ActualHeight } else { $wa.Top }
+    $Panel.Top = if ($FlyoutAbove) { $wa.Bottom - $Panel.ActualHeight - 8 } else { $wa.Top + 8 }
     [SwarlexBattery.Win]::ForceForeground($PanelHwnd)
     $null = $Panel.Activate()
 }
@@ -489,7 +485,7 @@ function Toggle-Panel($p) {
     $script:OpenPanel = @{ id = $p.id }
     $script:LastInteraction = [datetime]::MinValue
     Render-Panel $p
-    Show-Flyout ($Config.panel.width + 24)
+    Show-Flyout $Config.panel.width
     Start-PluginJob $p 'poll'   # fresh data while open
 }
 
@@ -641,7 +637,7 @@ function Show-Menu($p) {
     $null = $root.Children.Add((New-MenuRow 'E8BB' (T 'exit') @{ a = 'exit' }))
     $PanelScroll.Content = $root
     $script:OpenPanel = @{ id = $id }
-    Show-Flyout 254
+    Show-Flyout 270
 }
 
 function Invoke-MenuAction($t) {

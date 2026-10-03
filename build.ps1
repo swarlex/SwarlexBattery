@@ -113,7 +113,7 @@ $tmpSetup = Join-Path $work 'SwarlexBattery-Setup.exe'
 $setup = Join-Path $dist 'SwarlexBattery-Setup.exe'
 $setupArgs = @('/nologo', '/target:winexe', '/optimize+', '/platform:anycpu', '/codepage:65001', "/out:$tmpSetup",
     "/win32icon:$work\swarlexbattery.ico", "/win32manifest:$work\setup.manifest",
-    '/reference:System.Windows.Forms.dll', '/reference:System.Drawing.dll', '/reference:System.Core.dll',
+    '/reference:System.Windows.Forms.dll', '/reference:System.Drawing.dll', '/reference:System.Core.dll', '/reference:System.Web.Extensions.dll',
     "/resource:$tmpExe,app.exe", "/resource:$work\LICENSE,LICENSE",
     (Join-Path $here 'core\Setup.cs'), $asmInfo)
 & $csc @setupArgs
