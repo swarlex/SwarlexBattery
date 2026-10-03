@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // SwarlexBattery.exe entry point. The scripts and plugins are embedded as resources
 // ("app/<path>"), extracted once per build to %LOCALAPPDATA%\SwarlexBattery\app\<build-id>,
 // and run inside this process by the PowerShell engine Windows already ships.

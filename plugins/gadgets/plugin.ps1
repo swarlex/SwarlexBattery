@@ -1,13 +1,21 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 <#
-  Gadget Batteries for Windows (port of io.github.69harold69.gadget-batteries).
-  Sources: laptop battery (CIM), Bluetooth devices (the battery property Windows
-  Settings shows), Xbox/XInput pads, external.json and collectors.d scripts using
-  the original plugin's external JSON format:
+  SwarlexBattery battery plugin.
+  Sources: wireless devices over HID (core\Devices.cs), laptop battery, Bluetooth devices (the
+  battery property Windows Settings shows), Xbox/XInput pads, external.json and collectors.d
+  scripts printing a JSON array:
     [{"id","name","kind","pct","charging","ts","ttl","left","right","case"}]
+  Texts come from lang.json (en / tr).
 #>
-param([string]$Action = 'poll', [string]$Arg = '', $Config, [string]$PluginDir, [string]$StateDir)
+param([string]$Action = 'poll', [string]$Arg = '', $Config, [string]$PluginDir, [string]$StateDir, [string]$Lang = 'en')
 
-if ($Action -eq 'bt-settings') { Start-Process 'ms-settings:bluetooth' }
+$langAll = Get-Content -LiteralPath (Join-Path $PluginDir 'lang.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+$LS = $langAll.$Lang; if (-not $LS) { $LS = $langAll.en }
+# L 'key' [args...]: text in the current language, {0}.. filled from args (English when a key is missing)
+function L([string]$key) {
+    $f = $LS.$key; if (-not $f) { $f = $langAll.en.$key }; if (-not $f) { $f = $key }
+    if ($args.Count) { [string]::Format([string]$f, [object[]]$args) } else { [string]$f }
+}
 
 $BATTERY_KEY = '{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2'   # DEVPKEY_Bluetooth_Battery
 $CONNECTED_KEY = '{83DA6326-97A6-4088-9453-A1923F573B29} 15' # DEVPKEY_Device_IsConnected (BT)
@@ -57,10 +65,10 @@ if ($Config.systemBattery) {
         # (Win32_Battery's "on AC" status is not "charging": a full battery on AC is not charging.)
         $ps = [System.Windows.Forms.SystemInformation]::PowerStatus
         if ($ps -and -not ($ps.BatteryChargeStatus -band [System.Windows.Forms.BatteryChargeStatus]::NoSystemBattery) -and $ps.BatteryLifePercent -le 1) {
-            Add-Gadget @{ id = 'system'; name = 'Bu bilgisayar'; kind = 'laptop'; pct = [int][Math]::Round($ps.BatteryLifePercent * 100)
+            Add-Gadget @{ id = 'system'; name = (L 'thisPc'); kind = 'laptop'; pct = [int][Math]::Round($ps.BatteryLifePercent * 100)
                           charging = [bool]($ps.BatteryChargeStatus -band [System.Windows.Forms.BatteryChargeStatus]::Charging); online = $true }
         }
-    } catch { $errors += "Sistem pili: $_" }
+    } catch { $errors += (L 'systemBattery' $_) }
 }
 
 # ---- Bluetooth (classic + LE). One CIM round trip for all property reads.
@@ -123,7 +131,7 @@ if ($Config.hid -and ('SwarlexBattery.Hid' -as [type])) {
                 } elseif ($age -lt 86400) {
                     $mins = [int]($age / 60)
                     Add-Gadget @{ id = $id; name = $name; kind = $r.Kind; pct = [int]$prev.pct; charging = $false; approx = [bool]$prev.approx; online = $false; asleep = $true
-                                  detail = "uyku modunda - son okuma $(if ($mins -lt 60) { "$mins dk" } else { "$([int]($mins / 60)) sa" }) once" }
+                                  detail = (L 'asleep' $(if ($mins -lt 60) { L 'minutes' $mins } else { L 'hours' ([int]($mins / 60)) })) }
                 }
             }
         }
@@ -138,7 +146,7 @@ if ($Config.xinput -and ('SwarlexBattery.Gamepad' -as [type])) {
     foreach ($s in [SwarlexBattery.Gamepad]::List()) {
         $i, $type, $pct = $s -split '\|'
         if ($type -eq 'wired') { continue }
-        Add-Gadget @{ id = "xinput-$i"; name = "Kumanda $([int]$i + 1)"; kind = 'gamepad'; pct = [int]$pct; charging = $false; online = $true; approx = $true }
+        Add-Gadget @{ id = "xinput-$i"; name = (L 'controller' ([int]$i + 1)); kind = 'gamepad'; pct = [int]$pct; charging = $false; online = $true; approx = $true }
     }
 }
 
@@ -176,7 +184,7 @@ if ($scripts.Count) {
             try {
                 $proc = [Diagnostics.Process]::Start($psi)
                 $task = $proc.StandardOutput.ReadToEndAsync()
-                if (-not $proc.WaitForExit(20000)) { $proc.Kill(); $errors += "$($s.Name): zaman asimi"; continue }
+                if (-not $proc.WaitForExit(20000)) { $proc.Kill(); $errors += (L 'timeout' $s.Name); continue }
                 $data = $task.Result | ConvertFrom-Json
                 $collected += @($data | Where-Object { $_ -and $_.name })
             } catch { $errors += "$($s.Name): $_" }
@@ -203,34 +211,34 @@ $sorted = @($gadgets | Sort-Object @{ e = { -not ($_.online -or $_.asleep) } }, 
 $shown = @($sorted | Where-Object { $_.online -or $_.asleep -or $Config.showDisconnected })
 foreach ($g in $shown) {
     $state = if (-not $g.online) { 'off' } elseif ($g.pct -le $low -and -not $g.charging) { 'error' } else { '' }
-    # wording: a full device on its cable is 'dolu', not 'charging'; coarse levels say so
-    $sub = if ($g.charging -and $g.pct -ge 100) { 'dolu (kabloda)' } elseif ($g.charging) { 'sarj oluyor' } elseif ($g.detail) { $g.detail } elseif (-not $g.online) { 'bagli degil' } else { '' }
-    if ($g.approx) { $sub = (@($sub, 'yaklasik deger') | Where-Object { $_ }) -join ' - ' }
+    # wording: a full device on its cable is 'full', not 'charging'; coarse levels say so
+    $sub = if ($g.charging -and $g.pct -ge 100) { L 'full' } elseif ($g.charging) { L 'charging' } elseif ($g.detail) { $g.detail } elseif (-not $g.online) { L 'notConnected' } else { '' }
+    if ($g.approx) { $sub = (@($sub, (L 'approx')) | Where-Object { $_ }) -join ' - ' }
     $items += @{ t = 'bar'; icon = $icons[$(if ($icons[$g.kind]) { $g.kind } else { 'other' })]; label = $g.name; value = "$($g.pct)%"; pct = ($g.pct / 100.0); state = $state; sub = $sub }
     if ($low -gt 0 -and $g.online -and -not $g.charging -and $g.pct -le $low) {
-        $notify += @{ key = "low-$($g.id)"; title = "$($g.name) pili azaldi"; body = "%$($g.pct) kaldi." }
+        $notify += @{ key = "low-$($g.id)"; title = (L 'lowTitle' $g.name); body = (L 'lowBody' $g.pct) }
     }
 }
 if (-not $items) {
-    $items += @{ t = 'text'; text = 'Pil bilgisi veren cihaz bulunamadi. Mouse veya kulakligi acip biraz kullan; birkac saniye icinde gorunur.' }
+    $items += @{ t = 'text'; text = (L 'noDevices') }
     foreach ($e in $errors) { $items += @{ t = 'text'; text = $e; state = 'warn' } }
 }
 
-# one tray icon per gadget: ring = battery, glyph = device type (HaloBattery style)
+# one tray icon per gadget: ring = battery, glyph = device type
 $trayIcons = @(foreach ($g in $shown) {
     $st = if ($g.pct -le $low -and -not $g.charging) { 'error' } elseif ($g.pct -le $low + 10 -and -not $g.charging) { 'warn' } else { 'ok' }
-    $tip = "$($g.name): $(if ($g.approx) { '~' })$($g.pct)%" + $(if ($g.charging -and $g.pct -ge 100) { ' - dolu' } elseif ($g.charging) { ' - sarj oluyor' } elseif ($g.asleep) { ' - uyku modunda' } elseif (-not $g.online) { ' - bagli degil' } else { '' })
+    $tip = "$($g.name): $(if ($g.approx) { '~' })$($g.pct)%" + $(if ($g.charging -and $g.pct -ge 100) { L 'tipFull' } elseif ($g.charging) { L 'tipCharging' } elseif ($g.asleep) { L 'tipAsleep' } elseif (-not $g.online) { L 'tipNotConnected' } else { '' })
     @{ id = $g.id; icon = $icons[$(if ($icons[$g.kind]) { $g.kind } else { 'other' })]; ring = ($g.pct / 100.0); state = $st
        charging = [bool]$g.charging; dim = (-not $g.online); tooltip = $tip }
 })
 # combine (default): one tray icon for everything. Two devices -> the ring is split,
 # left half = first device (mouse), right half = second (headset); one device -> full ring.
 if ($Config.combine -and $shown.Count -ge 1) {
-    $label = @{ mouse = 'Mouse'; headphones = 'Kulaklik'; earbuds = 'Kulaklik'; keyboard = 'Klavye'; gamepad = 'Kumanda' }
+    $label = @{ mouse = (L 'kindMouse'); headphones = (L 'kindHeadset'); earbuds = (L 'kindHeadset'); keyboard = (L 'kindKeyboard'); gamepad = (L 'kindController') }
     $pair = @($shown | Select-Object -First 2)
     $parts = foreach ($g in $shown) {
         $n = if ($label[$g.kind]) { $label[$g.kind] } else { $g.name }
-        "$n $(if ($g.approx) { '~' })$($g.pct)%" + $(if ($g.charging -and $g.pct -ge 100) { ' (dolu)' } elseif ($g.charging) { ' (sarj)' } elseif (-not $g.online) { ' (uyku)' } else { '' })
+        "$n $(if ($g.approx) { '~' })$($g.pct)%" + $(if ($g.charging -and $g.pct -ge 100) { L 'shortFull' } elseif ($g.charging) { L 'shortCharging' } elseif (-not $g.online) { L 'shortAsleep' } else { '' })
     }
     $lowest = $pair | Where-Object { $_.online -and -not $_.charging } | Sort-Object pct | Select-Object -First 1
     $trayIcons = @(@{
@@ -244,10 +252,10 @@ if ($Config.combine -and $shown.Count -ge 1) {
     })
 }
 # nothing found yet: keep one dim battery icon so the menu (and Exit) stays reachable
-if (-not $trayIcons) { $trayIcons = @(@{ id = 'none'; icon = 'E83F'; state = 'off'; dim = $true; tooltip = 'Piller - cihaz bulunamadi' }) }
+if (-not $trayIcons) { $trayIcons = @(@{ id = 'none'; icon = 'E83F'; state = 'off'; dim = $true; tooltip = (L 'noDevicesTip') }) }
 
 @{
-    title = 'Piller'
+    title = (L 'title')
     notify = $notify
     icons = $trayIcons
     sections = @(@{ items = $items })

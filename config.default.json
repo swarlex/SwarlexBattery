@@ -1,4 +1,5 @@
 {
+  "language": "auto",
   "monochrome": true,
   "simpleMenu": true,
   "quietWhileGaming": true,
@@ -10,9 +11,7 @@
   },
   "panel": {
     "width": 320,
-    "maxHeight": 620,
-    "backdrop": "acrylic",
-    "opacity": 0.6
+    "maxHeight": 620
   },
   "theme": {
     "background": "#1c1c1c",
@@ -24,12 +23,8 @@
     "warn": "#f5a524",
     "error": "#f04a4a"
   },
-  "order": ["gadgets", "pocket", "sync", "mouse", "glass"],
+  "order": ["gadgets"],
   "plugins": {
-    "gadgets": {},
-    "pocket": { "enabled": false },
-    "sync": { "enabled": false },
-    "mouse": { "enabled": false },
-    "glass": { "enabled": false }
+    "gadgets": {}
   }
 }

@@ -1,18 +1,17 @@
 #Requires -Version 5.1
+# SPDX-License-Identifier: GPL-3.0-or-later
 <#
-  SwarlexBattery - Omarchy-style plugins living in the Windows system tray (ring battery icons).
+  SwarlexBattery - wireless mouse / keyboard / headset batteries in the Windows system tray.
 
-  Every plugin gets its own tray icon: a ring for its value (battery, progress) around
-  a glyph, coloured by state, matching the taskbar theme. Left click opens the plugin's
-  flyout, right click opens the menu. A plugin can also return several icons (one per
-  gadget, for example).
+  Host: tray icons (a ring for the battery level around a glyph, matching the taskbar theme),
+  the flyout (left click), the menu (right click), languages (lang\*.json) and the updater.
 
-  Each plugin is a folder in .\plugins with manifest.json + plugin.ps1. plugin.ps1 runs
-  in a background runspace (never on the UI thread), gets -Action/-Arg/-Config/-PluginDir/
-  -StateDir and returns one hashtable:
-    @{ pill = @{ icon; state; ring; charging; tooltip; hidden }     # the tray icon
-       icons = @(@{ id; icon; state; ring; charging; dim; tooltip }) # optional: several icons
-       title; sections = @(...); notify = @(@{ key; title; body }); toast; host = @{ backdrop; barOpacity } }
+  Battery data comes from plugins: a folder in .\plugins with manifest.json + plugin.ps1.
+  plugin.ps1 runs in a background runspace (never on the UI thread), gets
+  -Action/-Arg/-Config/-PluginDir/-StateDir/-Lang and returns one hashtable:
+    @{ pill = @{ icon; state; ring; charging; tooltip; hidden }                 # one tray icon
+       icons = @(@{ id; icon; state; ring; rings; charging; dim; tooltip })   # or several
+       title; sections = @(...); notify = @(@{ key; title; body }); toast }
 #>
 param([switch]$Debug, [string]$ExePath = '')
 
@@ -54,7 +53,7 @@ function Write-Log([string]$msg) {
 
 # ---------------------------------------------------------------- native helpers
 # SwarlexBattery.exe already contains these types; only the plain-script launch compiles them (cached).
-if (-not ('SwarlexBattery.Glass' -as [type])) {
+if (-not ('SwarlexBattery.Win' -as [type])) {
     $nativeSrc = @((Join-Path $Root 'core\Native.cs'), (Join-Path $Root 'core\Hid.cs'), (Join-Path $Root 'core\Devices.cs'))
     $hash = ((Get-FileHash -LiteralPath $nativeSrc -Algorithm SHA256).Hash -join '').Substring(0, 12)
     $nativeDll = Join-Path $CacheDir "SwarlexBattery.Native.$hash.dll"
@@ -91,10 +90,47 @@ if (-not (Test-Path -LiteralPath $ConfigFile)) {
 function Read-Config {
     $def = ConvertTo-Hashtable (Get-Content -LiteralPath (Join-Path $Root 'config.default.json') -Raw -Encoding UTF8 | ConvertFrom-Json)
     try { $user = ConvertTo-Hashtable (Get-Content -LiteralPath $ConfigFile -Raw -Encoding UTF8 | ConvertFrom-Json) }
-    catch { Write-Log "config.json okunamadi: $_"; $user = @{} }
+    catch { Write-Log "could not read config.json: $_"; $user = @{} }
     return Merge-Hashtable $def $user
 }
 $Config = Read-Config
+
+# ---------------------------------------------------------------- language (lang\en.json, lang\tr.json)
+# "language": "auto" follows the Windows display language (Turkish -> tr, anything else -> en).
+function Resolve-Language {
+    $l = "$($Config.language)".ToLowerInvariant()
+    if ($l -in 'en', 'tr') { return $l }
+    if ([Globalization.CultureInfo]::CurrentUICulture.TwoLetterISOLanguageName -eq 'tr') { 'tr' } else { 'en' }
+}
+function Load-Strings {
+    $script:Lang = Resolve-Language
+    $en = ConvertTo-Hashtable (Get-Content -LiteralPath (Join-Path $Root 'lang\en.json') -Raw -Encoding UTF8 | ConvertFrom-Json)
+    $script:S = $en
+    if ($Lang -ne 'en') {
+        $p = Join-Path $Root "lang\$Lang.json"
+        if (Test-Path -LiteralPath $p) { $script:S = Merge-Hashtable $en (ConvertTo-Hashtable (Get-Content -LiteralPath $p -Raw -Encoding UTF8 | ConvertFrom-Json)) }
+    }
+}
+# T 'key' [args...]: the string for the current language, {0}.. filled from args
+function T([string]$key) {
+    $f = $S[$key]; if (-not $f) { $f = $key }
+    if ($args.Count) { [string]::Format([string]$f, [object[]]$args) } else { [string]$f }
+}
+# menu "Language": toggles en <-> tr, saves it in config.json and refreshes the plugins' texts
+function Switch-Language {
+    $new = if ($Lang -eq 'tr') { 'en' } else { 'tr' }
+    try {
+        $user = ConvertTo-Hashtable (Get-Content -LiteralPath $ConfigFile -Raw -Encoding UTF8 | ConvertFrom-Json)
+        if (-not $user) { $user = @{} }
+        $user.language = $new
+        Set-Content -LiteralPath $ConfigFile -Value ($user | ConvertTo-Json -Depth 8) -Encoding UTF8
+    } catch { Write-Log "language save: $_" }
+    $script:Config.language = $new
+    Load-Strings
+    foreach ($p in $Plugins.Values) { $p.next = [datetime]::MinValue }   # re-poll now, in the new language
+}
+function Plugin-Name($p) { $n = $p.manifest["name_$Lang"]; if ($n) { $n } else { $p.manifest.name } }
+Load-Strings
 
 # ---------------------------------------------------------------- theme (flyout)
 $conv = New-Object Windows.Media.BrushConverter
@@ -123,7 +159,7 @@ function Load-Plugins {
         $mf = Join-Path $d.FullName 'manifest.json'
         $pf = Join-Path $d.FullName 'plugin.ps1'
         if (-not ((Test-Path -LiteralPath $mf) -and (Test-Path -LiteralPath $pf))) { continue }
-        try { $m = ConvertTo-Hashtable (Get-Content -LiteralPath $mf -Raw -Encoding UTF8 | ConvertFrom-Json) } catch { Write-Log "manifest hatali: $mf"; continue }
+        try { $m = ConvertTo-Hashtable (Get-Content -LiteralPath $mf -Raw -Encoding UTF8 | ConvertFrom-Json) } catch { Write-Log "invalid manifest: $mf"; continue }
         $found[$m.id] = @{ manifest = $m; dir = $d.FullName; file = $pf }
     }
     $order = @($Config.order) + @($found.Keys | Sort-Object | Where-Object { $Config.order -notcontains $_ })
@@ -150,33 +186,15 @@ function Load-Plugins {
 $iss = [Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
 $iss.ExecutionPolicy = 'Bypass'
 $Pool = [RunspaceFactory]::CreateRunspacePool(1, [Math]::Max(2, [Environment]::ProcessorCount / 2), $iss, $Host)
-$Pool.ApartmentState = 'STA'   # file dialogs from plugin actions
+$Pool.ApartmentState = 'STA'
 $Pool.Open()
 
 $Runner = {
-    param($file, $action, $arg, $cfgJson, $dir, $stateDir)
-    [Net.WebRequest]::DefaultWebProxy = New-Object Net.WebProxy   # no WPAD lookup for localhost APIs
+    param($file, $action, $arg, $cfgJson, $dir, $stateDir, $lang)
     $ErrorActionPreference = 'Stop'
-    # Plugins call console tools through this, never with `&`: SwarlexBattery.exe has no console,
-    # so `&` would flash a window; this also pins stdout to UTF-8. Arguments are quoted
-    # per the Windows argv rules, so each one stays a single argument.
-    function Invoke-Native([string]$exe, [string[]]$argv = @(), [int]$timeoutMs = 15000) {
-        $q = foreach ($a in $argv) {
-            if ($a -ne '' -and $a -notmatch '[\s"]') { $a; continue }
-            '"' + (($a -replace '(\\*)"', '$1$1\"') -replace '(\\+)$', '$1$1') + '"'
-        }
-        $psi = New-Object Diagnostics.ProcessStartInfo $exe, ($q -join ' ')
-        $psi.UseShellExecute = $false; $psi.CreateNoWindow = $true
-        $psi.RedirectStandardOutput = $true; $psi.RedirectStandardError = $true
-        $psi.StandardOutputEncoding = [Text.Encoding]::UTF8; $psi.StandardErrorEncoding = [Text.Encoding]::UTF8
-        $p = [Diagnostics.Process]::Start($psi)
-        $o = $p.StandardOutput.ReadToEndAsync(); $e = $p.StandardError.ReadToEndAsync()
-        if (-not $p.WaitForExit($timeoutMs)) { try { $p.Kill() } catch {}; return @{ code = -1; out = @(); err = 'timeout' } }
-        @{ code = $p.ExitCode; out = @($o.Result -split "`r?`n" | Where-Object { $_ -ne '' }); err = $e.Result }
-    }
     try {
         $cfg = $cfgJson | ConvertFrom-Json
-        $out = & $file -Action $action -Arg $arg -Config $cfg -PluginDir $dir -StateDir $stateDir
+        $out = & $file -Action $action -Arg $arg -Config $cfg -PluginDir $dir -StateDir $stateDir -Lang $lang
         if ($out -is [array]) { $out = $out[-1] }
         $out | ConvertTo-Json -Depth 10 -Compress
     } catch {
@@ -189,7 +207,7 @@ function Start-PluginJob($p, [string]$action = 'poll', $arg = '') {
     if ($p.job) { if ($action -ne 'poll') { $p.queue.Enqueue(@($action, $arg)) }; return }
     $ps = [PowerShell]::Create()
     $ps.RunspacePool = $Pool
-    $null = $ps.AddScript($Runner).AddArgument($p.file).AddArgument($action).AddArgument([string]$arg).AddArgument($p.cfgJson).AddArgument($p.dir).AddArgument($p.stateDir)
+    $null = $ps.AddScript($Runner).AddArgument($p.file).AddArgument($action).AddArgument([string]$arg).AddArgument($p.cfgJson).AddArgument($p.dir).AddArgument($p.stateDir).AddArgument($Lang)
     $p.job = @{ ps = $ps; handle = $ps.BeginInvoke(); action = $action; started = Get-Date }
 }
 
@@ -197,7 +215,7 @@ function Complete-PluginJob($p) {
     $j = $p.job
     try {
         $json = ($j.ps.EndInvoke($j.handle) | Select-Object -Last 1)
-        $res = if ($json) { ConvertTo-Hashtable ($json | ConvertFrom-Json) } else { @{ error = 'Plugin bos sonuc dondurdu' } }
+        $res = if ($json) { ConvertTo-Hashtable ($json | ConvertFrom-Json) } else { @{ error = 'plugin returned nothing' } }
         foreach ($e in $j.ps.Streams.Error) { Write-Log "[$($p.id)] $e" }
     } catch { $res = @{ error = "$_" } }
     finally { $j.ps.Dispose(); $p.job = $null }
@@ -327,9 +345,9 @@ function Clear-IconCache([switch]$All) {
 }
 
 function Get-IconSpecs($p) {
-    $res = $p.result; $name = $p.manifest.name
-    if (-not $res) { return , @(@{ id = 'main'; icon = $p.manifest.icon; state = 'off'; tooltip = "$name - yukleniyor" }) }
-    if ($res.error) { return , @(@{ id = 'main'; icon = $p.manifest.icon; state = 'error'; tooltip = "$name - hata: $($res.error)" }) }
+    $res = $p.result; $name = Plugin-Name $p
+    if (-not $res) { return , @(@{ id = 'main'; icon = $p.manifest.icon; state = 'off'; tooltip = (T 'tipLoading' $name) }) }
+    if ($res.error) { return , @(@{ id = 'main'; icon = $p.manifest.icon; state = 'error'; tooltip = (T 'tipError' $name $res.error) }) }
     if ($res.ContainsKey('icons')) { return , @($res.icons | Where-Object { $_ }) }
     $pill = $res.pill; if (-not $pill) { $pill = @{} }
     if ($pill.hidden) { return , @() }
@@ -389,7 +407,7 @@ function Remove-TrayIcons($p) { foreach ($t in @($p.icons.Values)) { $t.ni.Visib
 $Notified = @{}
 function Show-Toast($p, [string]$title, [string]$body, [string]$icon = 'Info') {
     if (-not $title) { return }
-    if ($Config.quietWhileGaming -and [SwarlexBattery.Glass]::ForegroundIsFullscreen()) { return }
+    if ($Config.quietWhileGaming -and [SwarlexBattery.Win]::ForegroundIsFullscreen()) { return }
     $ni = $null
     if ($p) { $ni = @($p.icons.Values | ForEach-Object { $_.ni } | Where-Object { $_.Visible }) | Select-Object -First 1 }
     if (-not $ni) { foreach ($pp in $Plugins.Values) { $ni = @($pp.icons.Values | ForEach-Object { $_.ni } | Where-Object { $_.Visible }) | Select-Object -First 1; if ($ni) { break } } }
@@ -399,7 +417,7 @@ function Show-Toast($p, [string]$title, [string]$body, [string]$icon = 'Info') {
 function Apply-Result($p, $res) {
     $p.result = $res
     Sync-TrayIcons $p
-    if ($res.toast) { Show-Toast $p $p.manifest.name $res.toast }
+    if ($res.toast) { Show-Toast $p (Plugin-Name $p) $res.toast }
     # one-shot notifications: once per key; the key re-arms only after it has been gone for 30 min,
     # so a device that naps and comes back does not repeat the same "battery low" toast
     $now = Get-Date
@@ -410,22 +428,10 @@ function Apply-Result($p, $res) {
         $Notified[$k] = $now
     }
     foreach ($k in @($Notified.Keys)) { if ($k.StartsWith("$($p.id)/") -and ($now - $Notified[$k]).TotalMinutes -gt 30) { $Notified.Remove($k) } }
-    if ($res.host) {
-        $changed = $false
-        if ($res.host.backdrop -and $res.host.backdrop -ne $HostVisual.backdrop) { $HostVisual.backdrop = $res.host.backdrop; $changed = $true }
-        if ($null -ne $res.host.barOpacity -and [double]$res.host.barOpacity -ne $HostVisual.opacity) { $HostVisual.opacity = [double]$res.host.barOpacity; $changed = $true }
-        # (the flyout is a single drawn surface now; no window backdrop to change)
-    }
     if ($OpenPanel -and $OpenPanel.id -eq $p.id) { Render-Panel $p }
 }
 
 # ---------------------------------------------------------------- flyout window (panel + menu)
-$HostVisual = @{ backdrop = $Config.panel.backdrop; opacity = [double]$Config.panel.opacity }
-function Apply-Backdrop([IntPtr]$hwnd) {
-    if ($hwnd -eq [IntPtr]::Zero) { return }
-    $tint = [Convert]::ToInt32($Config.theme.background.TrimStart('#'), 16)
-    [SwarlexBattery.Backdrop]::Apply($hwnd, $HostVisual.backdrop, $tint, $HostVisual.opacity)
-}
 function Get-Scale { [double][Windows.Forms.Screen]::PrimaryScreen.Bounds.Width / [Windows.SystemParameters]::PrimaryScreenWidth }
 
 $OpenPanel = $null
@@ -472,7 +478,7 @@ function Show-Flyout([double]$width) {
     if (-not $Panel.IsVisible) { $Panel.Top = $wa.Top - 5000; $Panel.Show() }
     $Panel.UpdateLayout()
     $Panel.Top = if ($FlyoutAbove) { $wa.Bottom - $Panel.ActualHeight } else { $wa.Top }
-    [SwarlexBattery.Glass]::ForceForeground($PanelHwnd)
+    [SwarlexBattery.Win]::ForceForeground($PanelHwnd)
     $null = $Panel.Activate()
 }
 
@@ -574,9 +580,9 @@ function Render-Panel($p) {
     if (((Get-Date) - $LastInteraction).TotalSeconds -lt 1.2 -and $PanelScroll.Content) { return }
     $res = $p.result
     $root = New-Object Windows.Controls.StackPanel
-    $title = New-Text $(if ($res.title) { $res.title } else { $p.manifest.name }) $Theme.fg 15 'SemiBold'
+    $title = New-Text $(if ($res.title) { $res.title } else { Plugin-Name $p }) $Theme.fg 15 'SemiBold'
     $title.Margin = '0,0,0,6'; $null = $root.Children.Add($title)
-    if (-not $res) { $null = $root.Children.Add((New-Text 'Yukleniyor...' $Theme.muted 12)) }
+    if (-not $res) { $null = $root.Children.Add((New-Text (T 'loading') $Theme.muted 12)) }
     elseif ($res.error) { $null = $root.Children.Add((New-Text $res.error $Theme.error 12)) }
     foreach ($sec in @($res.sections)) {
         if (-not $sec) { continue }
@@ -614,24 +620,25 @@ function Show-Menu($p) {
     if ($OpenPanel -and $OpenPanel.id -eq $id) { Close-Panel; return }
     if ($LastClosed.id -eq $id -and ((Get-Date) - $LastClosed.at).TotalMilliseconds -lt 400) { return }
     $root = New-Object Windows.Controls.StackPanel
-    $h = New-Text $p.manifest.name $Theme.muted 11 'SemiBold'; $h.Margin = '10,0,0,4'; $null = $root.Children.Add($h)
+    $h = New-Text (Plugin-Name $p) $Theme.muted 11 'SemiBold'; $h.Margin = '10,0,0,4'; $null = $root.Children.Add($h)
     if ($UpdateInfo) {
-        $label = if ($UpdateJob -and $UpdateJob.kind -eq 'install') { "Indiriliyor... (v$($UpdateInfo.version))" } else { "Guncelle (v$($UpdateInfo.version))" }
+        $label = if ($UpdateJob -and $UpdateJob.kind -eq 'install') { (T 'downloading' $UpdateInfo.version) } else { (T 'update' $UpdateInfo.version) }
         $up = New-MenuRow 'E896' $label @{ a = 'update' }
         $up.Background = $Theme.hover; $up.Add_MouseLeave({ $this.Background = $Theme.hover })   # stays highlighted
         $null = $root.Children.Add($up)
     }
-    $null = $root.Children.Add((New-MenuRow 'E72C' 'Yenile' @{ a = 'refresh'; p = $p.id }))
-    if ($p.manifest.rightClick) { $null = $root.Children.Add((New-MenuRow 'E768' $(if ($p.manifest.rightClickLabel) { $p.manifest.rightClickLabel } else { 'Ac / kapa' }) @{ a = 'plugin'; p = $p.id; action = $p.manifest.rightClick })) }
+    $null = $root.Children.Add((New-MenuRow 'E72C' (T 'refresh') @{ a = 'refresh'; p = $p.id }))
+    if ($p.manifest.rightClick) { $null = $root.Children.Add((New-MenuRow 'E768' (T 'toggle') @{ a = 'plugin'; p = $p.id; action = $p.manifest.rightClick })) }
     $sep = New-Object Windows.Controls.Border; $sep.Height = 1; $sep.Background = $Theme.track; $sep.Margin = '4,5'; $null = $root.Children.Add($sep)
     if (-not $Config.simpleMenu) {
-        $null = $root.Children.Add((New-MenuRow 'E713' 'Ayarlar' @{ a = 'settings' }))
-        $null = $root.Children.Add((New-MenuRow 'E777' 'Yeniden yukle' @{ a = 'reload' }))
-        $null = $root.Children.Add((New-MenuRow 'E9F9' 'Log' @{ a = 'log' }))
+        $null = $root.Children.Add((New-MenuRow 'E713' (T 'settings') @{ a = 'settings' }))
+        $null = $root.Children.Add((New-MenuRow 'E777' (T 'reload') @{ a = 'reload' }))
+        $null = $root.Children.Add((New-MenuRow 'E9F9' (T 'log') @{ a = 'log' }))
     }
-    if ($ExePath) { $null = $root.Children.Add((New-MenuRow 'E7E8' 'Windows ile baslat' @{ a = 'autostart' } (Test-Autostart))) }
-    if ($Config.update.repo) { $null = $root.Children.Add((New-MenuRow 'E895' "Guncellemeleri denetle (v$AppVersion)" @{ a = 'checkupdate' })) }
-    $null = $root.Children.Add((New-MenuRow 'E8BB' 'Cikis' @{ a = 'exit' }))
+    if ($ExePath) { $null = $root.Children.Add((New-MenuRow 'E7E8' (T 'startWithWindows') @{ a = 'autostart' } (Test-Autostart))) }
+    $null = $root.Children.Add((New-MenuRow 'E774' (T 'language') @{ a = 'language' }))
+    if ($Config.update.repo) { $null = $root.Children.Add((New-MenuRow 'E895' (T 'checkUpdates' $AppVersion) @{ a = 'checkupdate' })) }
+    $null = $root.Children.Add((New-MenuRow 'E8BB' (T 'exit') @{ a = 'exit' }))
     $PanelScroll.Content = $root
     $script:OpenPanel = @{ id = $id }
     Show-Flyout 254
@@ -653,13 +660,14 @@ function Invoke-MenuAction($t) {
         }
         'update'    { Start-UpdateInstall }
         'checkupdate' { Start-UpdateCheck $true }
+        'language'  { Switch-Language }
         'exit'      { Stop-App }
     }
 }
 
 # ---------------------------------------------------------------- updates (GitHub Releases)
 # The latest release of github.com/<update.repo> is checked at start and every few hours, in the
-# background. A newer tag (v1.2.3) adds "Guncelle" to the menu. Updating downloads the release's
+# background. A newer tag (v1.2.3) adds "Update" to the menu. Updating downloads the release's
 # SwarlexBattery.exe, checks it against SwarlexBattery.exe.sha256 from the same release, swaps it in
 # place of the running exe (a running exe can be renamed, not overwritten) and restarts.
 function Norm-Version($v) { try { $x = [version]("$v".Trim().TrimStart('v', 'V')); [version]"$($x.Major).$($x.Minor).$([Math]::Max(0, $x.Build))" } catch { $null } }
@@ -682,16 +690,16 @@ $UpdateDownloadScript = {
     param($url, $shaUrl, $dest)
     $ErrorActionPreference = 'Stop'
     [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
-    foreach ($u in $url, $shaUrl) { if (([uri]$u).Host -ne 'github.com') { throw "Beklenmeyen indirme adresi: $u" } }
+    foreach ($u in $url, $shaUrl) { if (([uri]$u).Host -ne 'github.com') { throw "unexpected download address: $u" } }
     $wc = New-Object Net.WebClient; $wc.Headers['User-Agent'] = 'SwarlexBattery-updater'
     $expected = ($wc.DownloadString($shaUrl).Trim() -split '\s+')[0].ToLowerInvariant()
-    if ($expected -notmatch '^[0-9a-f]{64}$') { throw 'Gecersiz SHA-256 dosyasi' }
+    if ($expected -notmatch '^[0-9a-f]{64}$') { throw 'invalid SHA-256 file' }
     $wc.Headers['User-Agent'] = 'SwarlexBattery-updater'
     $wc.DownloadFile($url, $dest)
     $bytes = [IO.File]::ReadAllBytes($dest)
-    if ($bytes.Length -lt 50KB -or $bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) { Remove-Item -LiteralPath $dest -Force; throw 'Indirilen dosya bir exe degil' }
+    if ($bytes.Length -lt 50KB -or $bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) { Remove-Item -LiteralPath $dest -Force; throw 'the download is not an exe' }
     $actual = (Get-FileHash -LiteralPath $dest -Algorithm SHA256).Hash.ToLowerInvariant()
-    if ($actual -ne $expected) { Remove-Item -LiteralPath $dest -Force; throw 'SHA-256 uyusmuyor: indirme bozuk veya degistirilmis' }
+    if ($actual -ne $expected) { Remove-Item -LiteralPath $dest -Force; throw 'SHA-256 mismatch: the download is damaged or was altered' }
     'ok'
 }
 
@@ -705,12 +713,12 @@ function Start-UpdateCheck([bool]$manual = $false) {
 
 function Start-UpdateInstall {
     if ($UpdateJob -or -not $UpdateInfo) { return }
-    if (-not $ExePath) { Show-Toast $null 'SwarlexBattery' 'Guncelleme sadece exe surumunde calisir.'; return }
-    if (-not $UpdateInfo.url -or -not $UpdateInfo.sha) { Show-Toast $null 'SwarlexBattery' 'Bu surumde exe veya SHA-256 dosyasi yok; sayfa aciliyor.'; Start-Process $UpdateInfo.page; return }
+    if (-not $ExePath) { Show-Toast $null 'SwarlexBattery' (T 'updExeOnly'); return }
+    if (-not $UpdateInfo.url -or -not $UpdateInfo.sha) { Show-Toast $null 'SwarlexBattery' (T 'updNoAssets'); Start-Process $UpdateInfo.page; return }
     $ps = [PowerShell]::Create(); $ps.RunspacePool = $Pool
     $null = $ps.AddScript($UpdateDownloadScript).AddArgument($UpdateInfo.url).AddArgument($UpdateInfo.sha).AddArgument("$ExePath.new")
     $script:UpdateJob = @{ ps = $ps; handle = $ps.BeginInvoke(); kind = 'install'; started = Get-Date }
-    Show-Toast $null 'SwarlexBattery' "v$($UpdateInfo.version) indiriliyor..."
+    Show-Toast $null 'SwarlexBattery' (T 'updDownloading' $UpdateInfo.version)
 }
 
 function Complete-UpdateJob {
@@ -722,33 +730,33 @@ function Complete-UpdateJob {
     if ($j.kind -eq 'check') {
         $script:NextUpdateCheck = (Get-Date).AddHours([Math]::Max(1, [double]$Config.update.intervalHours))
         if ($err -or -not $out) {
-            Write-Log "guncelleme kontrolu: $err"
-            if ($UpdateManual) { Show-Toast $null 'SwarlexBattery' "Guncelleme kontrol edilemedi: $err" }
+            Write-Log "update check: $err"
+            if ($UpdateManual) { Show-Toast $null 'SwarlexBattery' (T 'updCheckFailed' $err) }
             return
         }
         $info = $out | ConvertFrom-Json
         $latest = Norm-Version $info.tag
         if ($latest -and $AppVersion -and $latest -gt $AppVersion) {
             $script:UpdateInfo = @{ version = "$latest"; url = $info.url; sha = $info.sha; page = $info.page }
-            if ($UpdateNotified -ne "$latest") { $script:UpdateNotified = "$latest"; Show-Toast $null 'SwarlexBattery' "Yeni surum var: v$latest. Sag tik > Guncelle" }
+            if ($UpdateNotified -ne "$latest") { $script:UpdateNotified = "$latest"; Show-Toast $null 'SwarlexBattery' (T 'updAvailable' $latest) }
         } else {
             $script:UpdateInfo = $null
-            if ($UpdateManual) { Show-Toast $null 'SwarlexBattery' "Guncel: v$AppVersion" }
+            if ($UpdateManual) { Show-Toast $null 'SwarlexBattery' (T 'updUpToDate' $AppVersion) }
         }
     } else {
-        if ($err -or $out -ne 'ok') { Write-Log "guncelleme: $err"; Show-Toast $null 'SwarlexBattery' "Guncelleme basarisiz: $err"; return }
+        if ($err -or $out -ne 'ok') { Write-Log "update: $err"; Show-Toast $null 'SwarlexBattery' (T 'updFailed' $err); return }
         try {
             $old = "$ExePath.old"
             Remove-Item -LiteralPath $old -Force -ErrorAction SilentlyContinue
             Rename-Item -LiteralPath $ExePath -NewName (Split-Path $old -Leaf)        # the running exe can be renamed
             Move-Item -LiteralPath "$ExePath.new" -Destination $ExePath
-            Write-Log "guncellendi: v$AppVersion -> v$($UpdateInfo.version)"
+            Write-Log "updated: v$AppVersion -> v$($UpdateInfo.version)"
             Start-Process -FilePath $ExePath                                          # waits for this instance to exit
             Stop-App
         } catch {
-            Write-Log "guncelleme degistirme: $_"
+            Write-Log "update swap: $_"
             if (-not (Test-Path -LiteralPath $ExePath) -and (Test-Path -LiteralPath "$ExePath.old")) { Rename-Item -LiteralPath "$ExePath.old" -NewName (Split-Path $ExePath -Leaf) }
-            Show-Toast $null 'SwarlexBattery' "Guncelleme uygulanamadi: $_"
+            Show-Toast $null 'SwarlexBattery' (T 'updApplyFailed' $_)
         }
     }
 }
@@ -771,7 +779,6 @@ function Stop-App {
     if ($script:Stopping) { return }; $script:Stopping = $true
     $Timer.Stop()
     foreach ($p in $Plugins.Values) { if ($p.job) { try { $null = $p.job.ps.BeginStop($null, $null) } catch {} }; Remove-TrayIcons $p }
-    [SwarlexBattery.Glass]::Shutdown()
     try { $Panel.Close() } catch {}
     try { $Pool.Close() } catch {}
     [Windows.Threading.Dispatcher]::CurrentDispatcher.InvokeShutdown()
@@ -814,7 +821,7 @@ $Timer.Add_Tick({
         foreach ($p in @($Plugins.Values)) {
             if ($p.job) {
                 if ($p.job.handle.IsCompleted) { Complete-PluginJob $p }
-                elseif (($now - $p.job.started).TotalSeconds -gt 60) { Write-Log "[$($p.id)] zaman asimi"; $null = $p.job.ps.BeginStop($null, $null); $p.job = $null; $p.next = $now.AddSeconds($p.interval) }
+                elseif (($now - $p.job.started).TotalSeconds -gt 60) { Write-Log "[$($p.id)] timed out"; $null = $p.job.ps.BeginStop($null, $null); $p.job = $null; $p.next = $now.AddSeconds($p.interval) }
             } elseif ($now -ge $p.next) { Start-PluginJob $p 'poll' }
         }
     } catch { Write-Log "tick: $_" }
@@ -827,11 +834,10 @@ Init-Plugins
 $PromoteAt = (Get-Date).AddSeconds(3); $PromoteCount = 0
 [SwarlexBattery.DeviceWatch]::Start(); $SeenDeviceChanges = 0; $DevicePollAt = $null
 $Timer.Start()
-Write-Log "SwarlexBattery basladi (PID $PID, ikon $IconSize px, $GlyphFont)"
+Write-Log "SwarlexBattery v$AppVersion started (PID $PID, icon $IconSize px, $GlyphFont, language $Lang)"
 try {
     [Windows.Threading.Dispatcher]::Run()
 } finally {
     if (-not $Stopping) { foreach ($p in $Plugins.Values) { Remove-TrayIcons $p } }
-    [SwarlexBattery.Glass]::Shutdown()
     $mutex.ReleaseMutex()
 }

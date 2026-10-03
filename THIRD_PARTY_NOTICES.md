@@ -1,8 +1,10 @@
-# Üçüncü taraf bildirimleri
+# Third-party notices
 
-SwarlexBattery'deki cihaz protokolleri aşağıdaki projelerin belgelerinden ve kodundan uyarlanmıştır.
+SwarlexBattery is licensed under the GNU GPL v3 or later (see LICENSE). Its device protocols are
+adapted from the documentation and code of the projects below. Code adapted from MIT-licensed
+projects keeps their copyright notice here, as their license requires.
 
-## HaloBattery
+## HaloBattery (MIT)
 
 https://github.com/HeyOkay/HaloBattery
 
@@ -28,11 +30,35 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-## Diğer kaynaklar
+## razer-blackshark-v2-hyperspeed-webhid (MIT)
 
-- HeadsetControl (Sapd/HeadsetControl): SteelSeries, HyperX, Corsair kulaklık protokolleri
-- Solaar: Logitech HID++ 2.0
-- OpenRazer: Razer mouse / klavye pil komutları
-- justik13/razer-blackshark-v2-hyperspeed-webhid: Razer BlackShark V2 HyperSpeed
-- python-pulsar-mouse-tool: ATK / VXE / Pulsar 17 bayt protokolü
-- Omarchy topluluk plugin'leri (omabisync, syncthing.bar, gadget-batteries, glass, mousekit, pocket): Windows portlarının fikir kaynağı
+https://github.com/justik13/razer-blackshark-v2-hyperspeed-webhid
+
+MIT License
+
+Copyright (c) 2026 justik13
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+## Protocol references (no code copied)
+
+- HeadsetControl (GPL-3.0): SteelSeries, HyperX and Corsair headset protocols
+- Solaar: Logitech HID++ 2.0 features and the Li-ion voltage curve
+- OpenRazer: Razer battery commands and transaction ids
+- python-pulsar-mouse-tool (MIT): ATK / VXE / Pulsar 17-byte power query

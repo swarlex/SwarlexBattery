@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Battery readers for wireless mice, keyboards and headsets, spoken to directly over HID.
 // Protocols as documented by HaloBattery (MIT), HeadsetControl, Solaar, OpenRazer and the
 // projects named at each reader. Only read-only battery / status queries are ever sent.

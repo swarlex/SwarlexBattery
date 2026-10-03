@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 <#
 .SYNOPSIS  Builds dist\SwarlexBattery.exe: one file, scripts + plugins embedded, no install needed.
            Uses the C# compiler that ships with Windows (.NET Framework 4.x) - nothing to download.
@@ -70,7 +71,7 @@ if (-not (Test-Path -LiteralPath $ico)) {
 }
 
 # ---- embed every runtime file as app/<relative path>
-$include = @('SwarlexBattery.ps1', 'config.default.json', 'VERSION', 'core\Native.cs', 'core\Hid.cs', 'core\Devices.cs', 'plugins', 'tools')
+$include = @('SwarlexBattery.ps1', 'config.default.json', 'VERSION', 'lang', 'core\Native.cs', 'core\Hid.cs', 'core\Devices.cs', 'plugins', 'tools')
 $resArgs = foreach ($item in $include) {
     Get-ChildItem -LiteralPath (Join-Path $here $item) -Recurse -File | ForEach-Object {
         $rel = $_.FullName.Substring($here.Length + 1).Replace('\', '/')
@@ -85,7 +86,7 @@ Copy-Item -LiteralPath $ico -Destination "$work\swarlexbattery.ico" -Force
 Copy-Item -LiteralPath (Join-Path $here 'core\app.manifest') -Destination "$work\app.manifest" -Force
 # version from the VERSION file, stamped into the exe (the updater compares it with the latest GitHub release)
 $version = (Get-Content -LiteralPath (Join-Path $here 'VERSION') -Raw).Trim()
-if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "VERSION gecersiz: $version" }
+if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "invalid VERSION: $version" }
 $asmInfo = Join-Path $work 'AssemblyInfo.cs'
 Set-Content -LiteralPath $asmInfo -Encoding UTF8 -Value @(
     "[assembly: System.Reflection.AssemblyVersion(`"$version.0`")]",
@@ -97,7 +98,7 @@ $cscArgs = @('/nologo', '/target:winexe', '/optimize+', '/platform:anycpu', "/ou
     "/reference:$sma", '/reference:System.Windows.Forms.dll', '/reference:System.Drawing.dll', '/reference:System.Core.dll') +
     @($resArgs) + @((Join-Path $here 'core\Launcher.cs'), (Join-Path $here 'core\Native.cs'), (Join-Path $here 'core\Hid.cs'), (Join-Path $here 'core\Devices.cs'), $asmInfo)
 & $csc @cscArgs
-if ($LASTEXITCODE -ne 0) { throw "csc basarisiz ($LASTEXITCODE)" }
+if ($LASTEXITCODE -ne 0) { throw "csc failed ($LASTEXITCODE)" }
 # a copy started from dist\ keeps the exe locked: a running exe can be renamed, so move it aside
 if (Test-Path -LiteralPath $exe) {
     try { [IO.File]::Open($exe, 'Open', 'ReadWrite', 'None').Dispose() }

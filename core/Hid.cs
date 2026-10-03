@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Minimal HID access for reading wireless peripheral batteries (Razer, ATK/VXE ...),
 // the same vendor queries HaloBattery / OpenRazer send. Read-only power queries only.
 using System;

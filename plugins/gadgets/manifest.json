@@ -1,7 +1,8 @@
 {
   "id": "gadgets",
-  "name": "Piller",
-  "description": "Bluetooth / Xbox / laptop / kendi script'lerinden pil seviyeleri tek pill'de (gadget-batteries Windows portu).",
+  "name": "Batteries",
+  "name_tr": "Piller",
+  "description": "Battery levels of wireless mice, keyboards, headsets, Bluetooth devices, controllers and the laptop battery.",
   "version": "1.0.0",
   "icon": "E83F",
   "interval": 10,
