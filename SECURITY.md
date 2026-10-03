@@ -13,7 +13,9 @@
 
 ## Updates
 
-- The app reads `https://api.github.com/repos/swarlex/SwarlexBattery/releases/latest`.
+- The app asks `https://github.com/swarlex/SwarlexBattery/releases/latest` which release is the
+  latest (a redirect to its tag, not subject to the GitHub API rate limit). Only if that fails does
+  it read `https://api.github.com/repos/swarlex/SwarlexBattery/releases/latest`.
 - A download whose address is not on `github.com` is refused.
 - The downloaded exe must start with an `MZ` header and match the SHA-256 in
   `SwarlexBattery.exe.sha256` from the same release; otherwise it is deleted and not installed.

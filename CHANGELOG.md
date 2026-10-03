@@ -2,6 +2,10 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.3.2
+- The update check no longer uses the GitHub API, so it is not affected by its rate limit
+  (60 requests per hour per IP address); the API is only a fallback.
+
 ## 1.3.1
 - The flyout and the menu use the Windows 11 window frame, so the occasional double box is gone.
 - Wider menu for the Turkish texts.

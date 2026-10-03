@@ -681,11 +681,37 @@ $UpdateCheckScript = {
     param($repo)
     $ErrorActionPreference = 'Stop'
     [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
-    $r = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -TimeoutSec 20 -UseBasicParsing `
-        -Headers @{ 'User-Agent' = 'SwarlexBattery-updater'; Accept = 'application/vnd.github+json' }
-    $exe = @($r.assets | Where-Object { $_.name -eq 'SwarlexBattery.exe' })[0]
-    $sha = @($r.assets | Where-Object { $_.name -eq 'SwarlexBattery.exe.sha256' })[0]
-    @{ tag = [string]$r.tag_name; url = [string]$exe.browser_download_url; sha = [string]$sha.browser_download_url; page = [string]$r.html_url } | ConvertTo-Json -Compress
+    # No API rate limit: github.com/<repo>/releases/latest answers with a redirect to
+    # /releases/tag/<tag>, and release files live at /releases/download/<tag>/<name>.
+    # (The REST API allows only 60 unauthenticated requests per hour per IP address.)
+    function Head([string]$u) {
+        $q = [Net.HttpWebRequest]::Create($u)
+        $q.Method = 'HEAD'; $q.AllowAutoRedirect = $false; $q.Timeout = 20000; $q.UserAgent = 'SwarlexBattery-updater'
+        try { $s = $q.GetResponse() } catch [Net.WebException] { $s = $_.Exception.InnerException.Response; if (-not $s) { $s = $_.Exception.Response }; if (-not $s) { throw } }
+        $code = [int]$s.StatusCode; $loc = $s.Headers['Location']; $s.Close()
+        @{ code = $code; location = $loc }
+    }
+    try {
+        $u = "https://github.com/$repo/releases/latest"; $tag = $null
+        for ($i = 0; $i -lt 4 -and -not $tag; $i++) {            # a renamed repo adds one redirect first
+            $r = Head $u
+            if ($r.code -lt 300 -or $r.code -ge 400 -or -not $r.location) { throw "unexpected answer $($r.code) from $u" }
+            $u = ([uri](New-Object Uri ([uri]$u), $r.location)).AbsoluteUri
+            if ($u -match '/releases/tag/([^/?#]+)$') { $tag = [uri]::UnescapeDataString($Matches[1]) }
+        }
+        if (-not $tag) { throw 'no release tag in the redirect' }
+        $base = "https://github.com/$repo/releases/download/$([uri]::EscapeDataString($tag))"
+        $hasSha = (Head "$base/SwarlexBattery.exe.sha256").code -in 200, 301, 302, 307
+        @{ tag = $tag; url = $(if ($hasSha) { "$base/SwarlexBattery.exe" } else { '' }); sha = $(if ($hasSha) { "$base/SwarlexBattery.exe.sha256" } else { '' })
+           page = "https://github.com/$repo/releases/tag/$tag" } | ConvertTo-Json -Compress
+    } catch {
+        # fallback: the REST API (rate limited, but independent of the web site's redirects)
+        $r = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -TimeoutSec 20 -UseBasicParsing `
+            -Headers @{ 'User-Agent' = 'SwarlexBattery-updater'; Accept = 'application/vnd.github+json' }
+        $exe = @($r.assets | Where-Object { $_.name -eq 'SwarlexBattery.exe' })[0]
+        $sha = @($r.assets | Where-Object { $_.name -eq 'SwarlexBattery.exe.sha256' })[0]
+        @{ tag = [string]$r.tag_name; url = [string]$exe.browser_download_url; sha = [string]$sha.browser_download_url; page = [string]$r.html_url } | ConvertTo-Json -Compress
+    }
 }
 
 $UpdateDownloadScript = {

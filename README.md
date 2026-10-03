@@ -121,7 +121,8 @@ Only **read-only** battery and status queries are sent to devices; their setting
 
 ## Updates
 
-SwarlexBattery checks the latest release of this repository at start and every 6 hours. When a newer
+SwarlexBattery checks the latest release of this repository at start and every 6 hours (through the
+release page, so the GitHub API rate limit does not apply). When a newer
 version exists it shows a notification and an **Update** item at the top of the right-click menu.
 Clicking it downloads the new version, verifies it against the SHA-256 published with the same release,
 swaps it in and restarts. Nothing is installed without your click. See [SECURITY.md](SECURITY.md).
