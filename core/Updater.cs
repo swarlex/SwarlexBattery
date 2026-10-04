@@ -33,6 +33,7 @@ namespace SwarlexBattery
         {
             var q = (HttpWebRequest)WebRequest.Create(url);
             q.Method = "HEAD"; q.AllowAutoRedirect = false; q.Timeout = 20000; q.UserAgent = Agent;
+            q.Headers["Cache-Control"] = "no-cache";
             HttpWebResponse s;
             try { s = (HttpWebResponse)q.GetResponse(); }
             catch (WebException e) { s = e.Response as HttpWebResponse; if (s == null) throw; }
@@ -48,7 +49,9 @@ namespace SwarlexBattery
             ReleaseInfo r;
             try
             {
-                string u = "https://github.com/" + repo + "/releases/latest", tag = null;
+                // GitHub's cache keeps answering with the previous release for a few minutes after a new one;
+                // a query string that changes each time skips that cache
+                string u = "https://github.com/" + repo + "/releases/latest?t=" + DateTime.UtcNow.Ticks, tag = null;
                 for (int i = 0; i < 4 && tag == null; i++)   // a renamed repo adds one redirect first
                 {
                     string loc; int code = Head(u, out loc);

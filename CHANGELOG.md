@@ -2,6 +2,10 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.4.2
+- "Check for updates" sees a new release right after it is published (GitHub cached the answer for
+  a few minutes).
+
 ## 1.4.1
 - Razer mice: the battery query now reaches the mouse's own HID collection (Windows refuses a read/write
   open there; feature reports work on a no-access handle), and every candidate collection is tried.
