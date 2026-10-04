@@ -41,6 +41,19 @@ namespace SwarlexBattery
         // A tray click gives this process foreground rights; the flyout uses them.
         public static void ForceForeground(IntPtr h) { if (h != IntPtr.Zero) SetForegroundWindow(h); }
 
+        [StructLayout(LayoutKind.Sequential)] struct APPBARDATA { public int cbSize; public IntPtr hWnd; public uint msg; public uint edge; public RECT rc; public IntPtr lParam; }
+        [DllImport("shell32.dll")] static extern IntPtr SHAppBarMessage(uint msg, ref APPBARDATA d);
+
+        // The taskbar's own rectangle (physical pixels) and edge: 0 left, 1 top, 2 right, 3 bottom.
+        // Needed for an auto-hiding taskbar: the work area then covers the whole screen, the taskbar does not.
+        public static bool Taskbar(out RECT rc, out int edge)
+        {
+            var d = new APPBARDATA(); d.cbSize = Marshal.SizeOf(d);
+            bool ok = SHAppBarMessage(5, ref d) != IntPtr.Zero;    // ABM_GETTASKBARPOS
+            rc = d.rc; edge = (int)d.edge;
+            return ok;
+        }
+
         [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr h, int attr, ref int val, int size);
         // Windows 11 look for the flyout: rounded corners, the system border and shadow, dark frame.
         // (DWM draws them itself, so there is exactly one frame; ignored on Windows 10.)

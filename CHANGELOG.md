@@ -2,6 +2,15 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.4.1
+- Razer mice: the battery query now reaches the mouse's own HID collection (Windows refuses a read/write
+  open there; feature reports work on a no-access handle), and every candidate collection is tried.
+  This should bring in many Razer mice, e.g. the Viper V3 HyperSpeed.
+- Logitech headsets that are not on the list (e.g. G435): HID++ is tried on their vendor collections.
+- With "automatically hide the taskbar" the flyout no longer opens under the taskbar.
+- The first click after start opens the flyout right away.
+- The log lists the battery devices found and, when one does not answer, the last protocol steps.
+
 ## 1.4.0
 - Rewritten in C#: the app no longer runs PowerShell or unpacks scripts, so it starts faster, uses less
   memory and looks less suspicious to antivirus heuristics.

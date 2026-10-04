@@ -100,11 +100,13 @@ namespace SwarlexBattery
         static SafeFileHandle Open(string path) { return CreateFile(path, GENERIC_RW, SHARE_RW, IntPtr.Zero, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, IntPtr.Zero); }
 
         // Feature report round trip (Razer 90-byte protocol). buf[0] is the report id.
+        // Opened with no access rights: Windows keeps mouse / keyboard collections (where Razer mice answer)
+        // to itself and refuses a read/write open, but feature reports work on a zero-access handle.
         public static byte[] Feature(string path, byte[] request, int replyLen, int delayMs)
         {
-            using (var h = Open(path))
+            using (var h = CreateFile(path, 0, SHARE_RW, IntPtr.Zero, OPEN_EXISTING, 0, IntPtr.Zero))
             {
-                if (h.IsInvalid) return null;
+                if (h.IsInvalid) { Trace.Add("feature open failed " + Marshal.GetLastWin32Error()); return null; }
                 if (!HidD_SetFeature(h, request, request.Length)) return null;
                 Thread.Sleep(delayMs);
                 var r = new byte[replyLen]; r[0] = request[0];

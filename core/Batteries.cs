@@ -35,6 +35,7 @@ namespace SwarlexBattery
         readonly string lastFile = Path.Combine(Program.CacheDir, "state", "gadgets", "hid-last.json");
         Dictionary<string, Dictionary<string, object>> last = new Dictionary<string, Dictionary<string, object>>();
         List<Gadget> slow = new List<Gadget>(); DateTime slowAt = DateTime.MinValue;
+        string lastSeen;
 
         static string S(string key) { return "plugins.gadgets." + key; }
 
@@ -143,6 +144,14 @@ namespace SwarlexBattery
                 }
             }
             catch (Exception e) { Log.Write("HID: " + e.Message); return; }
+            // which devices answered, written when that changes: the first thing to look at in a device report
+            var seen = string.Join(",", order.Select(i => i + (byId[i].Level >= 0 ? "+" : "-")));
+            if (seen != lastSeen)
+            {
+                lastSeen = seen;
+                Log.Write("HID devices: " + (seen == "" ? "none" : string.Join("; ", order.Select(i => byId[i].ToString()))));
+                if (order.Any(i => byId[i].Level < 0)) lock (Hid.Trace) Log.Write("HID trace: " + string.Join(" | ", Hid.Trace.Skip(Math.Max(0, Hid.Trace.Count - 12))));
+            }
 
             foreach (var id in order)
             {

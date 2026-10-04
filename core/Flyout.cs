@@ -52,7 +52,9 @@ namespace SwarlexBattery
             win.SourceInitialized += (s, e) => { hwnd = new WindowInteropHelper(win).Handle; Win.FlyoutFrame(hwnd, true); };
             win.Deactivated += (s, e) => { if (Open != null) Close(); };
             win.KeyDown += (s, e) => { if (e.Key == Key.Escape) Close(); };
-            win.SizeChanged += (s, e) => { if (Open != null && above) win.Top = SystemParameters.WorkArea.Bottom - win.ActualHeight - 8; };
+            // create the window now, so the first click opens it without WPF's cold-start delay
+            new WindowInteropHelper(win).EnsureHandle();
+            win.SizeChanged += (s, e) => { if (Open != null && above) win.Top = area.Bottom - win.ActualHeight - 8; };
         }
 
         public void Close()
@@ -88,7 +90,7 @@ namespace SwarlexBattery
         {
             win.Width = width;
             double scale = Forms.Screen.PrimaryScreen.Bounds.Width / SystemParameters.PrimaryScreenWidth;
-            var wa = SystemParameters.WorkArea; var cur = Forms.Cursor.Position;
+            var wa = Area(scale); var cur = Forms.Cursor.Position;
             double cx = cur.X / scale, cy = cur.Y / scale;
             win.Left = Math.Max(wa.Left + 8, Math.Min(wa.Right - width - 8, cx - width / 2));
             above = cy > (wa.Top + wa.Bottom) / 2;
@@ -97,6 +99,48 @@ namespace SwarlexBattery
             win.Top = above ? wa.Bottom - win.ActualHeight - 8 : wa.Top + 8;
             Win.ForceForeground(hwnd);
             win.Activate();
+        }
+
+        Rect area = SystemParameters.WorkArea;
+
+        // The work area minus the taskbar. With "automatically hide the taskbar" the work area is the whole
+        // screen, so the taskbar's own size is taken off its edge (the flyout would open under it otherwise).
+        Rect Area(double scale)
+        {
+            var wa = SystemParameters.WorkArea;
+            RECT tb; int edge;
+            if (Win.Taskbar(out tb, out edge))
+            {
+                var sc = Forms.Screen.PrimaryScreen.Bounds;
+                double h = (tb.Bottom - tb.Top) / scale, w = (tb.Right - tb.Left) / scale;
+                double top = wa.Top, left = wa.Left, right = wa.Right, bottom = wa.Bottom;
+                if (edge == 3) bottom = Math.Min(bottom, sc.Bottom / scale - h);
+                else if (edge == 1) top = Math.Max(top, sc.Top / scale + h);
+                else if (edge == 0) left = Math.Max(left, sc.Left / scale + w);
+                else if (edge == 2) right = Math.Min(right, sc.Right / scale - w);
+                if (right - left > 100 && bottom - top > 100) wa = new Rect(left, top, right - left, bottom - top);
+            }
+            area = wa;
+            return wa;
+        }
+
+        // WPF loads its themes and templates the first time something is drawn, which made the first click
+        // take over a second. Drawing the panel and the menu once off-screen (not activated) does that early.
+        bool warmed;
+        public void Warm()
+        {
+            if (warmed || Open != null) return;
+            warmed = true;
+            try
+            {
+                win.ShowActivated = false; win.Left = -20000; win.Top = -20000;
+                win.Show();
+                RenderPanel(); win.UpdateLayout();
+                scroll.Content = BuildMenu(); win.UpdateLayout();
+                win.Hide();
+            }
+            catch (Exception e) { Log.Write("warm: " + e.Message); }
+            finally { win.ShowActivated = true; }
         }
 
         public void Refresh()

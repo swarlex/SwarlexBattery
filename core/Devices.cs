@@ -84,6 +84,7 @@ namespace SwarlexBattery
 
         // ================================================================ Razer
         static readonly Dictionary<int, byte> RazerTid = new Dictionary<int, byte>();        // pid -> transaction id that answered
+        static readonly Dictionary<int, string> RazerPath = new Dictionary<int, string>();  // pid -> collection that answered
         static readonly Dictionary<string, DateTime> NoBattery = new Dictionary<string, DateTime>(); // path -> retry after
 
         static void ReadRazer(List<HidInfo> devs, List<Reading> outp)
@@ -110,28 +111,38 @@ namespace SwarlexBattery
                 }
                 else
                 {
-                    var feat = g.FirstOrDefault(d => d.FeatLen >= 91);
-                    if (feat == null) continue;                                   // no battery interface
+                    // every collection with the 90-byte feature report: the one that answered last time first
+                    var feats = g.Where(d => d.FeatLen >= 91).OrderBy(d => RazerPath.ContainsValue(d.Path) ? 0 : 1).ThenBy(d => d.Interface).ToList();
+                    if (feats.Count == 0) continue;                               // no battery interface
                     DateTime retry;
-                    if (NoBattery.TryGetValue(feat.Path, out retry) && DateTime.UtcNow < retry) continue;
+                    if (feats.All(f => NoBattery.TryGetValue(f.Path, out retry) && DateTime.UtcNow < retry)) continue;
                     var tids = new List<byte>();
                     byte known; if (RazerTid.TryGetValue(pid, out known)) tids.Add(known);
                     foreach (byte t in new byte[] { 0x1F, 0x3F, 0xFF, 0x9F, 0x08 }) if (!tids.Contains(t)) tids.Add(t);
-                    bool sawNotSupported = false;
-                    foreach (byte tid in tids)
+                    bool sawNotSupported = false, asleep = false;
+                    foreach (var feat in feats)
                     {
-                        int lvl = RazerQuery(feat.Path, tid, 0x07, 0x80);
-                        if (lvl >= 0)
+                        if (NoBattery.TryGetValue(feat.Path, out retry) && DateTime.UtcNow < retry) continue;
+                        bool notSupported = false, answered = false;
+                        foreach (byte tid in tids)
                         {
-                            RazerTid[pid] = tid;
-                            int chg = RazerQuery(feat.Path, tid, 0x07, 0x84);
-                            v = new[] { (int)Math.Round(lvl / 255.0 * 100), chg > 0 ? 1 : 0 };
-                            break;
+                            int lvl = RazerQuery(feat.Path, tid, 0x07, 0x80);
+                            if (lvl >= 0)
+                            {
+                                RazerTid[pid] = tid; RazerPath[pid] = feat.Path;
+                                int chg = RazerQuery(feat.Path, tid, 0x07, 0x84);
+                                v = new[] { (int)Math.Round(lvl / 255.0 * 100), chg > 0 ? 1 : 0 };
+                                break;
+                            }
+                            if (lvl < -1) answered = true;
+                            if (lvl == -1 - 0x05) notSupported = true;                 // "not supported": wired-only device
+                            if (lvl == -1 - 0x04) { asleep = true; break; }            // "timeout": receiver present, device asleep
                         }
-                        if (lvl == -1 - 0x05) sawNotSupported = true;                // "not supported": wired-only device
-                        if (lvl == -1 - 0x04) break;                                   // "timeout": receiver present, device asleep
+                        if (v != null || asleep) break;
+                        if (notSupported) { sawNotSupported = true; NoBattery[feat.Path] = DateTime.UtcNow.AddMinutes(10); }
+                        else if (!answered) NoBattery[feat.Path] = DateTime.UtcNow.AddMinutes(2);   // this collection does not speak the protocol
                     }
-                    if (v == null && sawNotSupported) { NoBattery[feat.Path] = DateTime.UtcNow.AddMinutes(10); continue; }
+                    if (v == null && sawNotSupported && !asleep) continue;
                     r.Receiver = System.Text.RegularExpressions.Regex.IsMatch(first.Product ?? "", "(?i)hyperspeed|dongle|receiver|wireless");
                     if (v == null && !r.Receiver) continue;                           // never answered and not a receiver: not a battery device
                 }
@@ -172,6 +183,7 @@ namespace SwarlexBattery
         class LogiSlot { public string Name = "", Kind = "", Unit = ""; public int BatFeature, BatIndex; public bool Identified; }
         static readonly Dictionary<string, LogiSlot> LogiCache = new Dictionary<string, LogiSlot>();
         static readonly HashSet<string> LogiAsleep = new HashSet<string>();
+        static readonly Dictionary<string, DateTime> LogiSilent = new Dictionary<string, DateTime>();
 
         class LogiChannel : IDisposable
         {
@@ -229,22 +241,37 @@ namespace SwarlexBattery
                 int pid = first.Pid;
                 var lng = Pick(g, 0xFF00, 0x0002);
                 var sht = Pick(g, 0xFF00, 0x0001);
-                if (lng == null && LogiHeadsets.ContainsKey(pid))
-                    lng = pid == 0x0AC4 ? Pick(g, 0x000C, 0x0001) : Pick(g, 0xFF43, 0x0202);
-                if (lng == null) continue;
-                using (var ch = new LogiChannel())
+                var cands = new List<HidInfo>();
+                if (lng != null) cands.Add(lng);
+                else if (LogiHeadsets.ContainsKey(pid) || (pid >= 0x0A00 && pid <= 0x0BFF))
                 {
-                    ch.Long = Open(lng.Path); if (ch.Long.IsInvalid) continue;
-                    ch.LongIn = Math.Max(20, lng.InLen); ch.LongOut = Math.Max(20, lng.OutLen);
-                    if (sht != null) { ch.Short = Open(sht.Path); ch.ShortIn = Math.Max(7, sht.InLen); if (ch.Short.IsInvalid) ch.Short = null; }
-                    bool receiver = LogiReceivers.Contains(pid) || (first.Product ?? "").ToLowerInvariant().Contains("receiver");
-                    var slots = receiver ? new[] { 1, 2, 3, 4, 5, 6 } : new[] { 0xFF };
-                    foreach (int idx in slots)
+                    // headsets (product ids 0Axx): HID++ sits on a vendor or consumer collection that carries
+                    // the 20-byte long report; known places first, then every candidate (e.g. G435, G735)
+                    foreach (var c in new[] { Pick(g, 0xFF43, 0x0202), Pick(g, 0x000C, 0x0001) }) if (c != null && c.OutLen >= 20) cands.Add(c);
+                    foreach (var c in g.Where(d => d.UsagePage >= 0xFF00 && d.OutLen >= 20)) if (!cands.Contains(c)) cands.Add(c);
+                }
+                bool receiver = LogiReceivers.Contains(pid) || (first.Product ?? "").ToLowerInvariant().Contains("receiver");
+                foreach (var col in cands)
+                {
+                    DateTime retry;
+                    if (LogiSilent.TryGetValue(col.Path, out retry) && DateTime.UtcNow < retry) continue;
+                    bool got = false;
+                    using (var ch = new LogiChannel())
                     {
-                        string key = lng.Instance + "|" + pid.ToString("X4") + "|" + idx;
-                        var rd = LogiRead(ch, key, pid, idx, first.Product);
-                        if (rd != null) outp.Add(rd);
+                        ch.Long = Open(col.Path); if (ch.Long.IsInvalid) continue;
+                        ch.LongIn = Math.Max(20, col.InLen); ch.LongOut = Math.Max(20, col.OutLen);
+                        if (sht != null) { ch.Short = Open(sht.Path); ch.ShortIn = Math.Max(7, sht.InLen); if (ch.Short.IsInvalid) ch.Short = null; }
+                        var slots = receiver ? new[] { 1, 2, 3, 4, 5, 6 } : new[] { 0xFF };
+                        foreach (int idx in slots)
+                        {
+                            string key = col.Instance + "|" + pid.ToString("X4") + "|" + idx;
+                            var rd = LogiRead(ch, key, pid, idx, first.Product);
+                            if (rd != null) { outp.Add(rd); got = true; }
+                        }
                     }
+                    if (got) break;
+                    // a headset collection that never answered HID++: try it again later, not on every poll
+                    if (col != lng) LogiSilent[col.Path] = DateTime.UtcNow.AddMinutes(2);
                 }
             }
         }
@@ -278,6 +305,8 @@ namespace SwarlexBattery
                 fi = ch.FeatureIndex(idx, 0x0003);
                 if (fi != 0) { var r = ch.Request(idx, fi, 0, null, 600); if (r != null && (r[1] | r[2] | r[3] | r[4]) != 0) s.Unit = BitConverter.ToString(r, 1, 4).Replace("-", ""); }
                 if (LogiHeadsets.ContainsKey(pid)) { if (s.Name == "") s.Name = LogiHeadsets[pid]; s.Kind = "headphones"; }
+                else if (idx == 0xFF && pid >= 0x0A00 && pid <= 0x0BFF) s.Kind = "headphones";   // 0Axx: Logitech headsets
+                if (s.Name != "" && !s.Name.StartsWith("Logitech", StringComparison.OrdinalIgnoreCase) && s.Kind == "headphones") s.Name = "Logitech " + s.Name;
                 if (s.Name == "") s.Name = Clean(product) == "" ? "Logitech" : Clean(product);
                 if (s.Kind == "") s.Kind = "mouse";
                 s.Identified = s.Name != "" || s.Unit != "";

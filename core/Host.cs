@@ -116,7 +116,7 @@ namespace SwarlexBattery
                 notified[n.Key] = now;
             }
             foreach (var k in notified.Keys.ToList()) if ((now - notified[k]).TotalMinutes > 30) notified.Remove(k);
-            if (flyout.Open == "panel") flyout.Refresh();
+            if (flyout.Open == "panel") flyout.Refresh(); else flyout.Warm();
         }
 
         void Toast(string title, string body, ToolTipIcon kind = ToolTipIcon.Info)
