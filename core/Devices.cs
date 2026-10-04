@@ -26,7 +26,7 @@ namespace SwarlexBattery
         static readonly object ScanLock = new object();
         public static HidInfo[] LastList = new HidInfo[0];   // collections seen by the last scan (for the log)
         static int listChanges = -1; static DateTime listAt;
-        static readonly int[] Vendors = { 0x1532, 0x373B, 0x3554, 0x3770, 0x046D, 0x1038, 0x03F0, 0x1B1C, 0x248A };
+        static readonly int[] Vendors = { 0x1532, 0x373B, 0x3554, 0x3770, 0x046D, 0x1038, 0x03F0, 0x1B1C, 0x248A, 0x1915 };
         public static string[] Others = new string[0];       // unsupported vendors' vendor collections (for the log)
 
         // One pass over every supported device. Safe to call from several threads (serialised).
@@ -66,6 +66,7 @@ namespace SwarlexBattery
                             case 0x03F0: ReadHyperX(grp.ToList(), outp); break;
                             case 0x1B1C: ReadCorsair(grp.ToList(), outp); break;
                             case 0x248A: ReadDarmoshark(grp.ToList(), outp); break;
+                            case 0x1915: ReadDarmoshark4K(grp.ToList(), outp); break;
                         }
                     }
                     catch (Exception e) { Trace.Add(string.Format("{0:X4}: {1}", grp.Key, e.Message)); }
@@ -274,6 +275,33 @@ namespace SwarlexBattery
                 }
                 outp.Add(r);
             }
+        }
+
+        // ---------------------------------------------------------------- Darmoshark 4K (Nordic, "4K NRF Dongle")
+        // The same vendor bundle drives these over output report 0xB3 on usage page FF0A (darmoshark-m3-configurator
+        // PROTOCOL.md, "Read configuration"): payload 06, reply input report [0] 05/06, [16] number of dpi levels,
+        // [5..6] first dpi (LE), [19] battery - bit 7 charging, bits 0-6 percent. Not verified on this hardware by
+        // that project, so a reply counts only when its dpi fields are plausible; otherwise it goes to the trace.
+        static void ReadDarmoshark4K(List<HidInfo> devs, List<Reading> outp)
+        {
+            var c = devs.FirstOrDefault(d => d.UsagePage == 0xFF0A && d.OutLen >= 64 && d.InLen >= 32
+                                         && (d.Pid == 0x0725 || (d.Product ?? "").IndexOf("NRF Dongle", StringComparison.OrdinalIgnoreCase) >= 0));
+            if (c == null) return;
+            var r = new Reading { Id = "dms4k-mouse", Name = "Darmoshark 4K", Kind = "mouse", Source = "darmoshark", Receiver = true };
+            using (var h = Open(c.Path))
+            {
+                if (h.IsInvalid) { Trace.Add("dms4k open failed " + System.Runtime.InteropServices.Marshal.GetLastWin32Error()); return; }
+                var x = Ask(h, new byte[] { 0xB3, 0x06 }, c.OutLen, c.InLen, 1000, q => q.Length >= 30 && (q[0] == 0x05 || q[0] == 0x06));
+                if (x == null) Trace.Add("dms4k: no reply");
+                else
+                {
+                    int gears = x[16], dpi = x[5] | (x[6] << 8), pct = x[19] & 0x7F;
+                    if (gears >= 1 && gears <= 8 && dpi >= 50 && dpi <= 26000 && pct >= 1 && pct <= 100)
+                    { r.Level = pct; r.Charging = (x[19] & 0x80) != 0; }
+                    else Trace.Add("dms4k in: " + Hex(x, 32));
+                }
+            }
+            outp.Add(r);
         }
 
         // ================================================================ Logitech HID++ 2.0

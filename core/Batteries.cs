@@ -83,7 +83,7 @@ namespace SwarlexBattery
             switch (vid)
             {
                 case 0x1532: return "razer"; case 0x046D: return "logitech"; case 0x1038: return "steelseries";
-                case 0x03F0: return "hyperx"; case 0x1B1C: return "corsair"; case 0x248A: return "darmoshark"; default: return "atk";
+                case 0x03F0: return "hyperx"; case 0x1B1C: return "corsair"; case 0x248A: case 0x1915: return "darmoshark"; default: return "atk";
             }
         }
 

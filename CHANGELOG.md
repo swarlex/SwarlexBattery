@@ -2,6 +2,11 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.4.8
+- Darmoshark 4K receiver ("4K NRF Dongle", 1915:0725, e.g. M3 4K): battery read with the vendor's read-
+  configuration request (output report 0xB3). Experimental: a reply is used only when its DPI fields are
+  plausible; otherwise it is written to the log for a fix.
+
 ## 1.4.7
 - The log also lists other vendors' vendor-defined HID collections (once per plug / unplug), so a
   device report for an unsupported mouse or keyboard shows its ids.
