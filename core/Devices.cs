@@ -37,7 +37,7 @@ namespace SwarlexBattery
                 if (listChanges != DeviceWatch.Changes || DateTime.UtcNow > listAt.AddSeconds(60))
                 {
                     listChanges = DeviceWatch.Changes; listAt = DateTime.UtcNow;
-                    LastList = List(new[] { 0x1532, 0x373B, 0x3554, 0x3770, 0x046D, 0x1038, 0x03F0, 0x1B1C });
+                    LastList = List(new[] { 0x1532, 0x373B, 0x3554, 0x3770, 0x046D, 0x1038, 0x03F0, 0x1B1C, 0x248A });
                 }
                 var all = LastList;
                 var outp = new List<Reading>();
@@ -53,6 +53,7 @@ namespace SwarlexBattery
                             case 0x1038: ReadSteelSeries(grp.ToList(), outp); break;
                             case 0x03F0: ReadHyperX(grp.ToList(), outp); break;
                             case 0x1B1C: ReadCorsair(grp.ToList(), outp); break;
+                            case 0x248A: ReadDarmoshark(grp.ToList(), outp); break;
                         }
                     }
                     catch (Exception e) { Trace.Add(string.Format("{0:X4}: {1}", grp.Key, e.Message)); }
@@ -164,6 +165,7 @@ namespace SwarlexBattery
         {
             foreach (var g in devs.GroupBy(d => d.Pid))
             {
+                if (g.Key == 0xFA09) { ReadAula(g.ToList(), outp); continue; }
                 var c = g.FirstOrDefault(d => d.UsagePage == 0xFF02 && d.Usage == 0x0002 && d.OutLen == 17);
                 if (c == null) continue;
                 var first = g.First();
@@ -172,6 +174,92 @@ namespace SwarlexBattery
                 var r = new Reading { Id = "atk-" + first.Vid.ToString("X4") + "-mouse", Name = Clean(first.Product), Kind = "mouse", Source = "atk", Receiver = dongle };
                 var v = Atk(c.Path, c.OutLen, c.InLen);
                 if (v != null) { r.Level = v[0]; r.Charging = v[1] != 0; }   // byte 7 = on the cable (powered)
+                outp.Add(r);
+            }
+        }
+
+        // ================================================================ AULA F75 (Compx 2.4G receiver 3554:FA09)
+        // Device-Battery-Info AulaProtocol (MIT), built from frames captured on real hardware: output report
+        // 0x13, 20 bytes, command 0x4A, byte-sum checksum last. Reply: level [5], state [6] (01 on battery,
+        // 10 on the cable; on the cable the level always reads 100, so it says nothing about the charge).
+        static byte AulaSum(byte[] f) { byte s = 0; for (int i = 0; i < 19; i++) s += f[i]; return s; }
+
+        static void ReadAula(List<HidInfo> devs, List<Reading> outp)
+        {
+            var c = devs.FirstOrDefault(d => d.UsagePage == 0xFF02 && d.Usage == 0x0002 && d.OutLen >= 20 && d.InLen >= 20);
+            if (c == null) return;
+            var r = new Reading { Id = "aula-f75", Name = "AULA F75", Kind = "keyboard", Source = "atk", Receiver = true };
+            var req = new byte[20]; req[0] = 0x13; req[1] = 0x4A; req[19] = AulaSum(req);
+            using (var h = Open(c.Path))
+            {
+                if (h.IsInvalid) return;
+                // the receiver also pushes other 0x13 frames (a 0x0A status among them): match command and checksum
+                var x = Ask(h, req, c.OutLen, c.InLen, 800, q => q.Length >= 20 && q[0] == 0x13 && (q[1] & 0x7F) == 0x4A && q[19] == AulaSum(q));
+                if (x != null && x[5] >= 1 && x[5] <= 100)
+                {
+                    if (x[6] == 0x10) r.Charging = true;     // on the cable: charging, level unknown (Level stays -1)
+                    else r.Level = x[5];
+                }
+            }
+            outp.Add(r);
+        }
+
+        // ================================================================ Darmoshark (Telink 248A, "dms" contract)
+        // darmoshark-m3-configurator (MIT) PROTOCOL.md, confirmed there on an M3: identify (opcode 0x06) through
+        // feature report 0x51 on the usage page 0x8C interface. Reply: [0] report id, [1] echo 06, [2] status
+        // 1 = ok, [11] battery %. Over the 2.4 GHz receiver the answer lands in the feature buffer, which keeps
+        // the previous answer: when it already echoes 06, the bond read (03, answered by the receiver itself)
+        // goes first, so an 06 echo can only be the new answer. A sleeping mouse never answers 06.
+        static readonly HashSet<int> DmsPids = new HashSet<int> { 0xFF10, 0xFF12, 0xFF18, 0xFF30, 0xFF31 };
+
+        static byte[] DmsGet(SafeFileHandle h, int len) { var b = new byte[len]; b[0] = 0x51; return HidD_GetFeature(h, b, len) ? b : null; }
+        static bool DmsSend(SafeFileHandle h, int len, byte op) { var b = new byte[len]; b[0] = 0x51; b[1] = op; return HidD_SetFeature(h, b, len); }
+        static byte[] DmsAwait(SafeFileHandle h, int len, byte op, int ms)
+        {
+            var end = DateTime.UtcNow.AddMilliseconds(ms);
+            while (DateTime.UtcNow < end)
+            {
+                var r = DmsGet(h, len);
+                if (r != null && r[1] == op) return r;
+                Thread.Sleep(10);
+            }
+            return null;
+        }
+
+        static void ReadDarmoshark(List<HidInfo> devs, List<Reading> outp)
+        {
+            foreach (var g in devs.GroupBy(d => d.Pid))
+            {
+                if (!DmsPids.Contains(g.Key)) continue;
+                var c = g.FirstOrDefault(d => d.UsagePage == 0x008C && d.FeatLen >= 21);
+                if (c == null) continue;
+                bool dongle = g.Key == 0xFF30;
+                string name = dongle ? "" : Clean(g.First().Product);
+                // the receiver and the mouse on its cable are one mouse
+                var r = new Reading { Id = "dms-mouse", Name = name == "" ? "Darmoshark" : name, Kind = "mouse", Source = "darmoshark", Receiver = dongle };
+                using (var h = CreateFile(c.Path, 0, SHARE_RW, IntPtr.Zero, OPEN_EXISTING, 0, IntPtr.Zero))
+                {
+                    if (h.IsInvalid) continue;
+                    byte[] x = null;
+                    if (dongle)
+                    {
+                        var cur = DmsGet(h, c.FeatLen);
+                        bool primed = cur == null || cur[1] != 0x06 || (DmsSend(h, c.FeatLen, 0x03) && DmsAwait(h, c.FeatLen, 0x03, 800) != null);
+                        if (primed && DmsSend(h, c.FeatLen, 0x06)) x = DmsAwait(h, c.FeatLen, 0x06, 1500);
+                    }
+                    else
+                    {
+                        for (int i = 0; i < 3 && x == null; i++)
+                        {
+                            if (!DmsSend(h, c.FeatLen, 0x06)) break;
+                            Thread.Sleep(80);
+                            var y = DmsGet(h, c.FeatLen);
+                            if (y != null && y[1] == 0x06) x = y; else Thread.Sleep(100);
+                        }
+                    }
+                    if (x != null && x.Length > 11 && x[2] == 1 && x[11] >= 1 && x[11] <= 100) r.Level = x[11];   // 0 = no reading, not an empty battery
+                    else if (x != null) Trace.Add("dms in: " + Hex(x, 16));
+                }
                 outp.Add(r);
             }
         }

@@ -2,6 +2,12 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.4.6
+- New: AULA F75 keyboard on its 2.4 GHz receiver (protocol from Device-Battery-Info, MIT). On the cable
+  the keyboard reports no level, so the last reading is shown as charging, marked approximate.
+- New: Darmoshark M3 family mice on the receiver and on the cable (protocol from
+  darmoshark-m3-configurator, MIT). A sleeping mouse shows its last reading as asleep.
+
 ## 1.4.5
 - Much lighter: about 10 MB of memory instead of about 100 MB (the flyout's drawing memory is given back
   when it closes), and other vendors' HID devices are no longer opened on every poll; the device list

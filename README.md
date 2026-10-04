@@ -89,6 +89,8 @@ Running the setup again upgrades an existing install and keeps your settings. To
 | **HyperX** | Cloud II Wireless, Cloud III Wireless, Cloud Alpha 2 |
 | **Corsair** | Void v2 Wireless, Virtuoso Max, HS80 Max |
 | **ATK / VXE / Pulsar / Hitscan** | MAD series and other mice using the same protocol (receiver and cable) |
+| **AULA** | F75 on its 2.4 GHz receiver (on the cable it reports no level: the last reading is shown as charging, marked `~`) |
+| **Darmoshark** | M3 family on the 2.4 GHz receiver and on the cable |
 | **Others** | Bluetooth devices whose battery Windows Settings shows, Xbox / XInput controllers, laptop battery |
 
 **Not possible yet:** the Logitech G435 on its USB receiver. The receiver does not speak HID++, and the

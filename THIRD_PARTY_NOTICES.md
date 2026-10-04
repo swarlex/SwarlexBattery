@@ -62,3 +62,5 @@ SOFTWARE.
 - Solaar: Logitech HID++ 2.0 features and the Li-ion voltage curve
 - OpenRazer: Razer battery commands and transaction ids
 - python-pulsar-mouse-tool (MIT): ATK / VXE / Pulsar 17-byte power query
+- [Device-Battery-Info](https://github.com/PyFlat/Device-Battery-Info) (MIT): AULA F75 battery frame (report 0x13, command 0x4A)
+- [darmoshark-m3-configurator](https://github.com/Barba2k2/darmoshark-m3-configurator) (MIT): Darmoshark identify / battery read (feature report 0x51)

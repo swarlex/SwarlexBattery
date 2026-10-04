@@ -83,7 +83,7 @@ namespace SwarlexBattery
             switch (vid)
             {
                 case 0x1532: return "razer"; case 0x046D: return "logitech"; case 0x1038: return "steelseries";
-                case 0x03F0: return "hyperx"; case 0x1B1C: return "corsair"; default: return "atk";
+                case 0x03F0: return "hyperx"; case 0x1B1C: return "corsair"; case 0x248A: return "darmoshark"; default: return "atk";
             }
         }
 
@@ -183,6 +183,12 @@ namespace SwarlexBattery
                 {
                     last[id] = new Dictionary<string, object> { { "pct", r.Level }, { "charging", r.Charging }, { "approx", r.Approx }, { "ts", now }, { "name", name }, { "kind", r.Kind }, { "realName", real } };
                     Add(list, new Gadget { Id = id, Name = name, Kind = r.Kind, Pct = r.Level, Charging = r.Charging, Approx = r.Approx, Online = true });
+                }
+                else if (r.Charging && prev != null)
+                {
+                    // charging but the device gives no level while on its cable (AULA F75): the last real
+                    // reading, marked approximate - the charge is at least that
+                    Add(list, new Gadget { Id = id, Name = name, Kind = r.Kind, Pct = Convert.ToInt32(prev["pct"]), Charging = true, Approx = true, Online = true });
                 }
                 else if (prev != null)
                 {
