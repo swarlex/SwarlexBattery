@@ -277,29 +277,42 @@ namespace SwarlexBattery
             }
         }
 
-        // ---------------------------------------------------------------- Darmoshark 4K (Nordic, "4K NRF Dongle")
-        // The same vendor bundle drives these over output report 0xB3 on usage page FF0A (darmoshark-m3-configurator
-        // PROTOCOL.md, "Read configuration"): payload 06, reply input report [0] 05/06, [16] number of dpi levels,
-        // [5..6] first dpi (LE), [19] battery - bit 7 charging, bits 0-6 percent. Not verified on this hardware by
-        // that project, so a reply counts only when its dpi fields are plausible; otherwise it goes to the trace.
+        // ---------------------------------------------------------------- Darmoshark 4K (Nordic, "4K NRF Dongle" 1915:0725)
+        // From the vendor's own web driver (the Keychron launcher bundle behind darmoshark.cc: usage page FF0A =
+        // "mouse_4k", protocol "4k", getPower). Unnumbered 64-byte reports: [0] command, [2] 0x81 = read, [3] item,
+        // [63] checksum = 161 - (sum of [0..62]). Command 0x01 item 1 = power; through the receiver the command gets
+        // bit 6 (0x41). Reply echoes [0] and [3]; [5] state (non-zero = charging: the driver then shows no level),
+        // [6] level %. Read-only; a sleeping mouse does not answer.
+        static byte[] Dms4kFrame(byte cmd)
+        {
+            var f = new byte[65];                       // [0] report id 0, then the 64-byte report
+            f[1] = cmd; f[3] = 0x81; f[4] = 0x01;
+            int sum = 0; for (int i = 1; i < 64; i++) sum += f[i];
+            f[64] = (byte)(161 - (sum & 0xFF));
+            return f;
+        }
+
         static void ReadDarmoshark4K(List<HidInfo> devs, List<Reading> outp)
         {
-            var c = devs.FirstOrDefault(d => d.UsagePage == 0xFF0A && d.OutLen >= 64 && d.InLen >= 32
+            var c = devs.FirstOrDefault(d => d.UsagePage == 0xFF0A && d.Usage == 0x0001 && d.OutLen >= 65 && d.InLen >= 65
                                          && (d.Pid == 0x0725 || (d.Product ?? "").IndexOf("NRF Dongle", StringComparison.OrdinalIgnoreCase) >= 0));
             if (c == null) return;
             var r = new Reading { Id = "dms4k-mouse", Name = "Darmoshark 4K", Kind = "mouse", Source = "darmoshark", Receiver = true };
             using (var h = Open(c.Path))
             {
                 if (h.IsInvalid) { Trace.Add("dms4k open failed " + System.Runtime.InteropServices.Marshal.GetLastWin32Error()); return; }
-                var x = Ask(h, new byte[] { 0xB3, 0x06 }, c.OutLen, c.InLen, 1000, q => q.Length >= 30 && (q[0] == 0x05 || q[0] == 0x06));
-                if (x == null) Trace.Add("dms4k: no reply");
-                else
+                byte[] x = null;
+                // through the receiver first (0x41), then the plain form (0x01)
+                foreach (byte cmd in new byte[] { 0x41, 0x01 })
                 {
-                    int gears = x[16], dpi = x[5] | (x[6] << 8), pct = x[19] & 0x7F;
-                    if (gears >= 1 && gears <= 8 && dpi >= 50 && dpi <= 26000 && pct >= 1 && pct <= 100)
-                    { r.Level = pct; r.Charging = (x[19] & 0x80) != 0; }
-                    else Trace.Add("dms4k in: " + Hex(x, 32));
+                    byte want = cmd;
+                    x = Ask(h, Dms4kFrame(cmd), c.OutLen, c.InLen, 700, q => q.Length >= 8 && q[1] == want && q[4] == 0x01);
+                    if (x != null) break;
                 }
+                if (x == null) Trace.Add("dms4k: no reply (asleep?)");
+                else if (x[6] != 0) r.Charging = true;                          // charging: the driver shows no level either
+                else if (x[7] >= 1 && x[7] <= 100) r.Level = x[7];
+                else Trace.Add("dms4k in: " + Hex(x, 16));
             }
             outp.Add(r);
         }
