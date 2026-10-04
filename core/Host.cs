@@ -42,12 +42,12 @@ namespace SwarlexBattery
             tray.Click += b => { if (b == MouseButtons.Right) flyout.ToggleMenu(); else flyout.TogglePanel(); };
             flyout = new Flyout(this);
             // placeholder until the first poll
-            tray.Sync(new List<TraySpec> { new TraySpec { Id = "all", Icon = "E83F", State = "off", Dim = true, Tooltip = Strings.T("tipLoading", Strings.T("title")) } });
+            tray.Sync(new List<TraySpec> { new TraySpec { Id = "all", Icon = "E83F", State = "off", Dim = true, Tooltip = Strings.T("title") } });
             MigrateWinBar();
             UpdateUninstallVersion();
             DeviceWatch.Start();
-            timer = new DispatcherTimer(DispatcherPriority.Background, ui) { Interval = TimeSpan.FromMilliseconds(250) };
-            timer.Tick += (s, e) => { try { Tick(); } catch (Exception ex) { Log.Write("tick: " + ex); } };
+            timer = new DispatcherTimer(DispatcherPriority.Background, ui) { Interval = TimeSpan.FromMilliseconds(500) };
+            timer.Tick += (s, e) => { try { Tick(); } catch (Exception ex) { Log.Once("tick: " + ex); } };
             timer.Start();
             Log.Write("SwarlexBattery v" + Program.AppVersion + " started (PID " + Process.GetCurrentProcess().Id + ", icon " + TrayRenderer.Size + " px, " + TrayRenderer.GlyphFont + ", language " + Strings.Lang + ")");
         }
@@ -93,7 +93,7 @@ namespace SwarlexBattery
             {
                 Snapshot snap = null;
                 try { snap = BatteryReader.Build(reader.Read()); }
-                catch (Exception e) { Log.Write("poll: " + e); }
+                catch (Exception e) { Log.Once("poll: " + e); }
                 ui.BeginInvoke(new Action(() =>
                 {
                     polling = false;

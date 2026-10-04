@@ -25,6 +25,7 @@ namespace SwarlexBattery
     {
         static readonly object ScanLock = new object();
         public static HidInfo[] LastList = new HidInfo[0];   // collections seen by the last scan (for the log)
+        static int listChanges = -1; static DateTime listAt;
 
         // One pass over every supported device. Safe to call from several threads (serialised).
         public static Reading[] ReadAll()
@@ -32,8 +33,13 @@ namespace SwarlexBattery
             lock (ScanLock)
             {
                 if (Trace.Count > 500) Trace.Clear();   // debug trail only; keep it from growing forever
-                var all = List(new[] { 0x1532, 0x373B, 0x3554, 0x3770, 0x046D, 0x1038, 0x03F0, 0x1B1C });
-                LastList = all;
+                // the device list changes only when something is plugged in or out: scan again then (or once a minute)
+                if (listChanges != DeviceWatch.Changes || DateTime.UtcNow > listAt.AddSeconds(60))
+                {
+                    listChanges = DeviceWatch.Changes; listAt = DateTime.UtcNow;
+                    LastList = List(new[] { 0x1532, 0x373B, 0x3554, 0x3770, 0x046D, 0x1038, 0x03F0, 0x1B1C });
+                }
+                var all = LastList;
                 var outp = new List<Reading>();
                 foreach (var grp in all.GroupBy(d => d.Vid))
                 {

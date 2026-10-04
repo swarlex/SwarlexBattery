@@ -77,6 +77,14 @@ namespace SwarlexBattery
             file = path;
             try { if (File.Exists(file) && new FileInfo(file).Length > 1024 * 1024) File.Delete(file); } catch { }
         }
+        // for errors that would repeat on every poll: each distinct message is written once per run
+        static readonly HashSet<string> Seen = new HashSet<string>();
+        public static void Once(string msg)
+        {
+            lock (Sync) { if (Seen.Count > 200 || !Seen.Add(msg)) return; }
+            Write(msg);
+        }
+
         public static void Write(string msg)
         {
             lock (Sync) { try { File.AppendAllText(file, DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss'Z' ") + msg + Environment.NewLine, new UTF8Encoding(false)); } catch { } }

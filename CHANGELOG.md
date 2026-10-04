@@ -2,6 +2,17 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.4.5
+- Much lighter: about 10 MB of memory instead of about 100 MB (the flyout's drawing memory is given back
+  when it closes), and other vendors' HID devices are no longer opened on every poll; the device list
+  is scanned again only when something is plugged in or out.
+- The last readings are saved to disk only when they change (was every 10 seconds).
+- The tray icon keeps its place when no device is found (it used to be replaced by a new icon).
+- Screen readers announce "Batteries" plus the levels (the name used to start with "loading").
+- `external.json`: an entry without a level is skipped instead of shown as 0 %, and one broken entry
+  no longer hides the others.
+- A damaged `hid-last.json` no longer stops all readings; repeating errors are logged once.
+
 ## 1.4.4
 - Unlisted Logitech headsets are only probed on collections shaped like HID++ (20-byte reports); other
   vendor interfaces, such as the audio chip of the G435 receiver, are never written to.

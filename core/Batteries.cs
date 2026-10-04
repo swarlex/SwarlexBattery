@@ -46,7 +46,13 @@ namespace SwarlexBattery
             {
                 if (File.Exists(lastFile))
                     foreach (var kv in Json.Deserialize<Dictionary<string, object>>(File.ReadAllText(lastFile)))
-                    { var d = kv.Value as Dictionary<string, object>; if (d != null) last[kv.Key] = d; }
+                    {
+                        // only complete entries: a damaged file must not break every later poll
+                        var d = kv.Value as Dictionary<string, object>;
+                        long ts; int pct;
+                        if (d != null && d.ContainsKey("ts") && d.ContainsKey("pct") && long.TryParse(Convert.ToString(d["ts"], CultureInfo.InvariantCulture), out ts)
+                            && int.TryParse(Convert.ToString(d["pct"], CultureInfo.InvariantCulture), out pct) && pct >= 0 && pct <= 100) last[kv.Key] = d;
+                    }
             }
             catch { }
         }
@@ -117,7 +123,7 @@ namespace SwarlexBattery
                     if ((ps.BatteryChargeStatus & BatteryChargeStatus.NoSystemBattery) == 0 && ps.BatteryLifePercent <= 1)
                         Add(list, new Gadget { Id = "system", Name = Strings.T("thisPc"), Kind = "laptop", Pct = (int)Math.Round(ps.BatteryLifePercent * 100), Charging = (ps.BatteryChargeStatus & BatteryChargeStatus.Charging) != 0, Online = true });
                 }
-                catch (Exception e) { Log.Write("system battery: " + e.Message); }
+                catch (Exception e) { Log.Once("system battery: " + e.Message); }
             }
             if (Config.Bool(S("bluetooth"), true))
             {
@@ -131,7 +137,7 @@ namespace SwarlexBattery
                         Add(list, new Gadget { Id = "bt-" + d.Mac, Name = d.Name, Kind = GuessKind(d.Name, d.Class), Pct = d.Level, Online = d.Connected });
                     }
                 }
-                catch (Exception e) { Log.Write("bluetooth: " + e.Message); }
+                catch (Exception e) { Log.Once("bluetooth: " + e.Message); }
             }
             return list;
         }
@@ -152,7 +158,7 @@ namespace SwarlexBattery
                     if (!r.Receiver && !string.IsNullOrEmpty(r.Name)) realNames[r.Id] = r.Name;
                 }
             }
-            catch (Exception e) { Log.Write("HID: " + e.Message); return; }
+            catch (Exception e) { Log.Once("HID: " + e.Message); return; }
             // which devices answered, written when that changes: the first thing to look at in a device report
             var pids = Hid.LastList.Select(d => d.Vid.ToString("X4") + ":" + d.Pid.ToString("X4")).Distinct().OrderBy(x => x).ToList();
             var seen = string.Join(",", order.Select(i => i + (byId[i].Level >= 0 ? "+" : "-"))) + "|" + string.Join(",", pids);
@@ -193,8 +199,14 @@ namespace SwarlexBattery
                 }
             }
             foreach (var k in last.Keys.ToList()) { object ts; if (!last[k].TryGetValue("ts", out ts) || now - Convert.ToInt64(ts) > 604800) last.Remove(k); }   // forget after a week
-            try { File.WriteAllText(lastFile, Json.Serialize(last), new UTF8Encoding(false)); } catch { }
+            // saved when a value changes, otherwise every 5 minutes (only for "last reading N min ago" after a restart)
+            var sig = string.Join(";", last.OrderBy(kv => kv.Key).Select(kv => kv.Key + "=" + kv.Value["pct"] + "/" + kv.Value["charging"] + "/" + kv.Value["name"]));
+            if (sig != lastSaved || now - lastSavedAt >= 300)
+            {
+                try { File.WriteAllText(lastFile, Json.Serialize(last), new UTF8Encoding(false)); lastSaved = sig; lastSavedAt = now; } catch { }
+            }
         }
+        string lastSaved; long lastSavedAt;
 
         // %APPDATA%\SwarlexBattery\gadgets\external.json: [{"id","name","kind","pct","charging","ts","ttl","left","right","case"}]
         void ReadExternal(List<Gadget> list)
@@ -209,17 +221,23 @@ namespace SwarlexBattery
                 if (arr == null) return;
                 foreach (var o in arr)
                 {
-                    var e = o as Dictionary<string, object>; if (e == null || !e.ContainsKey("name")) continue;
-                    Func<string, object> f = k => e.ContainsKey(k) ? e[k] : null;
-                    bool online = !(f("ts") != null && f("ttl") != null && now - Convert.ToInt64(f("ts")) > Convert.ToInt64(f("ttl")));
-                    if (!online && !Config.Bool(S("showDisconnected"), false)) continue;
-                    var parts = new List<string>();
-                    foreach (var k in new[] { "left", "right", "case" }) if (f(k) != null && Convert.ToInt32(f(k)) >= 0) parts.Add(k + " " + f(k) + "%");
-                    Add(list, new Gadget { Id = (f("id") ?? f("name")).ToString(), Name = f("name").ToString(), Kind = (f("kind") ?? "other").ToString(),
-                        Pct = Math.Max(0, Math.Min(100, Convert.ToInt32(f("pct") ?? 0))), Charging = f("charging") is bool && (bool)f("charging"), Online = online, Detail = string.Join(", ", parts) });
+                    // entries without a name or a level are skipped (a missing level is never shown as 0 %);
+                    // one bad entry does not hide the others
+                    var e = o as Dictionary<string, object>; if (e == null || !e.ContainsKey("name") || !e.ContainsKey("pct") || e["pct"] == null) continue;
+                    try
+                    {
+                        Func<string, object> f = k => e.ContainsKey(k) ? e[k] : null;
+                        bool online = !(f("ts") != null && f("ttl") != null && now - Convert.ToInt64(f("ts")) > Convert.ToInt64(f("ttl")));
+                        if (!online && !Config.Bool(S("showDisconnected"), false)) continue;
+                        var parts = new List<string>();
+                        foreach (var k in new[] { "left", "right", "case" }) if (f(k) != null && Convert.ToInt32(f(k)) >= 0) parts.Add(k + " " + f(k) + "%");
+                        Add(list, new Gadget { Id = "ext-" + (f("id") ?? f("name")), Name = f("name").ToString(), Kind = (f("kind") ?? "other").ToString(),
+                            Pct = Math.Max(0, Math.Min(100, Convert.ToInt32(f("pct")))), Charging = f("charging") is bool && (bool)f("charging"), Online = online, Detail = string.Join(", ", parts) });
+                    }
+                    catch (Exception ex) { Log.Once("external.json entry '" + e["name"] + "': " + ex.Message); }
                 }
             }
-            catch (Exception e) { Log.Write("external.json: " + e.Message); }
+            catch (Exception e) { Log.Once("external.json: " + e.Message); }
         }
 
         // ------------------------------------------------------------ what to show
@@ -269,7 +287,8 @@ namespace SwarlexBattery
                         Tooltip = g.Name + ": " + (g.Approx ? "~" : "") + g.Pct + "%" + (g.Charging && g.Pct >= 100 ? Strings.T("tipFull") : g.Charging ? Strings.T("tipCharging") : g.Asleep ? Strings.T("tipAsleep") : !g.Online ? Strings.T("tipNotConnected") : "") });
             }
             // nothing found yet: one dim battery icon keeps the menu (and Exit) reachable
-            if (snap.Icons.Count == 0) snap.Icons.Add(new TraySpec { Id = "none", Icon = "E83F", State = "off", Dim = true, Tooltip = Strings.T("noDevicesTip") });
+            // (same id as the combined icon: the tray keeps its place instead of a new icon appearing)
+            if (snap.Icons.Count == 0) snap.Icons.Add(new TraySpec { Id = "all", Icon = "E83F", State = "off", Dim = true, Tooltip = Strings.T("noDevicesTip") });
             return snap;
         }
     }

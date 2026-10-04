@@ -61,6 +61,19 @@ namespace SwarlexBattery
         {
             if (Open != null) { lastClosed = Open; lastClosedAt = DateTime.Now; }
             Open = null; win.Hide();
+            TrimSoon();
+        }
+
+        // a few seconds after the flyout closed (and it stayed closed), give the drawing memory back
+        System.Windows.Threading.DispatcherTimer trim;
+        void TrimSoon()
+        {
+            if (trim == null)
+            {
+                trim = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+                trim.Tick += (s, e) => { trim.Stop(); if (Open == null) Win.TrimMemory(); };
+            }
+            trim.Stop(); trim.Start();
         }
 
         // the click that deactivated (and closed) the flyout must not reopen it
@@ -138,6 +151,7 @@ namespace SwarlexBattery
                 RenderPanel(); win.UpdateLayout();
                 scroll.Content = BuildMenu(); win.UpdateLayout();
                 win.Hide();
+                TrimSoon();
             }
             catch (Exception e) { Log.Write("warm: " + e.Message); }
             finally { win.ShowActivated = true; }

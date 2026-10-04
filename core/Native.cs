@@ -54,6 +54,15 @@ namespace SwarlexBattery
             return ok;
         }
 
+        [DllImport("kernel32.dll")] static extern IntPtr GetCurrentProcess();
+        [DllImport("kernel32.dll")] static extern bool SetProcessWorkingSetSize(IntPtr p, IntPtr min, IntPtr max);
+        // After the flyout closes, WPF's drawing memory sits unused until the next click: hand it back to Windows.
+        public static void TrimMemory()
+        {
+            GC.Collect(); GC.WaitForPendingFinalizers();
+            SetProcessWorkingSetSize(GetCurrentProcess(), new IntPtr(-1), new IntPtr(-1));
+        }
+
         [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr h, int attr, ref int val, int size);
         // Windows 11 look for the flyout: rounded corners, the system border and shadow, dark frame.
         // (DWM draws them itself, so there is exactly one frame; ignored on Windows 10.)

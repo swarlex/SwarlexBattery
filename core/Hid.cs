@@ -74,6 +74,13 @@ namespace SwarlexBattery
                         path = Marshal.PtrToStringAuto(new IntPtr(buf.ToInt64() + 4));
                     }
                     finally { Marshal.FreeHGlobal(buf); }
+                    // the vendor id is part of the path (USB "vid_1532", Bluetooth "_vid&00021532"): other
+                    // vendors' devices (keyboards, cameras, ...) are skipped without being opened at all
+                    if (vids != null && vids.Length > 0)
+                    {
+                        var m = System.Text.RegularExpressions.Regex.Match(path, @"vid[_&](?:0002|0001)?([0-9a-f]{4})", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                        if (m.Success && Array.IndexOf(vids, Convert.ToInt32(m.Groups[1].Value, 16)) < 0) continue;
+                    }
                     using (var h = CreateFile(path, 0, SHARE_RW, IntPtr.Zero, OPEN_EXISTING, 0, IntPtr.Zero))
                     {
                         if (h.IsInvalid) continue;
