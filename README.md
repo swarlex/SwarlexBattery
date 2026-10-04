@@ -90,7 +90,7 @@ Running the setup again upgrades an existing install and keeps your settings. To
 | **Corsair** | Void v2 Wireless, Virtuoso Max, HS80 Max |
 | **ATK / VXE / Pulsar / Hitscan** | MAD series and other mice using the same protocol (receiver and cable) |
 | **AULA** | F75 on its 2.4 GHz receiver (on the cable it reports no level: the last reading is shown as charging, marked `~`) |
-| **Darmoshark** | M3 family on the 2.4 GHz receiver and on the cable |
+| **Darmoshark** | M3, M3S and N3 (Telink models) on the 2.4 GHz receiver and on the cable. Not the M3 4K: it uses a Nordic chip whose protocol is not published |
 | **Others** | Bluetooth devices whose battery Windows Settings shows, Xbox / XInput controllers, laptop battery |
 
 **Not possible yet:** the Logitech G435 on its USB receiver. The receiver does not speak HID++, and the

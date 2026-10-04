@@ -161,7 +161,7 @@ namespace SwarlexBattery
             catch (Exception e) { Log.Once("HID: " + e.Message); return; }
             // which devices answered, written when that changes: the first thing to look at in a device report
             var pids = Hid.LastList.Select(d => d.Vid.ToString("X4") + ":" + d.Pid.ToString("X4")).Distinct().OrderBy(x => x).ToList();
-            var seen = string.Join(",", order.Select(i => i + (byId[i].Level >= 0 ? "+" : "-"))) + "|" + string.Join(",", pids);
+            var seen = string.Join(",", order.Select(i => i + (byId[i].Level >= 0 ? "+" : "-"))) + "|" + string.Join(",", pids) + "|" + Hid.Others.Length;
             if (seen != lastSeen)
             {
                 lastSeen = seen;
@@ -169,6 +169,7 @@ namespace SwarlexBattery
                 // devices of supported vendors that gave no reading at all: their collections tell which protocol fits
                 var quiet = Hid.LastList.Where(d => !byId.Values.Any(r => r.Level >= 0 && r.Source == SourceOf(d.Vid))).Select(d => d.ToString()).Distinct().ToList();
                 if (quiet.Count > 0) Log.Write("HID unread: " + string.Join("; ", quiet.Take(40)));
+                if (Hid.Others.Length > 0) Log.Write("HID other vendors: " + string.Join("; ", Hid.Others.Take(40)));
                 if (order.Any(i => byId[i].Level < 0) || quiet.Count > 0) lock (Hid.Trace) Log.Write("HID trace: " + string.Join(" | ", Hid.Trace.Skip(Math.Max(0, Hid.Trace.Count - 12))));
             }
 

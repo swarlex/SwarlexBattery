@@ -2,6 +2,12 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.4.7
+- The log also lists other vendors' vendor-defined HID collections (once per plug / unplug), so a
+  device report for an unsupported mouse or keyboard shows its ids.
+- README: Darmoshark support covers the Telink models (M3, M3S, N3); the M3 4K uses a Nordic chip with
+  an unpublished protocol.
+
 ## 1.4.6
 - New: AULA F75 keyboard on its 2.4 GHz receiver (protocol from Device-Battery-Info, MIT). On the cable
   the keyboard reports no level, so the last reading is shown as charging, marked approximate.

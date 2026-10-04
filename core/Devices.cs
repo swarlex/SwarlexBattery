@@ -26,6 +26,8 @@ namespace SwarlexBattery
         static readonly object ScanLock = new object();
         public static HidInfo[] LastList = new HidInfo[0];   // collections seen by the last scan (for the log)
         static int listChanges = -1; static DateTime listAt;
+        static readonly int[] Vendors = { 0x1532, 0x373B, 0x3554, 0x3770, 0x046D, 0x1038, 0x03F0, 0x1B1C, 0x248A };
+        public static string[] Others = new string[0];       // unsupported vendors' vendor collections (for the log)
 
         // One pass over every supported device. Safe to call from several threads (serialised).
         public static Reading[] ReadAll()
@@ -36,8 +38,18 @@ namespace SwarlexBattery
                 // the device list changes only when something is plugged in or out: scan again then (or once a minute)
                 if (listChanges != DeviceWatch.Changes || DateTime.UtcNow > listAt.AddSeconds(60))
                 {
+                    bool plugged = listChanges != DeviceWatch.Changes;
                     listChanges = DeviceWatch.Changes; listAt = DateTime.UtcNow;
-                    LastList = List(new[] { 0x1532, 0x373B, 0x3554, 0x3770, 0x046D, 0x1038, 0x03F0, 0x1B1C, 0x248A });
+                    LastList = List(Vendors);
+                    if (plugged)
+                    // for device reports: other vendors' vendor-defined collections (where battery protocols live),
+                    // listed once per plug / unplug - this is how an unsupported mouse shows its ids in the log
+                    try
+                    {
+                        Others = List(null).Where(d => Array.IndexOf(Vendors, d.Vid) < 0 && d.UsagePage >= 0xFF00)
+                                           .Select(d => d.ToString() + " if=" + d.Interface).Distinct().ToArray();
+                    }
+                    catch { Others = new string[0]; }
                 }
                 var all = LastList;
                 var outp = new List<Reading>();
