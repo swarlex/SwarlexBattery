@@ -48,4 +48,12 @@ body:
     id: version
     attributes:
       label: SwarlexBattery version
-      placeholder: v1.3.1
+      placeholder: v1.4.4
+  - type: textarea
+    id: log
+    attributes:
+      label: Log lines
+      description: |
+        Open `%LOCALAPPDATA%\SwarlexBattery\swarlexbattery.log` with the device switched on and paste the
+        last `HID devices`, `HID unread` and `HID trace` lines. They contain no personal data.
+      render: text

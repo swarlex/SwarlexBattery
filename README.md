@@ -40,7 +40,7 @@ mouse, the right half the headset. Left click for details, right click for the m
 - **Talks to the devices directly** over HID: Razer, Logitech, SteelSeries, HyperX, Corsair, ATK / VXE
   and more, plus Bluetooth devices, Xbox controllers and the laptop battery.
 - **Honest numbers**: a value is shown only when the device itself answered (see [below](#how-honest-are-the-numbers)).
-- **Small and light**: about 200 KB, no runtime to install, nothing running besides the tray icon.
+- **Small and light**: one 130 KB exe written in C#, nothing to install besides it, no scripts, no services.
 - **English and Turkish**, following the Windows display language.
 - **Updates itself** from GitHub Releases when you click *Update*, with a SHA-256 check.
 - **Free and open source** under the GNU GPL v3.
@@ -74,7 +74,10 @@ Running the setup again upgrades an existing install and keeps your settings. To
 
 > [!NOTE]
 > The files are not code-signed, so Windows SmartScreen may warn on the first launch
-> (*More info* > *Run anyway*). You can also [build them yourself](#building) from this source.
+> (*More info* > *Run anyway*). Some antivirus programs with machine-learning detection (for example
+> Malwarebytes `MachineLearning/Anomalous`) may flag a new, unsigned release as a false positive; such a
+> detection names no actual threat. You can check every release on VirusTotal, or
+> [build it yourself](#building) from this source.
 
 ## Supported devices
 
@@ -92,14 +95,15 @@ Running the setup again upgrades an existing install and keeps your settings. To
 only known way to read its battery interrupts the audio (Logitech G HUB does not show it either). Over
 Bluetooth it appears if Windows Settings shows its battery.
 
-So far the Razer BlackShark V2 HyperSpeed and a VXE MAD mouse are tested on real hardware; the other
-readers follow published protocol documentation. **Does yours work, or not?** Please tell us with a
-[device report](https://github.com/swarlex/SwarlexBattery/issues/new?template=device_request.yml).
+Tested on real hardware so far: Razer BlackShark V2 HyperSpeed and VXE MAD 8K. The other readers follow
+published protocol documentation. **Does yours work, or not?** Please tell us with a
+[device report](https://github.com/swarlex/SwarlexBattery/issues/new?template=device_request.yml) and add
+the `HID devices` / `HID unread` lines from the log: they show what your device answered.
 
 <details>
 <summary>Your device is not listed? Feed it from another program</summary>
 
-Any program can write `%APPDATA%SwarlexBatterygadgetsexternal.json`; SwarlexBattery shows what it contains:
+Any program can write `%APPDATA%\SwarlexBattery\gadgets\external.json`; SwarlexBattery shows what it contains:
 
 ```json
 [{"id": "speaker", "name": "Speaker", "kind": "speaker", "pct": 64, "charging": false, "ts": 1760000000, "ttl": 300}]
@@ -200,7 +204,9 @@ yanında tek bir ikonla gösterir. Halkanın sol yarısı mouse, sağ yarısı k
 - **Dil:** Windows dili Türkçeyse Türkçe açılır; sağ tık menüsündeki *Dil* ile değiştirilebilir.
 - **Güncelleme:** Yeni sürüm çıkınca sağ tık menüsünde *Güncelle* görünür.
 - **Kaldırma:** Ayarlar > Uygulamalar > SwarlexBattery.
-- Cihazın çalışmıyorsa bir [cihaz bildirimi](https://github.com/swarlex/SwarlexBattery/issues/new?template=device_request.yml) aç.
+- Cihazın çalışmıyorsa bir [cihaz bildirimi](https://github.com/swarlex/SwarlexBattery/issues/new?template=device_request.yml) aç ve günlükteki `HID devices` / `HID unread` satırlarını ekle.
+- **Antivirüs:** Dosyalar imzasız olduğu için bazı antivirüsler (ör. Malwarebytes `MachineLearning/Anomalous`) yeni sürümleri yanlışlıkla işaretleyebilir. Bu bir tehdit adı değil, "tanımadığım program" tahminidir. Kaynak kod açık; istersen kendin derleyebilirsin.
+- **Logitech G435:** USB alıcısıyla pili okunamıyor (alıcı pil bilgisini vermiyor); Bluetooth ile bağlıyken Windows gösteriyorsa görünür.
 
 ## License
 
