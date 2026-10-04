@@ -1,3 +1,6 @@
 dist/
 *.new
 *.old
+
+# local notes for the coding assistant (not part of the project)
+CLAUDE.md
