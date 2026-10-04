@@ -1,7 +1,6 @@
 {
   "language": "auto",
   "monochrome": true,
-  "simpleMenu": true,
   "quietWhileGaming": true,
   "alwaysShowInTray": true,
   "update": {
@@ -14,7 +13,6 @@
     "maxHeight": 620
   },
   "theme": {
-    "background": "#1c1c1c",
     "panel": "#EB202020",
     "foreground": "#f2f2f2",
     "muted": "#9a9a9a",
@@ -23,8 +21,18 @@
     "warn": "#f5a524",
     "error": "#f04a4a"
   },
-  "order": ["gadgets"],
   "plugins": {
-    "gadgets": {}
+    "gadgets": {
+      "systemBattery": true,
+      "bluetooth": true,
+      "xinput": true,
+      "showDisconnected": false,
+      "showPercentage": true,
+      "lowThreshold": 15,
+      "names": {},
+      "externalPath": "",
+      "hid": true,
+      "combine": true
+    }
   }
 }

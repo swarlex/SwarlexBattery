@@ -2,6 +2,13 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.4.0
+- Rewritten in C#: the app no longer runs PowerShell or unpacks scripts, so it starts faster, uses less
+  memory and looks less suspicious to antivirus heuristics.
+- "Check for updates" shows "Checking...", then the result right in the menu.
+- Fixed two menu rows staying highlighted at the same time.
+- Removed: scripts in `collectors.d`. Other programs can still report batteries through `external.json`.
+
 ## 1.3.2
 - The update check no longer uses the GitHub API, so it is not affected by its rate limit
   (60 requests per hour per IP address); the API is only a fallback.

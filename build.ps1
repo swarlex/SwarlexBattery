@@ -1,13 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 <#
-.SYNOPSIS  Builds dist\SwarlexBattery.exe: one file, scripts + plugins embedded, no install needed.
+.SYNOPSIS  Builds dist\SwarlexBattery.exe: one file, pure C#, no install needed.
            Uses the C# compiler that ships with Windows (.NET Framework 4.x) - nothing to download.
 #>
 $ErrorActionPreference = 'Stop'
 $here = $PSScriptRoot
 $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if (-not (Test-Path -LiteralPath $csc)) { $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe' }
-$sma = [PSObject].Assembly.Location
 $dist = Join-Path $here 'dist'
 $null = New-Item -ItemType Directory -Force -Path $dist
 
@@ -70,14 +69,13 @@ if (-not (Test-Path -LiteralPath $ico)) {
     [IO.File]::WriteAllBytes($ico, $out.ToArray())
 }
 
-# ---- embed every runtime file as app/<relative path>
-$include = @('SwarlexBattery.ps1', 'config.default.json', 'VERSION', 'lang', 'core\Native.cs', 'core\Hid.cs', 'core\Devices.cs', 'plugins', 'tools')
-$resArgs = foreach ($item in $include) {
-    Get-ChildItem -LiteralPath (Join-Path $here $item) -Recurse -File | ForEach-Object {
-        $rel = $_.FullName.Substring($here.Length + 1).Replace('\', '/')
-        "/resource:`"$($_.FullName)`",app/$rel"
-    }
-}
+# ---- settings defaults and texts are embedded; everything else is compiled C#
+$resArgs = @(
+    "/resource:`"$(Join-Path $here 'config.default.json')`",config.default.json",
+    "/resource:`"$(Join-Path $here 'lang\en.json')`",lang.en.json",
+    "/resource:`"$(Join-Path $here 'lang\tr.json')`",lang.tr.json")
+$sources = foreach ($f in 'App', 'Host', 'Batteries', 'Tray', 'Flyout', 'Updater', 'Native', 'Hid', 'Devices') { Join-Path $here "core\$f.cs" }
+$wpf = Join-Path ([Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory()) 'WPF'
 
 # csc's temp files break on very long paths: build in a short temp dir, then copy.
 $work = Join-Path ([IO.Path]::GetTempPath()) 'swarlexbattery-build'
@@ -94,10 +92,11 @@ Set-Content -LiteralPath $asmInfo -Encoding UTF8 -Value @(
     "[assembly: System.Reflection.AssemblyInformationalVersion(`"$version`")]")
 $tmpExe = Join-Path $work 'SwarlexBattery.exe'
 $exe = Join-Path $dist 'SwarlexBattery.exe'
-$cscArgs = @('/nologo', '/target:winexe', '/optimize+', '/platform:anycpu', "/out:$tmpExe", "/win32icon:$work\swarlexbattery.ico", "/win32manifest:$work\app.manifest",
-    "/reference:$sma", '/reference:System.Windows.Forms.dll', '/reference:System.Drawing.dll', '/reference:System.Core.dll') +
-    @($resArgs) + @((Join-Path $here 'core\Launcher.cs'), (Join-Path $here 'core\Native.cs'), (Join-Path $here 'core\Hid.cs'), (Join-Path $here 'core\Devices.cs'), $asmInfo)
-& $csc @cscArgs
+$cscArgs = @('/nologo', '/target:winexe', '/optimize+', '/platform:anycpu', '/codepage:65001', "/out:$tmpExe", "/win32icon:$work\swarlexbattery.ico", "/win32manifest:$work\app.manifest",
+    '/reference:System.Windows.Forms.dll', '/reference:System.Drawing.dll', '/reference:System.Core.dll', '/reference:System.Web.Extensions.dll', '/reference:System.Xaml.dll',
+    "/reference:$wpf\PresentationFramework.dll", "/reference:$wpf\PresentationCore.dll", "/reference:$wpf\WindowsBase.dll") +
+    @($resArgs) + @($sources) + @($asmInfo)
+& $csc @cscArgs | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "csc failed ($LASTEXITCODE)" }
 # a copy started from dist\ keeps the exe locked: a running exe can be renamed, so move it aside
 if (Test-Path -LiteralPath $exe) {
@@ -116,7 +115,7 @@ $setupArgs = @('/nologo', '/target:winexe', '/optimize+', '/platform:anycpu', '/
     '/reference:System.Windows.Forms.dll', '/reference:System.Drawing.dll', '/reference:System.Core.dll', '/reference:System.Web.Extensions.dll',
     "/resource:$tmpExe,app.exe", "/resource:$work\LICENSE,LICENSE",
     (Join-Path $here 'core\Setup.cs'), $asmInfo)
-& $csc @setupArgs
+& $csc @setupArgs | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "csc (setup) failed ($LASTEXITCODE)" }
 Copy-Item -LiteralPath $tmpSetup -Destination $setup -Force
 Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue

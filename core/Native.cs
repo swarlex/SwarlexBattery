@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// SwarlexBattery native helpers: Win32 calls the PowerShell host cannot make on its own.
+// SwarlexBattery native helpers: Win32 calls that WinForms / WPF do not offer.
 // User-level APIs only: no drivers, no injection, no elevation.
 using System;
 using System.Collections.Generic;

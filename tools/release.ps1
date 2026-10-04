@@ -49,6 +49,8 @@ $sha = "$exe.sha256"
 # 3. commit + push
 $msg = "v$Version`: $Notes"
 if ($ByClaude) { $msg += "`n`nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" }
+# git writes harmless notes (e.g. line-ending warnings) to stderr; only exit codes count from here on
+$ErrorActionPreference = 'Continue'
 git add -A
 git commit -q -m $msg
 if ($LASTEXITCODE -ne 0) { throw 'git commit failed' }

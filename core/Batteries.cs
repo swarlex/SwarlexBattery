@@ -1,0 +1,308 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Battery sources and the rules that turn readings into what the tray and the flyout show.
+// Honesty rules: a value is shown only when the device itself answered. One missed answer keeps the
+// last value for 45 s (no flicker); after that the device is shown dimmed as asleep with the age of
+// its last reading; after 24 h it disappears.
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Web.Script.Serialization;
+using System.Windows.Forms;
+
+namespace SwarlexBattery
+{
+    class Gadget
+    {
+        public string Id, Name, Kind, Detail;
+        public int Pct;
+        public bool Charging, Approx, Online, Asleep;
+    }
+
+    class TraySpec { public string Id, Icon, State, Tooltip; public double? Ring; public double[] Rings; public bool Charging, Dim; }
+    class PanelItem { public string Icon, Label, Value, State, Sub; public double Pct; }
+    class Notice { public string Key, Title, Body; }
+    class Snapshot { public List<TraySpec> Icons = new List<TraySpec>(); public List<PanelItem> Items = new List<PanelItem>(); public string Empty; public List<Notice> Notify = new List<Notice>(); public string Title; }
+
+    class BatteryReader
+    {
+        static readonly JavaScriptSerializer Json = new JavaScriptSerializer();
+        readonly string lastFile = Path.Combine(Program.CacheDir, "state", "gadgets", "hid-last.json");
+        Dictionary<string, Dictionary<string, object>> last = new Dictionary<string, Dictionary<string, object>>();
+        List<Gadget> slow = new List<Gadget>(); DateTime slowAt = DateTime.MinValue;
+
+        static string S(string key) { return "plugins.gadgets." + key; }
+
+        public BatteryReader()
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(lastFile));
+            try
+            {
+                if (File.Exists(lastFile))
+                    foreach (var kv in Json.Deserialize<Dictionary<string, object>>(File.ReadAllText(lastFile)))
+                    { var d = kv.Value as Dictionary<string, object>; if (d != null) last[kv.Key] = d; }
+            }
+            catch { }
+        }
+
+        static readonly Dictionary<string, string> KindIcons = new Dictionary<string, string> {
+            { "earbuds", "E7F6" }, { "headphones", "E7F6" }, { "mouse", "E962" }, { "keyboard", "E765" }, { "gamepad", "E7FC" },
+            { "pen", "EDC6" }, { "watch", "E916" }, { "speaker", "E7F5" }, { "phone", "E8EA" }, { "laptop", "E7F8" }, { "other", "E702" } };
+        public static string IconFor(string kind) { string i; return KindIcons.TryGetValue(kind ?? "other", out i) ? i : KindIcons["other"]; }
+
+        static string GuessKind(string name, string cls)
+        {
+            var n = (name ?? "").ToLowerInvariant();
+            if (Regex.IsMatch(n, "buds|airpods|earbud|wf-|freebuds|pods")) return "earbuds";
+            if (Regex.IsMatch(n, @"headset|headphone|wh-|bose|qc\d|jbl|sony|arctis|hyperx|corsair")) return "headphones";
+            if (Regex.IsMatch(n, @"mouse|mx master|mx anywhere|g\d{3}|viper|deathadder|razer")) return "mouse";
+            if (Regex.IsMatch(n, @"keyboard|keys|mx keys|k\d{3}")) return "keyboard";
+            if (Regex.IsMatch(n, "controller|xbox|dualsense|dualshock|gamepad|pro controller")) return "gamepad";
+            if (Regex.IsMatch(n, "pen|stylus")) return "pen";
+            if (n.Contains("watch")) return "watch";
+            if (Regex.IsMatch(n, "speaker|soundcore|boom|flip|charge")) return "speaker";
+            if (Regex.IsMatch(n, "phone|iphone|galaxy|pixel")) return "phone";
+            if (cls == "Mouse") return "mouse"; if (cls == "Keyboard") return "keyboard";
+            return "other";
+        }
+
+        void Add(List<Gadget> list, Gadget g)
+        {
+            var names = Config.Get(S("names")) as Dictionary<string, object>;
+            object rn; if (names != null && g.Name != null && names.TryGetValue(g.Name, out rn) && rn is string) g.Name = (string)rn;
+            list.Add(g);
+        }
+
+        public List<Gadget> Read()
+        {
+            var list = new List<Gadget>();
+            // slow sources (power status, Bluetooth device properties) once a minute
+            if ((DateTime.UtcNow - slowAt).TotalSeconds > 55) { slow = ReadSlow(); slowAt = DateTime.UtcNow; }
+            list.AddRange(slow);
+            if (Config.Bool(S("hid"), true)) ReadHid(list);
+            if (Config.Bool(S("xinput"), true))
+                foreach (var s in Gamepad.List())
+                {
+                    var p = s.Split('|');
+                    Add(list, new Gadget { Id = "xinput-" + p[0], Name = Strings.T("controller", int.Parse(p[0]) + 1), Kind = "gamepad", Pct = int.Parse(p[2]), Online = true, Approx = true });
+                }
+            ReadExternal(list);
+            return list;
+        }
+
+        List<Gadget> ReadSlow()
+        {
+            var list = new List<Gadget>();
+            if (Config.Bool(S("systemBattery"), true))
+            {
+                try
+                {
+                    // GetSystemPowerStatus: a full battery on AC is not "charging"; only the Charging flag says so
+                    var ps = SystemInformation.PowerStatus;
+                    if ((ps.BatteryChargeStatus & BatteryChargeStatus.NoSystemBattery) == 0 && ps.BatteryLifePercent <= 1)
+                        Add(list, new Gadget { Id = "system", Name = Strings.T("thisPc"), Kind = "laptop", Pct = (int)Math.Round(ps.BatteryLifePercent * 100), Charging = (ps.BatteryChargeStatus & BatteryChargeStatus.Charging) != 0, Online = true });
+                }
+                catch (Exception e) { Log.Write("system battery: " + e.Message); }
+            }
+            if (Config.Bool(S("bluetooth"), true))
+            {
+                try
+                {
+                    var seen = new HashSet<string>();
+                    foreach (var d in BluetoothBattery.List())
+                    {
+                        if (!d.Connected && !Config.Bool(S("showDisconnected"), false)) continue;
+                        if (!seen.Add(d.Mac)) continue;   // one device shows up as several service nodes
+                        Add(list, new Gadget { Id = "bt-" + d.Mac, Name = d.Name, Kind = GuessKind(d.Name, d.Class), Pct = d.Level, Online = d.Connected });
+                    }
+                }
+                catch (Exception e) { Log.Write("bluetooth: " + e.Message); }
+            }
+            return list;
+        }
+
+        void ReadHid(List<Gadget> list)
+        {
+            long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var byId = new Dictionary<string, Reading>(); var order = new List<string>(); var realNames = new Dictionary<string, string>();
+            try
+            {
+                foreach (var r in Hid.ReadAll())
+                {
+                    Reading cur;
+                    if (!byId.TryGetValue(r.Id, out cur)) { order.Add(r.Id); byId[r.Id] = r; }
+                    // one device seen twice (receiver + cable): a real reading beats none, a charging one wins
+                    else if ((cur.Level < 0 && r.Level >= 0) || (r.Level >= 0 && r.Charging)) byId[r.Id] = r;
+                    // the device on its cable reports its real model name; the receiver only its own
+                    if (!r.Receiver && !string.IsNullOrEmpty(r.Name)) realNames[r.Id] = r.Name;
+                }
+            }
+            catch (Exception e) { Log.Write("HID: " + e.Message); return; }
+
+            foreach (var id in order)
+            {
+                var r = byId[id];
+                Dictionary<string, object> prev; last.TryGetValue(id, out prev);
+                string prevReal = prev != null ? prev.ContainsKey("realName") ? prev["realName"] as string : null : null;
+                string real = realNames.ContainsKey(id) ? realNames[id] : prevReal;
+                string name = real ?? r.Name;
+                if (r.Level >= 0)
+                {
+                    last[id] = new Dictionary<string, object> { { "pct", r.Level }, { "charging", r.Charging }, { "approx", r.Approx }, { "ts", now }, { "name", name }, { "kind", r.Kind }, { "realName", real } };
+                    Add(list, new Gadget { Id = id, Name = name, Kind = r.Kind, Pct = r.Level, Charging = r.Charging, Approx = r.Approx, Online = true });
+                }
+                else if (prev != null)
+                {
+                    long age = now - Convert.ToInt64(prev["ts"]);
+                    int pct = Convert.ToInt32(prev["pct"]); bool approx = prev.ContainsKey("approx") && prev["approx"] is bool && (bool)prev["approx"];
+                    if (age < 45)
+                        Add(list, new Gadget { Id = id, Name = name, Kind = r.Kind, Pct = pct, Charging = prev["charging"] is bool && (bool)prev["charging"], Approx = approx, Online = true });
+                    else if (age < 86400)
+                    {
+                        int mins = (int)(age / 60);
+                        Add(list, new Gadget { Id = id, Name = name, Kind = r.Kind, Pct = pct, Approx = approx, Online = false, Asleep = true,
+                            Detail = Strings.T("asleep", mins < 60 ? Strings.T("minutes", mins) : Strings.T("hours", mins / 60)) });
+                    }
+                }
+            }
+            foreach (var k in last.Keys.ToList()) { object ts; if (!last[k].TryGetValue("ts", out ts) || now - Convert.ToInt64(ts) > 604800) last.Remove(k); }   // forget after a week
+            try { File.WriteAllText(lastFile, Json.Serialize(last), new UTF8Encoding(false)); } catch { }
+        }
+
+        // %APPDATA%\SwarlexBattery\gadgets\external.json: [{"id","name","kind","pct","charging","ts","ttl","left","right","case"}]
+        void ReadExternal(List<Gadget> list)
+        {
+            var path = Config.Str(S("externalPath"), "");
+            path = path != "" ? Environment.ExpandEnvironmentVariables(path) : Path.Combine(Program.DataDir, "gadgets", "external.json");
+            if (!File.Exists(path)) return;
+            try
+            {
+                long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                var arr = Json.DeserializeObject(File.ReadAllText(path)) as IEnumerable;
+                if (arr == null) return;
+                foreach (var o in arr)
+                {
+                    var e = o as Dictionary<string, object>; if (e == null || !e.ContainsKey("name")) continue;
+                    Func<string, object> f = k => e.ContainsKey(k) ? e[k] : null;
+                    bool online = !(f("ts") != null && f("ttl") != null && now - Convert.ToInt64(f("ts")) > Convert.ToInt64(f("ttl")));
+                    if (!online && !Config.Bool(S("showDisconnected"), false)) continue;
+                    var parts = new List<string>();
+                    foreach (var k in new[] { "left", "right", "case" }) if (f(k) != null && Convert.ToInt32(f(k)) >= 0) parts.Add(k + " " + f(k) + "%");
+                    Add(list, new Gadget { Id = (f("id") ?? f("name")).ToString(), Name = f("name").ToString(), Kind = (f("kind") ?? "other").ToString(),
+                        Pct = Math.Max(0, Math.Min(100, Convert.ToInt32(f("pct") ?? 0))), Charging = f("charging") is bool && (bool)f("charging"), Online = online, Detail = string.Join(", ", parts) });
+                }
+            }
+            catch (Exception e) { Log.Write("external.json: " + e.Message); }
+        }
+
+        // ------------------------------------------------------------ what to show
+        public static Snapshot Build(List<Gadget> gadgets)
+        {
+            var snap = new Snapshot { Title = Strings.T("title") };
+            int low = (int)Config.Num(S("lowThreshold"), 15);
+            var order = new Dictionary<string, int> { { "mouse", 0 }, { "headphones", 1 }, { "earbuds", 1 }, { "keyboard", 2 }, { "gamepad", 3 } };
+            bool showOff = Config.Bool(S("showDisconnected"), false);
+            // mouse first, then headset, then the rest; sleeping devices last
+            var shown = gadgets.Where(g => g.Online || g.Asleep || showOff)
+                .OrderBy(g => !(g.Online || g.Asleep)).ThenBy(g => order.ContainsKey(g.Kind ?? "") ? order[g.Kind] : 9).ThenBy(g => g.Name).ToList();
+
+            foreach (var g in shown)
+            {
+                string state = !g.Online ? "off" : (g.Pct <= low && !g.Charging) ? "error" : "";
+                // a full device on its cable is "full", not "charging"; coarse levels say so
+                string sub = g.Charging && g.Pct >= 100 ? Strings.T("full") : g.Charging ? Strings.T("charging") : !string.IsNullOrEmpty(g.Detail) ? g.Detail : !g.Online ? Strings.T("notConnected") : "";
+                if (g.Approx) sub = string.Join(" - ", new[] { sub, Strings.T("approx") }.Where(x => x != ""));
+                snap.Items.Add(new PanelItem { Icon = IconFor(g.Kind), Label = g.Name, Value = g.Pct + "%", Pct = g.Pct / 100.0, State = state, Sub = sub });
+                if (low > 0 && g.Online && !g.Charging && g.Pct <= low)
+                    snap.Notify.Add(new Notice { Key = "low-" + g.Id, Title = Strings.T("lowTitle", g.Name), Body = Strings.T("lowBody", g.Pct) });
+            }
+            if (snap.Items.Count == 0) snap.Empty = Strings.T("noDevices");
+
+            if (Config.Bool(S("combine"), true) && shown.Count >= 1)
+            {
+                // one tray icon: two devices -> the ring is split, left half the first (mouse), right half the second
+                var label = new Dictionary<string, string> { { "mouse", Strings.T("kindMouse") }, { "headphones", Strings.T("kindHeadset") }, { "earbuds", Strings.T("kindHeadset") }, { "keyboard", Strings.T("kindKeyboard") }, { "gamepad", Strings.T("kindController") } };
+                var pair = shown.Take(2).ToList();
+                var parts = shown.Select(g => (label.ContainsKey(g.Kind ?? "") ? label[g.Kind] : g.Name) + " " + (g.Approx ? "~" : "") + g.Pct + "%" +
+                    (g.Charging && g.Pct >= 100 ? Strings.T("shortFull") : g.Charging ? Strings.T("shortCharging") : !g.Online ? Strings.T("shortAsleep") : ""));
+                var lowest = pair.Where(g => g.Online && !g.Charging).OrderBy(g => g.Pct).FirstOrDefault();
+                snap.Icons.Add(new TraySpec {
+                    Id = "all", Icon = pair.Count == 1 ? IconFor(pair[0].Kind) : "E83F",
+                    Rings = pair.Select(g => g.Pct / 100.0).ToArray(),
+                    State = lowest != null && lowest.Pct <= low ? "error" : lowest != null && lowest.Pct <= low + 10 ? "warn" : "ok",
+                    Charging = pair.Any(g => g.Charging), Dim = !pair.Any(g => g.Online), Tooltip = string.Join("  |  ", parts) });
+            }
+            else
+            {
+                foreach (var g in shown)
+                    snap.Icons.Add(new TraySpec {
+                        Id = g.Id, Icon = IconFor(g.Kind), Ring = g.Pct / 100.0,
+                        State = g.Pct <= low && !g.Charging ? "error" : g.Pct <= low + 10 && !g.Charging ? "warn" : "ok",
+                        Charging = g.Charging, Dim = !g.Online,
+                        Tooltip = g.Name + ": " + (g.Approx ? "~" : "") + g.Pct + "%" + (g.Charging && g.Pct >= 100 ? Strings.T("tipFull") : g.Charging ? Strings.T("tipCharging") : g.Asleep ? Strings.T("tipAsleep") : !g.Online ? Strings.T("tipNotConnected") : "") });
+            }
+            // nothing found yet: one dim battery icon keeps the menu (and Exit) reachable
+            if (snap.Icons.Count == 0) snap.Icons.Add(new TraySpec { Id = "none", Icon = "E83F", State = "off", Dim = true, Tooltip = Strings.T("noDevicesTip") });
+            return snap;
+        }
+    }
+
+    // ---------------------------------------------------------------- Bluetooth battery (the value Windows Settings shows)
+    static class BluetoothBattery
+    {
+        public class Device { public string Name, Class, Mac; public int Level; public bool Connected; }
+
+        [StructLayout(LayoutKind.Sequential)] struct SP_DEVINFO_DATA { public int cbSize; public Guid ClassGuid; public int DevInst; public IntPtr Reserved; }
+        [StructLayout(LayoutKind.Sequential)] struct DEVPROPKEY { public Guid fmtid; public int pid; public DEVPROPKEY(string g, int p) { fmtid = new Guid(g); pid = p; } }
+        [DllImport("setupapi.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern IntPtr SetupDiGetClassDevs(IntPtr guid, string enumerator, IntPtr hwnd, int flags);
+        [DllImport("setupapi.dll", SetLastError = true)] static extern bool SetupDiEnumDeviceInfo(IntPtr set, int index, ref SP_DEVINFO_DATA data);
+        [DllImport("setupapi.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern bool SetupDiGetDeviceInstanceId(IntPtr set, ref SP_DEVINFO_DATA data, StringBuilder id, int size, out int req);
+        [DllImport("setupapi.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern bool SetupDiGetDevicePropertyW(IntPtr set, ref SP_DEVINFO_DATA data, ref DEVPROPKEY key, out int type, byte[] buf, int size, out int req, int flags);
+        [DllImport("setupapi.dll")] static extern bool SetupDiDestroyDeviceInfoList(IntPtr set);
+
+        static readonly DEVPROPKEY Battery = new DEVPROPKEY("104EA319-6EE2-4701-BD47-8DDBF425BBE5", 2);       // DEVPKEY_Bluetooth_Battery (byte)
+        static readonly DEVPROPKEY Connected = new DEVPROPKEY("83DA6326-97A6-4088-9453-A1923F573B29", 15);    // DEVPKEY_Device_IsConnected (bool)
+        static readonly DEVPROPKEY FriendlyName = new DEVPROPKEY("A45C254E-DF1C-4EFD-8020-67D146A850E0", 14);
+        static readonly DEVPROPKEY DeviceDesc = new DEVPROPKEY("A45C254E-DF1C-4EFD-8020-67D146A850E0", 2);
+        static readonly DEVPROPKEY ClassName = new DEVPROPKEY("A45C254E-DF1C-4EFD-8020-67D146A850E0", 9);
+
+        static byte[] Prop(IntPtr set, ref SP_DEVINFO_DATA d, DEVPROPKEY key, out int type)
+        {
+            var buf = new byte[512]; int req;
+            return SetupDiGetDevicePropertyW(set, ref d, ref key, out type, buf, buf.Length, out req, 0) ? buf.Take(req).ToArray() : null;
+        }
+        static string Str(IntPtr set, ref SP_DEVINFO_DATA d, DEVPROPKEY key) { int t; var b = Prop(set, ref d, key, out t); return b == null ? null : Encoding.Unicode.GetString(b).TrimEnd('\0'); }
+
+        public static List<Device> List()
+        {
+            var r = new List<Device>();
+            foreach (var en in new[] { "BTHENUM", "BTHLE", "BTHLEDEVICE" })
+            {
+                IntPtr set = SetupDiGetClassDevs(IntPtr.Zero, en, IntPtr.Zero, 0x2 | 0x4);   // DIGCF_PRESENT | DIGCF_ALLCLASSES
+                if (set == IntPtr.Zero || set == new IntPtr(-1)) continue;
+                try
+                {
+                    var d = new SP_DEVINFO_DATA { cbSize = Marshal.SizeOf(typeof(SP_DEVINFO_DATA)) };
+                    for (int i = 0; SetupDiEnumDeviceInfo(set, i, ref d); i++)
+                    {
+                        int t; var b = Prop(set, ref d, Battery, out t);
+                        if (b == null || b.Length < 1) continue;
+                        var c = Prop(set, ref d, Connected, out t);
+                        var id = new StringBuilder(512); int req; SetupDiGetDeviceInstanceId(set, ref d, id, id.Capacity, out req);
+                        var m = Regex.Match(id.ToString(), "([0-9A-F]{12})", RegexOptions.IgnoreCase);
+                        string name = Str(set, ref d, FriendlyName) ?? Str(set, ref d, DeviceDesc) ?? "Bluetooth";
+                        r.Add(new Device { Name = name, Class = Str(set, ref d, ClassName), Mac = m.Success ? m.Groups[1].Value.ToUpperInvariant() : name,
+                                           Level = Math.Min(100, (int)b[0]), Connected = c == null || c.Length == 0 || c[0] != 0 });
+                    }
+                }
+                finally { SetupDiDestroyDeviceInfoList(set); }
+            }
+            return r;
+        }
+    }
+}

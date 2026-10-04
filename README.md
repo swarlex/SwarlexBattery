@@ -93,13 +93,15 @@ readers follow published protocol documentation. **Does yours work, or not?** Pl
 [device report](https://github.com/swarlex/SwarlexBattery/issues/new?template=device_request.yml).
 
 <details>
-<summary>Your device is not listed? Add it with a script</summary>
+<summary>Your device is not listed? Feed it from another program</summary>
 
-Put a script (`.ps1`, `.cmd` or `.exe`) in `%APPDATA%\SwarlexBattery\gadgets\collectors.d\` that prints a JSON array:
+Any program can write `%APPDATA%SwarlexBatterygadgetsexternal.json`; SwarlexBattery shows what it contains:
 
 ```json
-[{"id": "speaker", "name": "Speaker", "kind": "speaker", "pct": 64, "charging": false}]
+[{"id": "speaker", "name": "Speaker", "kind": "speaker", "pct": 64, "charging": false, "ts": 1760000000, "ttl": 300}]
 ```
+
+`ts` (Unix seconds) and `ttl` are optional: an entry older than `ttl` seconds counts as disconnected.
 
 `kind` is one of `mouse`, `keyboard`, `headphones`, `earbuds`, `gamepad`, `speaker`, `phone`, `watch`.
 </details>
@@ -157,11 +159,13 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 
 | Path | What it is |
 |---|---|
-| `SwarlexBattery.ps1` | host: tray icon, flyout, menu, languages, updater |
+| `core/App.cs`, `core/Host.cs` | entry point, settings, texts; timers and notifications |
+| `core/Batteries.cs` | battery sources and what the tray / flyout show |
+| `core/Tray.cs`, `core/Flyout.cs` | tray icon, battery panel and menu |
+| `core/Updater.cs` | updates from GitHub Releases |
 | `core/Devices.cs`, `core/Hid.cs` | vendor battery protocols over HID |
-| `core/Native.cs`, `core/Launcher.cs` | Win32 helpers, exe entry point |
+| `core/Native.cs` | Win32 helpers |
 | `core/Setup.cs` | install wizard and uninstaller |
-| `plugins/gadgets` | the battery plugin |
 | `lang/` | interface texts (English, Turkish) |
 
 Maintainers publish with the GitHub CLI (`gh auth login`):
