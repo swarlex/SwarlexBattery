@@ -2,6 +2,10 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.5.1
+- The update check no longer requests the release's checksum file: GitHub counted every check as a
+  download, which inflated the download numbers. The file is still fetched and verified when you update.
+
 ## 1.5.0
 - Steadier levels: a device that is not charging no longer jumps up by a few points when its reading
   wobbles at a step boundary (e.g. 15 -> 20 -> 15); the lower value it gave stays. A real charge, a

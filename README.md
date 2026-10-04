@@ -3,8 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/swarlex/SwarlexBattery/releases/latest"><img src="https://img.shields.io/github/v/release/swarlex/SwarlexBattery?style=flat-square&label=release&color=3fd16a" alt="Latest release"></a>
-  <a href="https://github.com/swarlex/SwarlexBattery/releases"><img src="https://img.shields.io/github/downloads/swarlex/SwarlexBattery/total?style=flat-square&color=3fd16a" alt="Downloads"></a>
+  <a href="https://github.com/swarlex/SwarlexBattery/releases/latest"><img src="https://img.shields.io/github/v/release/swarlex/SwarlexBattery?style=flat-square&label=release&color=3fd16a&cacheSeconds=300" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=flat-square" alt="Windows 10 | 11">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/swarlex/SwarlexBattery?style=flat-square" alt="License: GPL-3.0"></a>
 </p>

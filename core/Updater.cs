@@ -61,10 +61,11 @@ namespace SwarlexBattery
                     if (m.Success) tag = Uri.UnescapeDataString(m.Groups[1].Value);
                 }
                 if (tag == null) throw new Exception("no release tag in the redirect");
-                string b = "https://github.com/" + repo + "/releases/download/" + Uri.EscapeDataString(tag), dummy;
-                int sc = Head(b + "/SwarlexBattery.exe.sha256", out dummy);
-                bool hasSha = sc == 200 || sc == 301 || sc == 302 || sc == 307;
-                r = new ReleaseInfo { Tag = tag, Url = hasSha ? b + "/SwarlexBattery.exe" : "", Sha = hasSha ? b + "/SwarlexBattery.exe.sha256" : "", Page = "https://github.com/" + repo + "/releases/tag/" + tag };
+                // Every release carries both files. They are not probed here: GitHub counts each request for a
+                // release file as a download, and checking for updates is not downloading. A release without
+                // them fails at the download step instead, with its own message.
+                string b = "https://github.com/" + repo + "/releases/download/" + Uri.EscapeDataString(tag);
+                r = new ReleaseInfo { Tag = tag, Url = b + "/SwarlexBattery.exe", Sha = b + "/SwarlexBattery.exe.sha256", Page = "https://github.com/" + repo + "/releases/tag/" + tag };
             }
             catch (Exception first)
             {
