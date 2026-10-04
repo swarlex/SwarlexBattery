@@ -70,10 +70,10 @@ and keeps your settings; uninstall from **Settings > Apps**.
 | **Corsair** | Void v2 Wireless, Virtuoso Max, HS80 Max |
 | **ATK / VXE / Pulsar** | MAD series and mice with the same protocol |
 | **AULA** | F75 on its 2.4 GHz receiver |
-| **Darmoshark** | M3, M3S, N3; M3 4K on the 4K receiver (new) |
+| **Darmoshark** | M3 4K on the 4K receiver; M3, M3S, N3 |
 | **Others** | Bluetooth devices whose battery Windows shows, Xbox controllers, laptop battery |
 
-Tested on real hardware: Razer BlackShark V2 HyperSpeed and VXE MAD 8K; the other readers follow
+Tested on real hardware: Razer BlackShark V2 HyperSpeed, VXE MAD 8K and Darmoshark M3 4K; the other readers follow
 published protocols. **Not working for you?** Open a
 [device report](https://github.com/swarlex/SwarlexBattery/issues/new?template=device_request.yml) with the
 `HID` lines of the log (`%LOCALAPPDATA%\SwarlexBattery\swarlexbattery.log`).
