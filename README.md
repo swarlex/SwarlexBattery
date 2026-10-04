@@ -9,9 +9,14 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/swarlex/SwarlexBattery/releases/latest/download/SwarlexBattery-Setup.exe"><b>Download SwarlexBattery-Setup.exe</b></a>
-  &nbsp;·&nbsp; <a href="#supported-devices">Supported devices</a>
-  &nbsp;·&nbsp; <a href="docs/CHANGELOG.md">Changelog</a>
+  <a href="https://github.com/swarlex/SwarlexBattery/releases/latest/download/SwarlexBattery-Setup.exe"><b>⬇ Download SwarlexBattery-Setup.exe</b></a>
+  <br>
+  <sub>Installs per user · no administrator rights · updates itself</sub>
+</p>
+
+<p align="center">
+  <a href="#install">Install</a> · <a href="#supported-devices">Supported devices</a> ·
+  <a href="docs/CHANGELOG.md">Changelog</a> · <a href="#license">License</a>
 </p>
 
 ---
@@ -121,7 +126,16 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Maintainers release with `.\tools\release.ps1 -Notes "..."` (GitHub CLI).
 </details>
 
----
+## License
 
-<sub>GPL-3.0-or-later, see [LICENSE](LICENSE). Some device code is adapted from MIT-licensed projects:
-[notices](docs/THIRD_PARTY_NOTICES.md). Security: [policy](.github/SECURITY.md).</sub>
+<a href="https://www.gnu.org/licenses/gpl-3.0.html"><img src="https://www.gnu.org/graphics/gplv3-with-text-136x68.png" alt="GPLv3 - Free as in Freedom" align="right"></a>
+
+SwarlexBattery is free software under the [GNU General Public License v3.0](LICENSE) or (at your option)
+any later version. Some device code is adapted from MIT-licensed projects:
+[third-party notices](docs/THIRD_PARTY_NOTICES.md). Found a security problem? See the
+[security policy](.github/SECURITY.md).
+
+Made by [swarlex](https://github.com/swarlex), built together with [Claude](https://claude.ai) in
+[Claude Code](https://claude.com/claude-code).
+
+<br clear="right">
