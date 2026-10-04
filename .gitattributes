@@ -1,0 +1,2 @@
+# build / release helper scripts are not part of the app: keep them out of the language statistics
+*.ps1 linguist-detectable=false

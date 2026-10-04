@@ -97,7 +97,7 @@ namespace SwarlexBattery
                 ui.BeginInvoke(new Action(() =>
                 {
                     polling = false;
-                    nextPoll = DateTime.Now.AddSeconds(flyout.Open == "panel" ? 5 : 10);
+                    nextPoll = DateTime.Now.AddSeconds(flyout.Open == "panel" ? 5 : BatteryReader.PollSeconds);
                     if (snap != null && !stopping) Apply(snap);
                 }));
             });

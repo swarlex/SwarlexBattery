@@ -47,8 +47,12 @@ namespace SwarlexBattery
                 WindowStyle = WindowStyle.None, AllowsTransparency = false, Background = MakeBrush("#" + panel),
                 ShowInTaskbar = false, Topmost = true, ResizeMode = ResizeMode.NoResize, SizeToContent = SizeToContent.Height,
                 Width = Config.Num("panel.width", 320), FontFamily = new FontFamily("Segoe UI Variable Text, Segoe UI"), Foreground = fg, Title = "SwarlexBattery" };
-            scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, MaxHeight = Config.Num("panel.maxHeight", 620) };
-            win.Content = new Border { Padding = new Thickness(14), Child = scroll };
+            // nothing in the flyout takes keyboard focus: otherwise WPF draws its dotted focus rectangle around
+            // the content when the window is activated (Escape still closes it: KeyDown is on the window)
+            scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, MaxHeight = Config.Num("panel.maxHeight", 620),
+                                        Focusable = false, FocusVisualStyle = null };
+            win.Content = new Border { Padding = new Thickness(14), Child = scroll, Focusable = false, FocusVisualStyle = null };
+            win.FocusVisualStyle = null;
             win.SourceInitialized += (s, e) => { hwnd = new WindowInteropHelper(win).Handle; Win.FlyoutFrame(hwnd, true); };
             win.Deactivated += (s, e) => { if (Open != null) Close(); };
             win.KeyDown += (s, e) => { if (e.Key == Key.Escape) Close(); };

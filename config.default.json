@@ -32,7 +32,8 @@
       "names": {},
       "externalPath": "",
       "hid": true,
-      "combine": true
+      "combine": true,
+      "interval": 30
     }
   }
 }

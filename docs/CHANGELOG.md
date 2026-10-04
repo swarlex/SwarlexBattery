@@ -2,6 +2,15 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.5.0
+- Steadier levels: a device that is not charging no longer jumps up by a few points when its reading
+  wobbles at a step boundary (e.g. 15 -> 20 -> 15); the lower value it gave stays. A real charge, a
+  big rise or the charging state is shown at once.
+- Batteries are read every 30 seconds while the flyout is closed (5 while it is open) instead of every
+  10: fewer radio wake-ups for the mouse and headset. Plugging a device in still reads at once.
+  Setting: `plugins.gadgets.interval`.
+- Fixed the dotted focus frame drawn around the flyout and the menu content.
+
 ## 1.4.9
 - Darmoshark 4K receiver (M3 4K): rewritten from the vendor's own web driver. 1.4.8 sent the Telink
   models' request, which these Nordic mice do not answer; the reader now sends the 4K power read

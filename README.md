@@ -13,7 +13,6 @@
   <a href="https://github.com/swarlex/SwarlexBattery/releases/latest/download/SwarlexBattery-Setup.exe"><b>Download SwarlexBattery-Setup.exe</b></a>
   &nbsp;·&nbsp; <a href="#supported-devices">Supported devices</a>
   &nbsp;·&nbsp; <a href="docs/CHANGELOG.md">Changelog</a>
-  &nbsp;·&nbsp; <a href="#türkçe">Türkçe</a>
 </p>
 
 ---
@@ -101,6 +100,7 @@ The right-click menu has *Start with Windows*, *Language* and *Check for updates
 | `"language": "en"` / `"tr"` / `"auto"` | interface language |
 | `"plugins": { "gadgets": { "combine": false } }` | one tray icon per device |
 | `"plugins": { "gadgets": { "lowThreshold": 20 } }` | low battery notification threshold (%) |
+| `"plugins": { "gadgets": { "interval": 60 } }` | seconds between battery reads (default 30; 5 while the panel is open) |
 | `"monochrome": false` | coloured icons |
 | `"quietWhileGaming": false` | notify during fullscreen apps too |
 | `"update": { "check": false }` | no automatic update check |
@@ -121,18 +121,6 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 `core/` holds the app (`Devices.cs` / `Hid.cs` are the device protocols), `lang/` the texts.
 Maintainers release with `.\tools\release.ps1 -Notes "..."` (GitHub CLI).
 </details>
-
-## Türkçe
-
-Kablosuz **mouse, klavye ve kulaklık** pillerini saatin yanında tek ikonla gösterir: halkanın sol
-yarısı mouse, sağ yarısı kulaklık. Şarj olurken şimşek çıkar, cihaz uyurken ikon soluklaşır.
-
-- **Kurulum:** [SwarlexBattery-Setup.exe](https://github.com/swarlex/SwarlexBattery/releases/latest/download/SwarlexBattery-Setup.exe)
-  dosyasını indirip çalıştır; yönetici izni istemez.
-- **Güncelleme:** yeni sürüm çıkınca sağ tık menüsünde *Güncelle* görünür.
-- **Antivirüs:** dosyalar imzasız olduğu için bazı antivirüsler yeni sürümü yanlışlıkla işaretleyebilir.
-- **Cihazın görünmüyor mu?** Günlükteki `HID` satırlarıyla bir
-  [cihaz bildirimi](https://github.com/swarlex/SwarlexBattery/issues/new?template=device_request.yml) aç.
 
 ---
 

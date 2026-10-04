@@ -78,6 +78,9 @@ namespace SwarlexBattery
             return "other";
         }
 
+        // how often batteries are read while the flyout is closed (it reads every 5 s while open)
+        public static int PollSeconds { get { return (int)Math.Max(10, Math.Min(300, Config.Num(S("interval"), 30))); } }
+
         static string SourceOf(int vid)
         {
             switch (vid)
@@ -182,8 +185,17 @@ namespace SwarlexBattery
                 string name = real ?? r.Name;
                 if (r.Level >= 0)
                 {
-                    last[id] = new Dictionary<string, object> { { "pct", r.Level }, { "charging", r.Charging }, { "approx", r.Approx }, { "ts", now }, { "name", name }, { "kind", r.Kind }, { "realName", real } };
-                    Add(list, new Gadget { Id = id, Name = name, Kind = r.Kind, Pct = r.Level, Charging = r.Charging, Approx = r.Approx, Online = true });
+                    // A battery that is not charging cannot gain charge: a small rise (up to 10 points) is the
+                    // reading wobbling at a step boundary (e.g. 15 -> 20 -> 15), so the lower value the device
+                    // gave stays. A big rise, a charging device or an old previous reading is taken as it is.
+                    int pct = r.Level;
+                    if (prev != null && !r.Charging && !(prev["charging"] is bool && (bool)prev["charging"]))
+                    {
+                        int was = Convert.ToInt32(prev["pct"]);
+                        if (pct > was && pct - was <= 10 && now - Convert.ToInt64(prev["ts"]) < 6 * 3600) pct = was;
+                    }
+                    last[id] = new Dictionary<string, object> { { "pct", pct }, { "charging", r.Charging }, { "approx", r.Approx }, { "ts", now }, { "name", name }, { "kind", r.Kind }, { "realName", real } };
+                    Add(list, new Gadget { Id = id, Name = name, Kind = r.Kind, Pct = pct, Charging = r.Charging, Approx = r.Approx, Online = true });
                 }
                 else if (r.Charging && prev != null)
                 {
@@ -195,7 +207,8 @@ namespace SwarlexBattery
                 {
                     long age = now - Convert.ToInt64(prev["ts"]);
                     int pct = Convert.ToInt32(prev["pct"]); bool approx = prev.ContainsKey("approx") && prev["approx"] is bool && (bool)prev["approx"];
-                    if (age < 45)
+                    // one or two missed answers keep the last value (no flicker): three poll intervals
+                    if (age < Math.Max(45, 3 * PollSeconds + 5))
                         Add(list, new Gadget { Id = id, Name = name, Kind = r.Kind, Pct = pct, Charging = prev["charging"] is bool && (bool)prev["charging"], Approx = approx, Online = true });
                     else if (age < 86400)
                     {
