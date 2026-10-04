@@ -2,6 +2,11 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.4.4
+- Unlisted Logitech headsets are only probed on collections shaped like HID++ (20-byte reports); other
+  vendor interfaces, such as the audio chip of the G435 receiver, are never written to.
+- README: the G435 on its USB receiver cannot be read (no known battery query).
+
 ## 1.4.3
 - The log also lists devices of supported brands that gave no reading at all (with their HID
   collections), so a device report shows why a device is missing.

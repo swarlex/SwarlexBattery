@@ -88,6 +88,10 @@ Running the setup again upgrades an existing install and keeps your settings. To
 | **ATK / VXE / Pulsar / Hitscan** | MAD series and other mice using the same protocol (receiver and cable) |
 | **Others** | Bluetooth devices whose battery Windows Settings shows, Xbox / XInput controllers, laptop battery |
 
+**Not possible yet:** the Logitech G435 on its USB receiver. The receiver does not speak HID++, and the
+only known way to read its battery interrupts the audio (Logitech G HUB does not show it either). Over
+Bluetooth it appears if Windows Settings shows its battery.
+
 So far the Razer BlackShark V2 HyperSpeed and a VXE MAD mouse are tested on real hardware; the other
 readers follow published protocol documentation. **Does yours work, or not?** Please tell us with a
 [device report](https://github.com/swarlex/SwarlexBattery/issues/new?template=device_request.yml).

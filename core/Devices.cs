@@ -248,9 +248,11 @@ namespace SwarlexBattery
                 else if (LogiHeadsets.ContainsKey(pid) || (pid >= 0x0A00 && pid <= 0x0BFF))
                 {
                     // headsets (product ids 0Axx): HID++ sits on a vendor or consumer collection that carries
-                    // the 20-byte long report; known places first, then every candidate (e.g. G435, G735)
-                    foreach (var c in new[] { Pick(g, 0xFF43, 0x0202), Pick(g, 0x000C, 0x0001) }) if (c != null && c.OutLen >= 20) cands.Add(c);
-                    foreach (var c in g.Where(d => d.UsagePage >= 0xFF00 && d.OutLen >= 20)) if (!cands.Contains(c)) cands.Add(c);
+                    // the 20-byte long report. Known places first, then vendor collections of exactly that shape;
+                    // other vendor collections (e.g. the G435's audio-chip interface) are never written to.
+                    if (LogiHeadsets.ContainsKey(pid))
+                        foreach (var c in new[] { Pick(g, 0xFF43, 0x0202), Pick(g, 0x000C, 0x0001) }) if (c != null && c.OutLen >= 20) cands.Add(c);
+                    foreach (var c in g.Where(d => d.UsagePage >= 0xFF00 && d.OutLen == 20)) if (!cands.Contains(c)) cands.Add(c);
                 }
                 bool receiver = LogiReceivers.Contains(pid) || (first.Product ?? "").ToLowerInvariant().Contains("receiver");
                 foreach (var col in cands)
