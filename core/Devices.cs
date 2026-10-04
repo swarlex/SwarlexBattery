@@ -24,6 +24,7 @@ namespace SwarlexBattery
     public static partial class Hid
     {
         static readonly object ScanLock = new object();
+        public static HidInfo[] LastList = new HidInfo[0];   // collections seen by the last scan (for the log)
 
         // One pass over every supported device. Safe to call from several threads (serialised).
         public static Reading[] ReadAll()
@@ -32,6 +33,7 @@ namespace SwarlexBattery
             {
                 if (Trace.Count > 500) Trace.Clear();   // debug trail only; keep it from growing forever
                 var all = List(new[] { 0x1532, 0x373B, 0x3554, 0x3770, 0x046D, 0x1038, 0x03F0, 0x1B1C });
+                LastList = all;
                 var outp = new List<Reading>();
                 foreach (var grp in all.GroupBy(d => d.Vid))
                 {

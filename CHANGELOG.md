@@ -2,6 +2,10 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.4.3
+- The log also lists devices of supported brands that gave no reading at all (with their HID
+  collections), so a device report shows why a device is missing.
+
 ## 1.4.2
 - "Check for updates" sees a new release right after it is published (GitHub cached the answer for
   a few minutes).

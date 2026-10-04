@@ -72,6 +72,15 @@ namespace SwarlexBattery
             return "other";
         }
 
+        static string SourceOf(int vid)
+        {
+            switch (vid)
+            {
+                case 0x1532: return "razer"; case 0x046D: return "logitech"; case 0x1038: return "steelseries";
+                case 0x03F0: return "hyperx"; case 0x1B1C: return "corsair"; default: return "atk";
+            }
+        }
+
         void Add(List<Gadget> list, Gadget g)
         {
             var names = Config.Get(S("names")) as Dictionary<string, object>;
@@ -145,12 +154,16 @@ namespace SwarlexBattery
             }
             catch (Exception e) { Log.Write("HID: " + e.Message); return; }
             // which devices answered, written when that changes: the first thing to look at in a device report
-            var seen = string.Join(",", order.Select(i => i + (byId[i].Level >= 0 ? "+" : "-")));
+            var pids = Hid.LastList.Select(d => d.Vid.ToString("X4") + ":" + d.Pid.ToString("X4")).Distinct().OrderBy(x => x).ToList();
+            var seen = string.Join(",", order.Select(i => i + (byId[i].Level >= 0 ? "+" : "-"))) + "|" + string.Join(",", pids);
             if (seen != lastSeen)
             {
                 lastSeen = seen;
-                Log.Write("HID devices: " + (seen == "" ? "none" : string.Join("; ", order.Select(i => byId[i].ToString()))));
-                if (order.Any(i => byId[i].Level < 0)) lock (Hid.Trace) Log.Write("HID trace: " + string.Join(" | ", Hid.Trace.Skip(Math.Max(0, Hid.Trace.Count - 12))));
+                Log.Write("HID devices: " + (order.Count == 0 ? "none" : string.Join("; ", order.Select(i => byId[i].ToString()))));
+                // devices of supported vendors that gave no reading at all: their collections tell which protocol fits
+                var quiet = Hid.LastList.Where(d => !byId.Values.Any(r => r.Level >= 0 && r.Source == SourceOf(d.Vid))).Select(d => d.ToString()).Distinct().ToList();
+                if (quiet.Count > 0) Log.Write("HID unread: " + string.Join("; ", quiet.Take(40)));
+                if (order.Any(i => byId[i].Level < 0) || quiet.Count > 0) lock (Hid.Trace) Log.Write("HID trace: " + string.Join(" | ", Hid.Trace.Skip(Math.Max(0, Hid.Trace.Count - 12))));
             }
 
             foreach (var id in order)
