@@ -81,7 +81,14 @@ namespace SwarlexBattery
             win.KeyDown += (s, e) => { if (e.Key == Key.Escape) Close(); };
             // create the window now, so the first click opens it without WPF's cold-start delay
             new WindowInteropHelper(win).EnsureHandle();
-            win.SizeChanged += (s, e) => { if (Open != null) Place(); };
+            // SizeChanged comes before the native window has its new size (e.g. the language list opened): placed
+            // with the new size at once, and once more after the resize, so the bottom stays on the taskbar
+            win.SizeChanged += (s, e) =>
+            {
+                if (Open == null) return;
+                Place(e.NewSize);
+                win.Dispatcher.BeginInvoke(new Action(() => { if (Open != null) Place(); }), System.Windows.Threading.DispatcherPriority.Background);
+            };
         }
 
         public void Close()
@@ -145,12 +152,21 @@ namespace SwarlexBattery
         // another scale makes WPF resize the window; SizeChanged then places it again.
         System.Drawing.Point anchor;
 
-        void Place()
+        void Place() { Place(Size.Empty); }
+
+        void Place(Size dip)
         {
             if (hwnd == IntPtr.Zero) return;
             var scr = Forms.Screen.FromPoint(anchor);
             var wa = Win.AreaOutsideTaskbar(scr.Bounds, scr.WorkingArea);
             int w, h; if (!Win.WindowSize(hwnd, out w, out h)) return;
+            var src = PresentationSource.FromVisual(win);
+            if (!dip.IsEmpty && src != null && src.CompositionTarget != null)
+            {
+                // the size the window is about to get, in physical pixels
+                var t = src.CompositionTarget.TransformToDevice;
+                w = (int)Math.Round(dip.Width * t.M11); h = (int)Math.Round(dip.Height * t.M22);
+            }
             int m = (int)Math.Round(8 * Win.DpiScale(anchor));
             above = anchor.Y > (wa.Top + wa.Bottom) / 2;
             int x = Math.Max(wa.Left + m, Math.Min(wa.Right - w - m, anchor.X - w / 2));
