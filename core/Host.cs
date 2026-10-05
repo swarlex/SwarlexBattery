@@ -46,6 +46,19 @@ namespace SwarlexBattery
             MigrateWinBar();
             UpdateUninstallVersion();
             DeviceWatch.Start();
+            // the display scale changed (Settings > Display): redraw the tray icon at the new size, not blurred
+            SystemEvents.DisplaySettingsChanged += (s, e) => ui.BeginInvoke(new Action(() =>
+            {
+                int size = Win.TrayIconSize();
+                if (size != TrayRenderer.Size) { TrayRenderer.Size = size; TrayRenderer.Clear(); if (Current != null) tray.Sync(Current.Icons); }
+            }));
+            // locked: nobody looks at the tray, so the devices are left alone; unlocked or woken up: read at once
+            SystemEvents.SessionSwitch += (s, e) => ui.BeginInvoke(new Action(() =>
+            {
+                if (e.Reason == SessionSwitchReason.SessionLock) locked = true;
+                else if (e.Reason == SessionSwitchReason.SessionUnlock) { locked = false; PollSoon(); }
+            }));
+            SystemEvents.PowerModeChanged += (s, e) => { if (e.Mode == PowerModes.Resume) ui.BeginInvoke(new Action(() => PollSoon())); };
             timer = new DispatcherTimer(DispatcherPriority.Background, ui) { Interval = TimeSpan.FromMilliseconds(500) };
             timer.Tick += (s, e) => { try { Tick(); } catch (Exception ex) { Log.Once("tick: " + ex); } };
             timer.Start();
@@ -70,7 +83,7 @@ namespace SwarlexBattery
                 devicePolls.Clear(); devicePolls.Enqueue(now.AddSeconds(1.5)); devicePolls.Enqueue(now.AddSeconds(6));
             }
             if (devicePolls.Count > 0 && now >= devicePolls.Peek()) { devicePolls.Dequeue(); PollSoon(); }
-            if (!polling && now >= nextPoll) Poll();
+            if (!polling && !locked && now >= nextPoll) Poll();
 
             if (UpdateBusy == null && Config.Bool("update.check", true) && now >= nextUpdateCheck) CheckUpdates(false);
 
@@ -86,7 +99,8 @@ namespace SwarlexBattery
         }
 
         // ------------------------------------------------------------ batteries
-        public void PollSoon() { nextPoll = DateTime.MinValue; if (!polling) Poll(); }
+        bool locked;
+        public void PollSoon() { nextPoll = DateTime.MinValue; if (!polling && !locked) Poll(); }
 
         void Poll()
         {
@@ -167,6 +181,15 @@ namespace SwarlexBattery
             }
         }
 
+        // "Beta versions" (off by default): pre-releases are offered too; turning it on checks at once
+        public void ToggleBeta()
+        {
+            var upd = Config.Get("update") as Dictionary<string, object> ?? new Dictionary<string, object>();
+            upd = new Dictionary<string, object>(upd); upd["beta"] = !Config.Bool("update.beta", false);
+            try { Config.SetUser("update", upd); } catch (Exception e) { Log.Write("beta save: " + e.Message); }
+            Update = null; LastResult = ""; CheckUpdates(true);
+        }
+
         // "Percentage in the icon" (off by default): the ring shows the level as a number instead of the pictogram
         public void ToggleIconPercent()
         {
@@ -191,9 +214,17 @@ namespace SwarlexBattery
             {
                 try
                 {
-                    var file = Path.Combine(Program.DataDir, "diagnostics.txt");
-                    File.WriteAllText(file, BatteryReader.Diagnostics(snap), new System.Text.UTF8Encoding(false));
-                    Process.Start("notepad.exe", "\"" + file + "\"");
+                    // a new file for each report: an editor that still has an older report open (Windows 11 Notepad keeps
+                    // its tabs and does not reload them) would otherwise show that old copy instead of this one
+                    var file = Path.Combine(Program.DataDir, "diagnostics-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".txt");
+                    foreach (var old in new DirectoryInfo(Program.DataDir).GetFiles("diagnostics*.txt").OrderByDescending(x => x.LastWriteTimeUtc).Skip(2))
+                        try { old.Delete(); } catch { }   // keep the two before this one
+                    // written beside it and swapped in at once: an editor that has the old report open would otherwise
+                    // reload it while it is still empty (the write truncates first) and keep showing nothing
+                    var tmp = file + ".tmp";
+                    File.WriteAllText(tmp, BatteryReader.Diagnostics(snap), new System.Text.UTF8Encoding(true));
+                    if (File.Exists(file)) File.Replace(tmp, file, null); else File.Move(tmp, file);
+                    Process.Start(new ProcessStartInfo(file) { UseShellExecute = true });   // the user's own text editor
                 }
                 catch (Exception e) { Log.Write("diagnostics: " + e.Message); }
             });
@@ -238,7 +269,7 @@ namespace SwarlexBattery
             ThreadPool.QueueUserWorkItem(_ =>
             {
                 ReleaseInfo info = null; string err = null;
-                try { info = Updater.Check(repo); } catch (Exception e) { err = e.Message; }
+                try { info = Config.Bool("update.beta", false) ? Updater.CheckWithBeta(repo) : Updater.Check(repo); } catch (Exception e) { err = e.Message; }
                 // a check from the menu shows "Checking..." for at least 0.8 s, so the click visibly did something
                 int wait = 800 - (int)(DateTime.Now - updateStarted).TotalMilliseconds;
                 if (manual && wait > 0) Thread.Sleep(wait);

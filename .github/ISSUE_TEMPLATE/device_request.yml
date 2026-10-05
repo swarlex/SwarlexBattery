@@ -25,9 +25,9 @@ body:
   - type: textarea
     id: diagnostics
     attributes:
-      label: diagnostics.txt
+      label: Diagnostics report
       description: |
-        Drag `diagnostics.txt` here (it is in `%APPDATA%\SwarlexBattery`). Attach the whole file.
+        Drag the newest `diagnostics-….txt` here (it is in `%APPDATA%\SwarlexBattery`). Attach the whole file.
         It contains no personal data: MAC addresses and serial numbers are masked.
     validations:
       required: true
