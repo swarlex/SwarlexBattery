@@ -78,6 +78,54 @@ namespace SwarlexBattery
             return "other";
         }
 
+        // ------------------------------------------------------------ menu > Diagnostics: one file for a device report
+        // Everything a report needs, with Bluetooth MAC addresses and Logitech unit ids (serials) masked.
+        public static string Diagnostics(Snapshot snap)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("SwarlexBattery v" + Program.AppVersion + "  |  " + Environment.OSVersion.VersionString + "  |  " + DateTime.Now.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture));
+            sb.AppendLine();
+            sb.AppendLine("=== Shown now ===");
+            if (snap == null || snap.Items.Count == 0) sb.AppendLine("(nothing)");
+            else foreach (var it in snap.Items) sb.AppendLine(it.Label + ": " + it.Value + (string.IsNullOrEmpty(it.Sub) ? "" : "  (" + it.Sub + ")"));
+            sb.AppendLine();
+            sb.AppendLine("=== Fresh read of supported devices ===");
+            try
+            {
+                var rs = Hid.ReadAll();
+                if (rs.Length == 0) sb.AppendLine("(no supported device found)");
+                foreach (var r in rs) sb.AppendLine(r + (r.Receiver ? "  [receiver]" : "") + (r.Level < 0 ? "  <- no answer" : ""));
+            }
+            catch (Exception e) { sb.AppendLine("error: " + e.Message); }
+            sb.AppendLine();
+            sb.AppendLine("=== Protocol details (last steps) ===");
+            lock (Hid.Trace) { if (Hid.Trace.Count == 0) sb.AppendLine("(none)"); foreach (var t in Hid.Trace.Skip(Math.Max(0, Hid.Trace.Count - 40))) sb.AppendLine(t); }
+            sb.AppendLine();
+            sb.AppendLine("=== Bluetooth (the level Windows reports) ===");
+            try
+            {
+                var bt = BluetoothBattery.List();
+                if (bt.Count == 0) sb.AppendLine("(none)");
+                foreach (var d in bt) sb.AppendLine(d.Name + ": " + d.Level + "%" + (d.Connected ? "" : "  (not connected)"));
+            }
+            catch (Exception e) { sb.AppendLine("error: " + e.Message); }
+            sb.AppendLine();
+            sb.AppendLine("=== All HID devices ===");
+            try
+            {
+                foreach (var d in Hid.List(null).OrderBy(d => d.Vid).ThenBy(d => d.Pid).ThenBy(d => d.Interface).ThenBy(d => d.UsagePage))
+                    sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "VID={0:x4} PID={1:x4} if={2} usage={3:x4}:{4:x4} in={5} out={6} feat={7} '{8}'",
+                        d.Vid, d.Pid, d.Interface, d.UsagePage, d.Usage, d.InLen, d.OutLen, d.FeatLen, d.Product));
+            }
+            catch (Exception e) { sb.AppendLine("error: " + e.Message); }
+            sb.AppendLine();
+            sb.AppendLine("=== Recent log ===");
+            foreach (var l in Log.Tail(30)) sb.AppendLine(l);
+            // a report is meant to be posted publicly: no MAC addresses, no serial numbers
+            var text = Regex.Replace(sb.ToString(), @"\b(bt-|logi-)[0-9A-Fa-f]{8,12}\b", m => m.Groups[1].Value + "xxxxxxxx");
+            return Regex.Replace(text, @"\b[0-9A-Fa-f]{2}([:-])[0-9A-Fa-f]{2}(\1[0-9A-Fa-f]{2}){4}\b", "xx:xx:xx:xx:xx:xx");
+        }
+
         // how often batteries are read while the flyout is closed (it reads every 5 s while open)
         public static int PollSeconds { get { return (int)Math.Max(10, Math.Min(300, Config.Num(S("interval"), 30))); } }
 

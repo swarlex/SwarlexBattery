@@ -248,6 +248,7 @@ namespace SwarlexBattery
                 else if (host.LastResult == "error") root.Children.Add(MenuRow("E7BA", Strings.T("checkFailedRow"), check, false, sub));
                 else root.Children.Add(MenuRow("E895", Strings.T("checkUpdates", Program.AppVersion), check, false, sub));
             }
+            root.Children.Add(MenuRow("E9D9", Strings.T("diagnostics"), () => { Close(); host.Diagnostics(); }));
             root.Children.Add(MenuRow("E8BB", Strings.T("exit"), () => { Close(); host.Exit(); }));
             return root;
         }

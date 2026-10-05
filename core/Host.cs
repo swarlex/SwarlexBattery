@@ -154,6 +154,22 @@ namespace SwarlexBattery
             PollSoon();
         }
 
+        // menu > Diagnostics: the report for a device report, written in the background and opened in Notepad
+        public void Diagnostics()
+        {
+            var snap = Current;
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                try
+                {
+                    var file = Path.Combine(Program.DataDir, "diagnostics.txt");
+                    File.WriteAllText(file, BatteryReader.Diagnostics(snap), new System.Text.UTF8Encoding(false));
+                    Process.Start("notepad.exe", "\"" + file + "\"");
+                }
+                catch (Exception e) { Log.Write("diagnostics: " + e.Message); }
+            });
+        }
+
         // "Start with Windows" chosen in the old WinBar version moves over to this exe
         void MigrateWinBar()
         {

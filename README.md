@@ -77,9 +77,9 @@ and keeps your settings; uninstall from **Settings > Apps**.
 | **Others** | Bluetooth devices whose battery Windows shows, Xbox controllers, laptop battery |
 
 Tested on real hardware: Razer BlackShark V2 HyperSpeed, VXE MAD 8K and Darmoshark M3 4K; the other readers follow
-published protocols. **Not working for you?** Open a
-[device report](https://github.com/swarlex/SwarlexBattery/issues/new?template=device_request.yml) with the
-`HID` lines of the log (`%LOCALAPPDATA%\SwarlexBattery\swarlexbattery.log`).
+published protocols. **Not working for you?** Right-click the tray icon > *Diagnostics…* and attach the file to a
+[device report](https://github.com/swarlex/SwarlexBattery/issues/new?template=device_request.yml). How to add a device:
+[CONTRIBUTING](.github/CONTRIBUTING.md).
 
 <details>
 <summary>Known limits</summary>
@@ -133,7 +133,8 @@ Maintainers release with `.\tools\release.ps1 -Notes "..."` (GitHub CLI).
 SwarlexBattery is free software under the [GNU General Public License v3.0](LICENSE) or (at your option)
 any later version. Some device code is adapted from MIT-licensed projects:
 [third-party notices](docs/THIRD_PARTY_NOTICES.md). Found a security problem? See the
-[security policy](.github/SECURITY.md).
+[security policy](.github/SECURITY.md). Want to add a device? See
+[CONTRIBUTING](.github/CONTRIBUTING.md).
 
 Made by [swarlex](https://github.com/swarlex), built together with [Claude](https://claude.ai) in
 [Claude Code](https://claude.com/claude-code).

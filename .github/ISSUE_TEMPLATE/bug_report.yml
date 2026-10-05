@@ -5,23 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to report this. Please do not paste personal information
-        (user names, paths with your user name, serial numbers) into the issue.
-  - type: input
-    id: version
-    attributes:
-      label: SwarlexBattery version
-      description: Right-click the tray icon; the version is shown next to "Check for updates".
-      placeholder: v1.3.1
-    validations:
-      required: true
-  - type: input
-    id: windows
-    attributes:
-      label: Windows version
-      placeholder: Windows 11 24H2
-    validations:
-      required: true
+        Thanks for reporting this. A wrong or missing battery level? Use the **Device report** form instead.
   - type: textarea
     id: what
     attributes:
@@ -30,13 +14,22 @@ body:
     validations:
       required: true
   - type: textarea
-    id: devices
+    id: steps
     attributes:
-      label: Devices involved
-      description: Mouse / keyboard / headset models, and whether they use a receiver, a cable or Bluetooth.
+      label: How can it be reproduced?
+      placeholder: |
+        1. Right-click the tray icon
+        2. ...
+  - type: input
+    id: version
+    attributes:
+      label: SwarlexBattery version
+      description: Right-click the tray icon; the version is shown in the update row.
+      placeholder: v1.5.2
+    validations:
+      required: true
   - type: textarea
-    id: log
+    id: diagnostics
     attributes:
-      label: Log
-      description: The last lines of `%LOCALAPPDATA%\SwarlexBattery\swarlexbattery.log` (remove anything personal).
-      render: text
+      label: diagnostics.txt
+      description: Right-click the tray icon > Diagnostics… and drag the file here (no personal data in it).

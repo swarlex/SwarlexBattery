@@ -2,6 +2,13 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.5.2
+- New menu item **Diagnostics…**: writes `%APPDATA%\SwarlexBattery\diagnostics.txt` and opens it - what
+  is shown, a fresh read of the supported devices, the last protocol steps, Bluetooth levels, all HID
+  devices and the recent log. Bluetooth MAC addresses and device serials are masked, so the file can be
+  attached to a public issue as it is.
+- Contributing guide (`.github/CONTRIBUTING.md`) and simpler issue forms built around the diagnostics file.
+
 ## 1.5.1
 - The update check no longer requests the release's checksum file: GitHub counted every check as a
   download, which inflated the download numbers. The file is still fetched and verified when you update.
