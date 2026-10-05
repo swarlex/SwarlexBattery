@@ -81,5 +81,6 @@
   "hide": "Dieses Gerät ausblenden",
   "hiddenDevices": "Ausgeblendete Geräte ({0})",
   "showAgain": "{0} einblenden",
-  "deviceHint": "Rechtsklick auf ein Gerät zeigt seine Optionen"
+  "deviceHint": "Rechtsklick auf ein Gerät zeigt seine Optionen",
+  "pinIcon": "Symbol neben der Uhr halten"
 }

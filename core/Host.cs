@@ -172,6 +172,7 @@ namespace SwarlexBattery
             Save(path, !Config.Bool(path, def));
             if (path == "plugins.gadgets.bluetooth") reader.RefreshSlow();
             if (path == "iconPercent" && Current != null) tray.Sync(Current.Icons);
+            if (path == "alwaysShowInTray") try { TrayIcons.SetPromoted(Config.Bool(path, true)); } catch (Exception e) { Log.Write("promote: " + e.Message); }
             if (path == "update.check" || path == "update.beta") { Update = null; LastResult = ""; if (Config.Bool("update.check", true)) CheckUpdates(true); }
             PollSoon();
         }

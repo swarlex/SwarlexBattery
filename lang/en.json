@@ -81,5 +81,6 @@
   "hide": "Hide this device",
   "hiddenDevices": "Hidden devices ({0})",
   "showAgain": "Show {0}",
-  "deviceHint": "Right-click a device for its options"
+  "deviceHint": "Right-click a device for its options",
+  "pinIcon": "Keep the icon next to the clock"
 }

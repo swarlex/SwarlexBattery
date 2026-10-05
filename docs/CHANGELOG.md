@@ -2,6 +2,12 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.9.4
+### Added
+- **Keep the icon next to the clock** (Preferences, on by default): the app keeps its icon in the visible part
+  of the tray, as before. Turned off, the icon goes behind the ^ arrow once, and from then on stays wherever
+  you put it (drag it, or Settings > Personalization > Taskbar > Other system tray icons).
+
 ## 1.9.3
 Preferences in a window of their own, and a menu for each device: rename it, choose its icon or hide it.
 

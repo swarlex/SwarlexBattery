@@ -81,5 +81,6 @@
   "hide": "Bu cihazı gizle",
   "hiddenDevices": "Gizli cihazlar ({0})",
   "showAgain": "{0} göster",
-  "deviceHint": "Seçenekler için cihaza sağ tıkla"
+  "deviceHint": "Seçenekler için cihaza sağ tıkla",
+  "pinIcon": "İkonu saatin yanında tut"
 }
