@@ -26,7 +26,8 @@ namespace SwarlexBattery
         static readonly object ScanLock = new object();
         public static HidInfo[] LastList = new HidInfo[0];   // collections seen by the last scan (for the log)
         static int listChanges = -1; static DateTime listAt;
-        static readonly int[] Vendors = { 0x1532, 0x373B, 0x3554, 0x3770, 0x046D, 0x1038, 0x03F0, 0x1B1C, 0x248A, 0x1915, 0x054C, 0x057E, 0x2DC8 };
+        static readonly int[] Vendors = { 0x1532, 0x373B, 0x3554, 0x3770, 0x046D, 0x1038, 0x03F0, 0x1B1C, 0x248A, 0x1915, 0x054C, 0x057E, 0x2DC8,
+            0x36A7, 0x373E, 0x33E4, 0x3434, 0x0B05, 0x5253, 0x3837, 0xA8A5, 0x3151, 0x388D, 0x0ECB, 0x3329 };
         public static string[] Others = new string[0];       // unsupported vendors' vendor collections (for the log)
 
         // One pass over every supported device. Safe to call from several threads (serialised).
@@ -70,6 +71,14 @@ namespace SwarlexBattery
                             case 0x054C: ReadPlayStation(grp.ToList(), outp); break;
                             case 0x057E: ReadNintendo(grp.ToList(), outp); break;
                             case 0x2DC8: ReadEightBitDo(grp.ToList(), outp); break;
+                            case 0x36A7: case 0x373E: case 0x33E4: ReadW83Family(grp.Key, grp.ToList(), outp); break;
+                            case 0x3434: ReadKeychron(grp.ToList(), outp); break;
+                            case 0x0B05: ReadAsus(grp.ToList(), outp); break;
+                            case 0x5253: case 0x3837: case 0xA8A5: ReadMchose(grp.Key, grp.ToList(), outp); break;
+                            case 0x3151: ReadAmInfinity(grp.ToList(), outp); break;
+                            case 0x388D: ReadLofree(grp.ToList(), outp); break;
+                            case 0x0ECB: ReadJbl(grp.ToList(), outp); break;
+                            case 0x3329: ReadAudeze(grp.ToList(), outp); break;
                         }
                     }
                     catch (Exception e) { Trace.Add(string.Format("{0:X4}: {1}", grp.Key, e.Message)); }
@@ -120,10 +129,18 @@ namespace SwarlexBattery
                 int pid = first.Pid;
                 string name = Clean(first.Product);
                 bool headset = System.Text.RegularExpressions.Regex.IsMatch(name, "(?i)blackshark|kraken|barracuda|nari|headset");
-                var r = new Reading { Id = "razer-" + pid.ToString("X4"), Name = name, Kind = headset ? "headphones" : "mouse", Source = "razer" };
+                bool keyboard = System.Text.RegularExpressions.Regex.IsMatch(name, "(?i)blackwidow|huntsman|ornata|cynosa|deathstalker|keyboard|pro type");
+                var r = new Reading { Id = "razer-" + pid.ToString("X4"), Name = name, Kind = headset ? "headphones" : keyboard ? "keyboard" : "mouse", Source = "razer" };
                 var vend = g.FirstOrDefault(d => (d.UsagePage == 0xFF14 || d.UsagePage == 0xFF00) && d.OutLen >= 64);
                 int[] v = null;
-                if (pid == 0x0565 || pid == 0x0566 || pid == 0x056E)
+                if (pid == 0x053A)
+                {
+                    // Barracuda Pro on its 2.4 GHz receiver: the PA protocol, shifted (BarracudaPro)
+                    r.Name = "Razer Barracuda Pro"; r.Kind = "headphones"; r.Receiver = true;
+                    var bc = g.FirstOrDefault(d => d.UsagePage == 0xFF00 && d.OutLen >= 64);
+                    if (bc != null) v = BarracudaPro(bc.Path, bc.OutLen, bc.InLen);
+                }
+                else if (pid == 0x0565 || pid == 0x0566 || pid == 0x056E)
                 {
                     // BlackShark V2 HyperSpeed: dongle (domain 0x80) and cable (0x00) are one headset
                     r.Id = "razer-bs2hs"; r.Name = "Razer BlackShark V2 HyperSpeed"; r.Kind = "headphones"; r.Receiver = pid != 0x056E;
@@ -318,6 +335,388 @@ namespace SwarlexBattery
                 else Trace.Add("dms4k in: " + Hex(x, 16));
             }
             outp.Add(r);
+        }
+
+        // ================================================================ more mice, headsets and keyboards
+        // From HaloBattery's providers (MIT) and the projects each one names. Every exchange below is a
+        // read: a battery / status request and its answer, checked before it counts.
+
+        // a feature report on a no-access handle (feature reports need no read/write rights)
+        static SafeFileHandle OpenQuery(string path) { return CreateFile(path, 0, SHARE_RW, IntPtr.Zero, OPEN_EXISTING, 0, IntPtr.Zero); }
+        static bool SetFeature(SafeFileHandle h, byte[] f) { return HidD_SetFeature(h, f, f.Length); }
+        static byte[] GetFeature(SafeFileHandle h, byte id, int len) { var b = new byte[len]; b[0] = id; return HidD_GetFeature(h, b, len) ? b : null; }
+
+        // ---------------------------------------------------------------- WLmouse / LAMZU / G-Wolves (one firmware family)
+        // incconutwo/mouse-battery-tray, Sheroune/lamzu-battery-monitory, G-Wolves' web driver: feature report 0,
+        // 64 bytes 00 00 02 02 00 83 ...; the answer (feature report 0) a1|a2 00 02 02 00 83 <charging> <level %>.
+        static int[] W83Read(string path, int featLen, int tries)
+        {
+            using (var h = OpenQuery(path))
+            {
+                if (h.IsInvalid) return null;
+                var q = new byte[Math.Max(65, featLen)]; q[3] = 0x02; q[4] = 0x02; q[6] = 0x83;   // [0] report id 0, then 00 00 02 02 00 83
+                if (!SetFeature(h, q)) { Trace.Add("w83: request refused"); return null; }
+                for (int t = 0; t < tries; t++)
+                {
+                    Thread.Sleep(50);
+                    var r = GetFeature(h, 0, q.Length); if (r == null) continue;
+                    for (int i = 5; i < r.Length - 2; i++)
+                        if (r[i] == 0x83 && r[i - 1] == 0x00 && r[i - 2] == 0x02 && (r[i - 5] == 0xA1 || r[i - 5] == 0xA2) && r[i + 2] <= 100)
+                            return new[] { (int)r[i + 2], r[i + 1] };
+                }
+                Trace.Add("w83: no a1 answer (mouse asleep or off)");
+                return null;
+            }
+        }
+
+        static readonly Dictionary<int, string> WlMice = new Dictionary<int, string> { { 0xA887, "WLmouse Beast X" }, { 0xA868, "WLmouse Beast X Mini Pro" }, { 0xA880, "WLmouse Beast X Max" } };
+        static readonly Dictionary<int, string> GWolvesWired = new Dictionary<int, string> {
+            { 0x5418, "G-Wolves HTS Plus" }, { 0x5419, "G-Wolves HTS Plus" }, { 0x5219, "G-Wolves HTS Plus Pro" }, { 0x4718, "G-Wolves Lycan" }, { 0x4719, "G-Wolves Lycan" },
+            { 0x5618, "G-Wolves HTXU" }, { 0x5619, "G-Wolves HTXU" }, { 0x3619, "G-Wolves Fenrir Pro" }, { 0x3519, "G-Wolves Fenrir Asym" }, { 0x2719, "G-Wolves HTX Mini" }, { 0x4219, "G-Wolves WARG" } };
+
+        static void ReadW83Family(int vid, List<HidInfo> devs, List<Reading> outp)
+        {
+            // the mouse on its cable first: it charges and names the model; one icon per family
+            var groups = devs.GroupBy(d => d.Pid).ToList();
+            Reading r = null;
+            foreach (var g in groups.OrderBy(x => vid == 0x33E4 ? (x.Key == 0x3854 ? 1 : 0) : vid == 0x373E ? (x.Key == 0x001C ? 0 : 1) : (WlMice.ContainsKey(x.Key) ? 1 : 0)))
+            {
+                HidInfo c; string name; bool receiver;
+                if (vid == 0x373E)
+                {
+                    if (g.Key != 0x001E && g.Key != 0x001C) continue;
+                    c = g.FirstOrDefault(d => d.Interface == 2 && d.UsagePage == 0xFFFF); name = "LAMZU Maya X"; receiver = g.Key == 0x001E;
+                }
+                else if (vid == 0x33E4)
+                {
+                    if (g.Key != 0x3854 && !GWolvesWired.ContainsKey(g.Key)) continue;
+                    c = g.FirstOrDefault(d => d.FeatLen == 65); receiver = g.Key == 0x3854;
+                    name = receiver ? "G-Wolves mouse" : GWolvesWired[g.Key];
+                }
+                else
+                {
+                    c = g.Where(d => d.UsagePage == 0xFFFF).OrderBy(d => d.Usage == 0 ? 0 : 1).FirstOrDefault();
+                    receiver = WlMice.ContainsKey(g.Key) || (g.First().Product ?? "").ToUpperInvariant().Contains("RECEIVER");
+                    name = WlMice.ContainsKey(g.Key) ? WlMice[g.Key] : "WLmouse " + Clean(g.First().Product);
+                }
+                if (c == null) continue;
+                if (r == null) r = new Reading { Id = vid == 0x373E ? "lamzu-mouse" : vid == 0x33E4 ? "gwolves-mouse" : "wlmouse-mouse", Name = name, Kind = "mouse", Source = "w83", Receiver = receiver };
+                var v = W83Read(c.Path, c.FeatLen, vid == 0x373E ? 10 : 15);
+                if (v != null) { r.Level = v[0]; r.Charging = v[1] != 0; r.Receiver = receiver; if (!receiver) r.Name = name; break; }
+            }
+            if (r != null) outp.Add(r);
+        }
+
+        // ---------------------------------------------------------------- Keychron (3434): M5, Ultra-Link 8K receiver
+        // csutcliff/keychron-battery-dkms: on interface 4, feature report b3 06 00 ...; the answer is an input report
+        // b4 06 ... with the level in byte 20. No charging flag.
+        static readonly Dictionary<int, string> KeychronPids = new Dictionary<int, string> { { 0xD028, "Keychron (Ultra-Link 8K)" }, { 0xD048, "Keychron M5" } };
+
+        static void ReadKeychron(List<HidInfo> devs, List<Reading> outp)
+        {
+            foreach (var g in devs.Where(d => KeychronPids.ContainsKey(d.Pid)).GroupBy(d => d.Pid))
+            {
+                var c = g.FirstOrDefault(d => d.Interface == 4 && d.InLen >= 21 && d.FeatLen >= 2); if (c == null) continue;
+                var r = new Reading { Id = "keychron-" + g.Key.ToString("X4"), Name = KeychronPids[g.Key], Kind = g.Key == 0xD048 ? "mouse" : "keyboard", Source = "keychron", Receiver = g.Key == 0xD028 };
+                using (var h = Open(c.Path))
+                {
+                    if (h.IsInvalid) { outp.Add(r); continue; }
+                    for (int a = 0; a < 3 && r.Level < 0; a++)
+                    {
+                        Drain(h, c.InLen);
+                        var f = new byte[Math.Max(c.FeatLen, 64)]; f[0] = 0xB3; f[1] = 0x06;
+                        if (!SetFeature(h, f)) { Trace.Add("keychron: request refused"); break; }
+                        var end = DateTime.UtcNow.AddMilliseconds(500);
+                        while (DateTime.UtcNow < end)
+                        {
+                            var x = Read(h, c.InLen, 100);
+                            if (x != null && x.Length > 20 && x[0] == 0xB4 && x[1] == 0x06 && x[20] <= 100) { r.Level = x[20]; break; }
+                        }
+                    }
+                }
+                outp.Add(r);
+            }
+        }
+
+        // ---------------------------------------------------------------- ASUS ROG / TUF mice (0B05)
+        // G-Helper (AsusMouse.cs): on the vendor collection of interface 0, output 00 12 07; the answer echoes 12 07,
+        // byte 4 after the echo = level (a percentage, or 0..4 on older models), byte 9 = charging. 0 and not
+        // charging is standby, not an empty battery; ff aa is "unknown command".
+        static readonly Dictionary<int, string> AsusMice = new Dictionary<int, string> {
+            { 0x1A72, "ROG Gladius III Aimpoint" }, { 0x1A70, "ROG Gladius III Aimpoint" }, { 0x1B0C, "ROG Gladius III Eva 2" }, { 0x1B0A, "ROG Gladius III Eva 2" },
+            { 0x197F, "ROG Gladius III Wireless" }, { 0x197D, "ROG Gladius III Wireless" }, { 0x1A1A, "ROG Chakram X" }, { 0x1A18, "ROG Chakram X" },
+            { 0x1A94, "ROG Harpe Ace Aim Lab Edition" }, { 0x1A92, "ROG Harpe Ace Aim Lab Edition" }, { 0x1A68, "ROG Keris Wireless Aimpoint" }, { 0x1A66, "ROG Keris Wireless Aimpoint" },
+            { 0x1979, "ROG Spatha X" }, { 0x1977, "ROG Spatha X" }, { 0x19F4, "TUF Gaming M4 Wireless" }, { 0x1A8D, "TX Gaming Mouse" }, { 0x1AF5, "TX Gaming Mouse Mini" },
+            { 0x1AF3, "TX Gaming Mouse Mini" }, { 0x1C57, "TUF Gaming Mini Miku Edition" }, { 0x1C56, "TUF Gaming Mini Miku Edition" },
+            { 0x18E5, "ROG Chakram" }, { 0x18E3, "ROG Chakram" }, { 0x1960, "ROG Keris Wireless" }, { 0x195E, "ROG Keris Wireless" }, { 0x1A59, "ROG Keris EVA Edition" },
+            { 0x1A57, "ROG Keris EVA Edition" }, { 0x1908, "ROG Pugio II" }, { 0x1906, "ROG Pugio II" }, { 0x1949, "ROG Strix Impact II Wireless" }, { 0x1947, "ROG Strix Impact II Wireless" } };
+        static readonly HashSet<int> AsusSteps = new HashSet<int> { 0x18E5, 0x18E3, 0x1960, 0x195E, 0x1A59, 0x1A57, 0x1908, 0x1906, 0x1949, 0x1947 };
+
+        static void ReadAsus(List<HidInfo> devs, List<Reading> outp)
+        {
+            foreach (var g in devs.Where(d => AsusMice.ContainsKey(d.Pid)).GroupBy(d => d.Pid))
+            {
+                var c = g.FirstOrDefault(d => d.Interface == 0 && d.UsagePage >= 0xFF00 && d.OutLen >= 3); if (c == null) continue;
+                var r = new Reading { Id = "asus-" + AsusMice[g.Key].ToLowerInvariant().Replace(' ', '-'), Name = AsusMice[g.Key], Kind = "mouse", Source = "asus", Approx = AsusSteps.Contains(g.Key) };
+                using (var h = Open(c.Path))
+                {
+                    if (h.IsInvalid) { outp.Add(r); continue; }
+                    Func<byte[], int> echo = q => q.Length > 2 && q[0] == 0x12 && q[1] == 0x07 ? 0 : q.Length > 3 && q[0] == 0x00 && q[1] == 0x12 && q[2] == 0x07 ? 1 : -1;
+                    var x = Ask(h, new byte[] { 0x00, 0x12, 0x07 }, c.OutLen, c.InLen, 900, q => echo(q) >= 0);
+                    int m = x == null ? -1 : echo(x);
+                    if (m >= 0 && x.Length > m + 9)
+                    {
+                        int raw = x[m + 4]; bool chg = x[m + 9] != 0;
+                        if (!(raw == 0 && !chg))
+                        {
+                            if (AsusSteps.Contains(g.Key)) { if (raw <= 4) r.Level = raw * 25; }
+                            else if (raw <= 100) r.Level = raw;
+                            r.Charging = chg && r.Level >= 0;
+                        }
+                    }
+                }
+                outp.Add(r);
+            }
+        }
+
+        // ---------------------------------------------------------------- MCHOSE (5253 / 3837) and the G7 (A8A5:2255)
+        // alexfrih/mchose-linux (from MCHOSE's M HUB bundle): on the FF01 collection, feature report 0x11 (20 bytes)
+        // or 0x12 (64) with every payload byte inverted; command 06 answers vid, model, firmware, flags, level,
+        // charging (inverted from byte 2, echo cmd ^ ff in byte 1). Asked again for every attempt. G7: output
+        // 00 55 30 a5 0b 2e 01 01 01, answer AA 30 ... level in byte 8, charging in byte 9.
+        static void ReadMchose(int vid, List<HidInfo> devs, List<Reading> outp)
+        {
+            if (vid == 0xA8A5)
+            {
+                var c = devs.FirstOrDefault(d => d.Pid == 0x2255 && d.UsagePage == 0xFF01 && d.Usage == 0x0010 && d.OutLen >= 9); if (c == null) return;
+                var r = new Reading { Id = "mchose-g7", Name = "MCHOSE G7", Kind = "mouse", Source = "mchose", Receiver = true };
+                using (var h = Open(c.Path))
+                {
+                    if (!h.IsInvalid)
+                    {
+                        Func<byte[], int> at = q => q.Length > 10 && q[0] == 0xAA && q[1] == 0x30 ? 0 : q.Length > 11 && q[0] == 0x00 && q[1] == 0xAA && q[2] == 0x30 ? 1 : -1;
+                        var x = Ask(h, new byte[] { 0x00, 0x55, 0x30, 0xA5, 0x0B, 0x2E, 0x01, 0x01, 0x01 }, c.OutLen, c.InLen, 600, q => at(q) >= 0);
+                        if (x != null) { int m = at(x); if (x[m + 8] <= 100) { r.Level = x[m + 8]; r.Charging = x[m + 9] != 0; } }
+                    }
+                }
+                outp.Add(r); return;
+            }
+            foreach (var g in devs.GroupBy(d => d.Pid))
+            {
+                var c = g.FirstOrDefault(d => d.UsagePage == 0xFF01 && d.FeatLen >= 21); if (c == null) continue;
+                var r = new Reading { Id = "mchose-" + vid.ToString("X4"), Name = "MCHOSE mouse", Kind = "mouse", Source = "mchose", Receiver = true };
+                using (var h = OpenQuery(c.Path))
+                {
+                    if (h.IsInvalid) { outp.Add(r); continue; }
+                    foreach (var ch in new[] { new[] { 0x11, 20 }, new[] { 0x12, 64 } })
+                    {
+                        if (ch[1] + 1 > c.FeatLen || r.Level >= 0) continue;
+                        for (int a = 0; a < 4 && r.Level < 0; a++)
+                        {
+                            var f = new byte[c.FeatLen]; f[0] = (byte)ch[0];
+                            for (int i = 1; i <= ch[1]; i++) f[i] = (byte)((i == 1 ? 0x06 : 0x00) ^ 0xFF);
+                            if (!SetFeature(h, f)) break;
+                            Thread.Sleep(120);
+                            var x = GetFeature(h, (byte)ch[0], c.FeatLen);
+                            if (x == null || x.Length < 13 || x[1] != (0x06 ^ 0xFF)) continue;
+                            var p = x.Skip(2).Select(b => (byte)(b ^ 0xFF)).ToArray();
+                            int pvid = p[0] | (p[1] << 8), model = p[2] | (p[3] << 8);
+                            if ((pvid == 0x5253 || pvid == 0x3837) && p[9] <= 100)
+                            {
+                                r.Level = p[9]; r.Charging = p[10] != 0;
+                                if (model == 0x0031) r.Name = "MCHOSE M7 Ultra";
+                            }
+                        }
+                    }
+                }
+                outp.Add(r);
+            }
+        }
+
+        // ---------------------------------------------------------------- AM Infinity 8K mouse (3151:5007)
+        // Aiacos/ajazz-control-center: on FFFF:0002, feature report 0 "00 f7" (the vendor's status poll), then feature
+        // report 05: 05 00 00 <charge>. A non-zero byte before the charge is reconnect junk; 0 = link not up yet.
+        static void ReadAmInfinity(List<HidInfo> devs, List<Reading> outp)
+        {
+            var c = devs.FirstOrDefault(d => d.Pid == 0x5007 && d.UsagePage == 0xFFFF && d.Usage == 0x0002 && d.FeatLen >= 4); if (c == null) return;
+            var r = new Reading { Id = "aminfinity-mouse", Name = "AM Infinity 8K Mouse", Kind = "mouse", Source = "aminfinity", Receiver = true };
+            using (var h = OpenQuery(c.Path))
+            {
+                if (!h.IsInvalid)
+                {
+                    var f = new byte[c.FeatLen]; f[1] = 0xF7;
+                    if (SetFeature(h, f))
+                    {
+                        Thread.Sleep(30);
+                        var x = GetFeature(h, 0x05, c.FeatLen);
+                        if (x != null && x[0] == 0x05 && x[1] == 0 && x[2] == 0 && x[3] > 0) r.Level = Math.Min((int)x[3], 100);
+                    }
+                }
+            }
+            outp.Add(r);
+        }
+
+        // ---------------------------------------------------------------- Lofree Hyzen keyboard dongle (388D:0025)
+        // Lofree's web driver (hyzen.lofree.tech): transactions on report 0x04 - start (00 00 01), command, end
+        // (00 00 02); command AA = online (0 = off), 1A = battery %, the answer starts at byte 7 after the id.
+        static void ReadLofree(List<HidInfo> devs, List<Reading> outp)
+        {
+            if (devs.Any(d => d.Pid == 0x0024)) return;                       // on its cable: the web driver does not read it then
+            var c = devs.FirstOrDefault(d => d.Pid == 0x0025 && d.UsagePage == 0xFF1C && d.Usage == 0x0092 && d.OutLen >= 8); if (c == null) return;
+            var r = new Reading { Id = "lofree-keyboard", Name = "Lofree " + Clean(((c.Product ?? "Hyzen").Split('@'))[0]), Kind = "keyboard", Source = "lofree", Receiver = true };
+            using (var h = Open(c.Path))
+            {
+                if (!h.IsInvalid)
+                {
+                    Func<byte, int> cmd = op =>
+                    {
+                        Func<byte[], bool> isAck = q => q.Length > 3 && q[0] == 0x04;
+                        if (Ask(h, new byte[] { 0x04, 0x00, 0x00, 0x01 }, c.OutLen, c.InLen, 1500, q => isAck(q) && q[3] == 0x01) == null) return -1;
+                        var a = Ask(h, new byte[] { 0x04, 0x00, 0x00, op }, c.OutLen, c.InLen, 1500, q => isAck(q) && q.Length > 8 && (q[3] == op || q[3] == 0) && q[5] == 0 && q[6] == 0);
+                        Ask(h, new byte[] { 0x04, 0x00, 0x00, 0x02 }, c.OutLen, c.InLen, 500, q => isAck(q) && q[3] == 0x02);
+                        return a == null ? -1 : a[8];
+                    };
+                    int online = cmd(0xAA);
+                    if (online > 0) { int lvl = cmd(0x1A); if (lvl >= 0 && lvl <= 100) r.Level = lvl; }
+                    else if (online == 0) Trace.Add("lofree: keyboard offline");
+                }
+            }
+            outp.Add(r);
+        }
+
+        // ---------------------------------------------------------------- JBL Quantum 910 Wireless (0ECB:2088)
+        // plugato/JBL_Baterry_Monitor: listen only - the headset pushes report 08 <level %> on FF13:0001, on events.
+        static void ReadJbl(List<HidInfo> devs, List<Reading> outp)
+        {
+            var c = devs.FirstOrDefault(d => d.Pid == 0x2088 && d.UsagePage == 0xFF13 && d.Usage == 0x0001 && d.InLen >= 2); if (c == null) return;
+            var r = new Reading { Id = "jbl-q910", Name = "JBL Quantum 910 Wireless", Kind = "headphones", Source = "jbl", Receiver = true };
+            using (var h = Open(c.Path))
+            {
+                if (!h.IsInvalid)
+                {
+                    var end = DateTime.UtcNow.AddMilliseconds(800);
+                    while (DateTime.UtcNow < end) { var x = Read(h, c.InLen, 100); if (x != null && x[0] == 0x08 && x[1] <= 100) { r.Level = x[1]; break; } }
+                }
+            }
+            outp.Add(r);
+        }
+
+        // ---------------------------------------------------------------- Audeze Maxwell (3329)
+        // HeadsetControl (audeze_maxwell.hpp), as HaloBattery reads it: only the battery packet
+        // 06 07 80 05 5a 03 00 d6 0c (output report 06, 62 bytes); input report 07 holds a rolling buffer with the
+        // marker d6 0c 00 00 <level %>. "Audeze Maxwell Dongle" = no headset linked. The cable endpoint means charging.
+        static readonly Dictionary<int, string> AudezePids = new Dictionary<int, string> {
+            { 0x4B19, "Audeze Maxwell" }, { 0x4B18, "Audeze Maxwell (Xbox)" }, { 0x4B1A, "Audeze Maxwell" }, { 0x4B1E, "Audeze Maxwell (Xbox)" },
+            { 0x4B29, "Audeze Maxwell 2" }, { 0x4B28, "Audeze Maxwell 2 (Xbox)" } };
+
+        static void ReadAudeze(List<HidInfo> devs, List<Reading> outp)
+        {
+            Reading r = null;
+            foreach (var g in devs.Where(d => AudezePids.ContainsKey(d.Pid)).GroupBy(d => d.Pid).OrderBy(x => x.Key == 0x4B1A || x.Key == 0x4B1E ? 0 : 1))
+            {
+                if (g.Any(d => (d.Product ?? "").Trim().Equals("Audeze Maxwell Dongle", StringComparison.OrdinalIgnoreCase))) { Trace.Add("audeze: no headset linked"); continue; }
+                var c = g.FirstOrDefault(d => d.UsagePage == 0xFF13 && d.Usage == 0x0001 && d.OutLen >= 10 && d.InLen >= 10); if (c == null) continue;
+                bool cable = g.Key == 0x4B1A || g.Key == 0x4B1E;
+                if (r == null) r = new Reading { Id = "audeze-maxwell", Name = AudezePids[g.Key], Kind = "headphones", Source = "audeze", Receiver = !cable };
+                using (var h = Open(c.Path))
+                {
+                    if (h.IsInvalid) continue;
+                    var f = new byte[c.OutLen]; var pkt = new byte[] { 0x06, 0x07, 0x80, 0x05, 0x5A, 0x03, 0x00, 0xD6, 0x0C }; Array.Copy(pkt, f, pkt.Length);
+                    if (!Write(h, f)) continue;
+                    int level = -1;
+                    for (int i = 0; i < 3 && level < 0; i++)
+                    {
+                        Thread.Sleep(60);
+                        var x = new byte[c.InLen]; x[0] = 0x07;
+                        if (!HidD_GetInputReport(h, x, x.Length)) continue;
+                        for (int k = 0; k + 4 < x.Length; k++) if (x[k] == 0xD6 && x[k + 1] == 0x0C && x[k + 2] == 0 && x[k + 3] == 0 && x[k + 4] <= 100) { level = x[k + 4]; break; }
+                    }
+                    if (level > 0) { r.Level = level; r.Charging = cable; r.Receiver = !cable; break; }   // 0 right after power-on is "not measured yet"
+                }
+            }
+            if (r != null) outp.Add(r);
+        }
+
+        // ---------------------------------------------------------------- Astro A50 Gen 5 base station (046D:0B1C)
+        // HeadsetControl logitech_astro_a50: on FF32:0074, report 02: 02 0c 03 00 06 <handle>; the answer
+        // 02 0c .. 00 06 .. <level> <level2> <docked>.
+        static Reading ReadAstro(IEnumerable<HidInfo> g)
+        {
+            var c = g.FirstOrDefault(d => d.UsagePage == 0xFF32 && d.Usage == 0x0074 && d.OutLen >= 6); if (c == null) return null;
+            var r = new Reading { Id = "astro-a50", Name = "Astro A50 Gen 5", Kind = "headphones", Source = "astro", Receiver = true };
+            using (var h = Open(c.Path))
+            {
+                if (h.IsInvalid) return r;
+                var x = Ask(h, new byte[] { 0x02, 0x0C, 0x03, 0x00, 0x06, 0x0C }, c.OutLen, c.InLen, 1500, q => q.Length > 8 && q[0] == 0x02 && q[1] == 0x0C && q[4] == 0x06);
+                if (x != null && x[6] <= 100) { r.Level = x[6]; r.Charging = x[8] != 0; }
+            }
+            return r;
+        }
+
+        // ---------------------------------------------------------------- Razer Barracuda Pro, 2.4 GHz (1532:053A)
+        // HaloBattery barracuda.py, from a capture of Synapse: report 01, 'P','A' request two bytes earlier than the
+        // BlackShark's; remote mode on, query 21 (battery) and 2A (charging), remote mode off. Reply 'P','I', echo at 13.
+        static int[] BarracudaPro(string path, int outLen, int inLen)
+        {
+            using (var h = Open(path))
+            {
+                if (h.IsInvalid) return null;
+                Func<byte, byte, byte, byte[]> frame = (len, type, cmd) => { var b = new byte[Math.Max(64, outLen)]; b[0] = 0x01; b[1] = 0x80; b[2] = len; b[3] = 0x50; b[4] = 0x41; b[5] = 0x08; b[6] = 0x08; b[7] = type; b[8] = cmd; return b; };
+                var on = frame(0x07, 0x02, 0xE1); on[5] = 0x0E; on[9] = 1;
+                var off = frame(0x07, 0x02, 0xE1); off[5] = 0x0E;
+                Func<byte, int> query = cmd =>
+                {
+                    for (int a = 0; a < 4; a++)
+                    {
+                        var x = Ask(h, frame(8, 0x03, cmd), outLen, inLen, 900, q => q.Length > 16 && q[3] == 0x50 && q[4] == 0x49 && q[13] == cmd && (q[14] == 1 || q[14] == 2) && q[15] > 0);
+                        if (x != null) return x[16];
+                    }
+                    return -1;
+                };
+                Drain(h, inLen); if (!Write(h, on)) return null;
+                Thread.Sleep(50);
+                int lvl = query(0x21); int chg = lvl >= 0 ? query(0x2A) : -1;
+                Write(h, off);
+                return lvl >= 0 && lvl <= 100 ? new[] { lvl, chg > 0 ? 1 : 0 } : null;
+            }
+        }
+
+        // ---------------------------------------------------------------- older SteelSeries Arctis (HeadsetControl)
+        // Arctis 1 / 7X / 7P (iface 3, FF43): 06 12 -> 06 12 <status> <level>, status 01 = off.
+        // Arctis 7 2018 (iface 5): 06 14 -> link 03, then 06 18 -> level. Arctis 7 2019 / Pro Wireless 2019 (iface 5):
+        // 06 18 -> level, 0 = off. Arctis 9 (iface 0): 00 20 -> aa 01 .. <raw 0x64..0x9a> <charging>.
+        static Reading ReadArctisClassic(int pid, IEnumerable<HidInfo> g)
+        {
+            string name; int iface; int kind;   // kind: 1 = Arctis 1 family, 2 = Arctis 7 2018, 3 = Arctis 7 / Pro 2019, 4 = Arctis 9
+            switch (pid)
+            {
+                case 0x12B3: name = "Arctis 1 Wireless"; iface = 3; kind = 1; break;
+                case 0x12B6: name = "Arctis 1 Wireless Xbox"; iface = 3; kind = 1; break;
+                case 0x12D7: name = "Arctis 7X"; iface = 3; kind = 1; break;
+                case 0x12D5: name = "Arctis 7P"; iface = 3; kind = 1; break;
+                case 0x12AD: name = "Arctis 7"; iface = 5; kind = 2; break;
+                case 0x1260: name = "Arctis 7"; iface = 5; kind = 3; break;
+                case 0x1252: name = "Arctis Pro Wireless 2019"; iface = 5; kind = 3; break;
+                case 0x12C2: name = "Arctis 9"; iface = 0; kind = 4; break;
+                default: return null;
+            }
+            var c = g.FirstOrDefault(d => d.Interface == iface && (kind == 1 ? d.UsagePage == 0xFF43 : d.UsagePage >= 0xFF00) && d.OutLen >= 2); if (c == null) return null;
+            var r = new Reading { Id = "ss-" + pid.ToString("X4"), Name = name, Kind = "headphones", Source = "steelseries", Receiver = true };
+            using (var h = Open(c.Path))
+            {
+                if (h.IsInvalid) return r;
+                Func<byte, byte, Func<byte[], bool>, byte[]> ask = (a, b, ok) => Strip0(Ask(h, new byte[] { a, b }, c.OutLen, c.InLen, 800, q => ok(Strip0(q))));
+                Func<byte, byte, Func<byte[], bool>> echo = (a, b) => q => q.Length >= 4 && q[0] == a && q[1] == b;
+                if (kind == 1) { var x = ask(0x06, 0x12, echo(0x06, 0x12)); if (x != null && x[2] != 0x01) r.Level = Math.Min((int)x[3], 100); }
+                else if (kind == 2) { var x = ask(0x06, 0x14, echo(0x06, 0x14)); if (x != null && x[2] == 0x03) { x = ask(0x06, 0x18, echo(0x06, 0x18)); if (x != null) r.Level = Math.Min((int)x[2], 100); } }
+                else if (kind == 3) { var x = ask(0x06, 0x18, echo(0x06, 0x18)); if (x != null && x[2] != 0) r.Level = Math.Min((int)x[2], 100); }
+                else
+                {
+                    var x = ask(0x00, 0x20, q => q.Length >= 5 && (q[0] == 0xAA || q[0] == 0x55));
+                    if (x != null && x[0] == 0xAA && x[1] == 0x01) { int raw = Math.Min(Math.Max((int)x[3], 0x64), 0x9A); r.Level = (raw - 0x64) * 100 / (0x9A - 0x64); r.Charging = x[4] == 0x01; }
+                }
+            }
+            return r;
         }
 
         // ================================================================ game controllers
@@ -529,6 +928,8 @@ namespace SwarlexBattery
             {
                 var first = g.First();
                 int pid = first.Pid;
+                // the Astro A50 Gen 5 base station speaks its own protocol, not HID++
+                if (pid == 0x0B1C) { var astro = ReadAstro(g); if (astro != null) outp.Add(astro); continue; }
                 var lng = Pick(g, 0xFF00, 0x0002);
                 var sht = Pick(g, 0xFF00, 0x0001);
                 var cands = new List<HidInfo>();
@@ -672,6 +1073,8 @@ namespace SwarlexBattery
             foreach (var g in devs.GroupBy(d => d.Pid))
             {
                 int pid = g.Key;
+                var classic = ReadArctisClassic(pid, g);
+                if (classic != null) { outp.Add(classic); continue; }
                 var r = new Reading { Id = "ss-" + pid.ToString("X4"), Source = "steelseries", Receiver = true };
                 if (pid == 0x12E0 || pid == 0x12E5)
                 {

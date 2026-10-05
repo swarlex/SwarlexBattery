@@ -2,6 +2,18 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.6.0
+- Many more devices, ported from HaloBattery's providers (MIT) and the projects they name. All of them
+  are read with battery / status requests only, and every answer is checked before it is shown:
+  - mice: ASUS ROG / TUF (G-Helper), WLmouse Beast X, LAMZU Maya X, G-Wolves (11 models, one firmware
+    family), MCHOSE M7 / L7 / A7 and G7, AM Infinity 8K;
+  - headsets: Razer Barracuda Pro (2.4 GHz), Astro A50 Gen 5, Audeze Maxwell / Maxwell 2 (battery packet
+    only), JBL Quantum 910 (listen only), SteelSeries Arctis 1 / 7 / 7P / 7X / 9 / Pro Wireless 2019;
+  - keyboards: Keychron (Ultra-Link 8K, and the M5 mouse), Lofree Hyzen.
+- Razer keyboards are shown as keyboards (they were labelled as mice).
+- Not added on purpose: Corsair Dark Core (its answer cannot be checked), Arctis Pro Wireless 2017 (its
+  answer does not echo the request).
+
 ## 1.5.6
 - Controller tray icons redrawn as real silhouettes (HaloBattery's outlines, MIT): Xbox pads and other
   controllers get the Xbox outline with offset sticks, PS4 the DualShock 4 outline with touchpad and two

@@ -66,13 +66,17 @@ and keeps your settings; uninstall from **Settings > Apps**.
 
 | Brand | Devices |
 |---|---|
-| **Razer** | BlackShark V2 HyperSpeed / V2 Pro, wireless Razer mice and keyboards |
-| **Logitech** | Mice and keyboards on Lightspeed, Unifying and Bolt receivers; G533 / 535 / 633 / 635 / 733 / 933 / 935, G PRO X (2) headsets |
-| **SteelSeries** | Arctis Nova 7 / 7X / 7P / 5 / 3, Arctis 7+, Arctis Nova Pro Wireless, GameBuds; Aerox 3 / 5 / 9, Rival 3 Wireless |
+| **Razer** | BlackShark V2 HyperSpeed / V2 Pro, Barracuda Pro, wireless Razer mice and keyboards |
+| **Logitech / Astro** | Mice and keyboards on Lightspeed, Unifying and Bolt receivers; G533 / 535 / 633 / 635 / 733 / 933 / 935, G PRO X (2) headsets; Astro A50 Gen 5 |
+| **SteelSeries** | Arctis Nova 7 / 7X / 7P / 5 / 3, Arctis 7+, Arctis Nova Pro Wireless, GameBuds, Arctis 1 / 7 / 7P / 7X / 9 / Pro Wireless (2019); Aerox 3 / 5 / 9, Rival 3 Wireless |
 | **HyperX** | Cloud II Wireless, Cloud III Wireless, Cloud Alpha 2 |
 | **Corsair** | Void v2 Wireless, Virtuoso Max, HS80 Max |
 | **ATK / VXE / Pulsar** | MAD series and mice with the same protocol |
-| **AULA** | F75 on its 2.4 GHz receiver |
+| **ASUS** | ROG Gladius III, Chakram (X), Keris, Harpe Ace, Spatha X, Pugio II, Strix Impact II Wireless; TUF M4 Wireless and more |
+| **WLmouse / LAMZU / G-Wolves** | Beast X (Max / Mini Pro), Maya X, HTS Plus, Lycan, HTXU, Fenrir, HTX Mini, WARG |
+| **MCHOSE / AM Infinity** | M7 / L7 / A7 family, G7; AM Infinity 8K |
+| **Audeze / JBL** | Maxwell (and Maxwell 2), Quantum 910 Wireless |
+| **Keyboards** | AULA F75 (2.4 GHz), Keychron (Ultra-Link 8K, M5 mouse), Lofree Hyzen; Razer and Logitech wireless keyboards |
 | **Darmoshark** | M3 4K on the 4K receiver; M3, M3S, N3 |
 | **Controllers** | PS5 DualSense / Edge, PS4 DualShock 4, Xbox (USB, wireless adapter, Bluetooth), Switch Pro / Joy-Con, 8BitDo, and other pads in Xbox (XInput) mode |
 | **Others** | Bluetooth devices whose battery Windows shows, laptop battery |
