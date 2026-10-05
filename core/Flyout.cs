@@ -24,7 +24,8 @@ namespace SwarlexBattery
         public string Open;                       // null, "panel" or "menu"
         string lastClosed; DateTime lastClosedAt = DateTime.MinValue;
 
-        Brush fg, muted, accent, warn, error, track;
+        Brush fg, muted, accent, warn, error, track, ok;
+        Style barStyle;                           // the thin scroll bar of the theme in use
         readonly FontFamily iconFont = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets");
         Style rowStyle, rowStyleMarked;
         bool? light;                              // the theme the brushes were made for
@@ -63,6 +64,18 @@ namespace SwarlexBattery
             const string xaml = "<Style xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" TargetType=\"Border\"><Setter Property=\"Background\" Value=\"{0}\"/><Style.Triggers><Trigger Property=\"IsMouseOver\" Value=\"True\"><Setter Property=\"Background\" Value=\"{1}\"/></Trigger></Style.Triggers></Style>";
             rowStyle = (Style)XamlReader.Parse(string.Format(xaml, "Transparent", hover));
             rowStyleMarked = (Style)XamlReader.Parse(string.Format(xaml, hover, hover));   // e.g. "Update": highlighted all the time
+            // "Coloured icon": the panel's bars and pictograms are green while the level is fine, like the tray icon
+            ok = MakeBrush(l ? "#1e9646" : "#3fd16a");
+            // a thin scroll bar in the theme's colours instead of WPF's light grey one (only when a list is taller
+            // than the screen)
+            const string bar = "<Style xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" xmlns:x=\"http://schemas.microsoft.com/winfx/2006/xaml\" TargetType=\"ScrollBar\">" +
+                "<Setter Property=\"Width\" Value=\"6\"/><Setter Property=\"MinWidth\" Value=\"6\"/><Setter Property=\"Margin\" Value=\"4,0,0,0\"/>" +
+                "<Setter Property=\"Template\"><Setter.Value><ControlTemplate TargetType=\"ScrollBar\">" +
+                "<Track x:Name=\"PART_Track\" IsDirectionReversed=\"True\" Orientation=\"Vertical\"><Track.Thumb><Thumb><Thumb.Template>" +
+                "<ControlTemplate TargetType=\"Thumb\"><Border CornerRadius=\"3\" Background=\"{0}\"/></ControlTemplate>" +
+                "</Thumb.Template></Thumb></Track.Thumb></Track></ControlTemplate></Setter.Value></Setter></Style>";
+            barStyle = (Style)XamlReader.Parse(bar.Replace("{0}", l ? "#40000000" : "#50FFFFFF"));
+            foreach (var sv in new[] { scroll, sideScroll }) if (sv != null) sv.Resources[typeof(System.Windows.Controls.Primitives.ScrollBar)] = barStyle;
             win.Background = MakeBrush("#" + panel); win.Foreground = fg;
             if (hwnd != IntPtr.Zero) Win.FlyoutFrame(hwnd, !l);
             if (side != null) { side.Background = win.Background; side.Foreground = fg; if (sideHwnd != IntPtr.Zero) Win.FlyoutFrame(sideHwnd, !l); }
@@ -96,6 +109,7 @@ namespace SwarlexBattery
             // the content when the window is activated (Escape still closes it: KeyDown is on the window)
             scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, MaxHeight = Config.Num("panel.maxHeight", 620),
                                         Focusable = false, FocusVisualStyle = null };
+            scroll.Resources[typeof(System.Windows.Controls.Primitives.ScrollBar)] = barStyle;   // (the theme was applied before this list existed)
             win.Content = new Border { Padding = new Thickness(14), Child = scroll, Focusable = false, FocusVisualStyle = null };
             win.FocusVisualStyle = null;
             win.SourceInitialized += (s, e) => { hwnd = new WindowInteropHelper(win).Handle; Win.FlyoutFrame(hwnd, light != true); };
@@ -138,6 +152,10 @@ namespace SwarlexBattery
         {
             if (sideOpen) { CloseSide(); Refresh(); return; }
             sideOpen = true;
+            // as tall as the screen allows: a scroll bar only when even that is too short
+            var scr = Forms.Screen.FromPoint(anchor);
+            var area = Win.AreaOutsideTaskbar(scr.Bounds, scr.WorkingArea);
+            sideScroll.MaxHeight = Math.Max(300, area.Height / Win.DpiScale(anchor) - 40);
             sideScroll.Content = BuildPrefs();
             if (!side.IsVisible) { side.Left = -20000; side.Top = -20000; side.Show(); }
             side.UpdateLayout();
@@ -285,7 +303,7 @@ namespace SwarlexBattery
             if (hex.StartsWith("PAD:")) hex = "E7FC";   // the panel uses the font's gamepad for every controller
             var t = Text(((char)Convert.ToInt32(hex, 16)).ToString(), brush, size); t.FontFamily = iconFont; return t;
         }
-        Brush StateBrush(string s) { return s == "warn" ? warn : s == "error" ? error : s == "off" ? muted : fg; }
+        Brush StateBrush(string s) { return s == "warn" ? warn : s == "error" ? error : s == "off" ? muted : s == "ok" ? ok : fg; }
 
         static string KindLabel(string kind)
         {
