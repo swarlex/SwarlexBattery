@@ -28,7 +28,7 @@ namespace SwarlexBattery
 
     class TraySpec { public string Id, Icon, State, Tooltip; public double? Ring; public double[] Rings; public bool Charging, Dim; public int Percent = -1; }
     class PanelItem { public string Icon, Label, Value, State, Sub; public double Pct; }
-    class Notice { public string Key, Title, Body; }
+    class Notice { public string Key, Title, Body; public int Pct = -1; }
     class Snapshot { public List<TraySpec> Icons = new List<TraySpec>(); public List<PanelItem> Items = new List<PanelItem>(); public string Empty; public List<Notice> Notify = new List<Notice>(); public string Title; }
 
     class BatteryReader
@@ -460,7 +460,7 @@ namespace SwarlexBattery
                 if (g.HoursLeft > 0 && g.Online && !g.Charging) sub = string.Join(" - ", new[] { sub, TimeLeft(g.HoursLeft) }.Where(x => x != ""));
                 snap.Items.Add(new PanelItem { Icon = g.Glyph ?? IconFor(g.Kind), Label = g.Name, Value = g.Pct + "%", Pct = g.Pct / 100.0, State = state, Sub = sub });
                 if (low > 0 && g.Online && !g.Charging && g.Pct <= low)
-                    snap.Notify.Add(new Notice { Key = "low-" + g.Id, Title = Strings.T("lowTitle", g.Name), Body = Strings.T("lowBody", g.Pct) });
+                    snap.Notify.Add(new Notice { Key = "low-" + g.Id, Title = Strings.T("lowTitle", g.Name), Body = Strings.T("lowBody", g.Pct), Pct = g.Pct });
             }
             // devices that give no level: name and reason only (no number, no bar, never in the tray icon)
             foreach (var g in gadgets.Where(x => x.Hint != null))

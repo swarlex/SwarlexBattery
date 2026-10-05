@@ -167,6 +167,23 @@ namespace SwarlexBattery
         static readonly Dictionary<int, string> RazerPath = new Dictionary<int, string>();  // pid -> collection that answered
         static readonly Dictionary<string, DateTime> NoBattery = new Dictionary<string, DateTime>(); // path -> retry after
 
+        // Razer keyboards with a battery, from OpenRazer's keyboard driver (via HaloBattery providers/razer.py): pid ->
+        // name, the transaction id it answers on, the USB interface that takes the commands (-1 = any), on the receiver
+        class RazerKb { public string Name; public byte Tid; public int Iface; public bool Wireless; }
+        static readonly Dictionary<int, RazerKb> RazerKeyboards = new Dictionary<int, RazerKb> {
+            { 0x0290, new RazerKb { Name = "Razer DeathStalker V2 Pro", Tid = 0x9F, Iface = 2, Wireless = true } },
+            { 0x0292, new RazerKb { Name = "Razer DeathStalker V2 Pro", Tid = 0x1F, Iface = 3 } },
+            { 0x0296, new RazerKb { Name = "Razer DeathStalker V2 Pro TKL", Tid = 0x9F, Iface = 2, Wireless = true } },
+            { 0x0298, new RazerKb { Name = "Razer DeathStalker V2 Pro TKL", Tid = 0x1F, Iface = 3 } },
+            { 0x0271, new RazerKb { Name = "Razer BlackWidow V3 Mini HyperSpeed", Tid = 0x9F, Iface = 3, Wireless = true } },
+            { 0x0258, new RazerKb { Name = "Razer BlackWidow V3 Mini HyperSpeed", Tid = 0x1F, Iface = 3 } },
+            { 0x02BA, new RazerKb { Name = "Razer BlackWidow V4 Mini HyperSpeed", Tid = 0x9F, Iface = 3, Wireless = true } },
+            { 0x02B9, new RazerKb { Name = "Razer BlackWidow V4 Mini HyperSpeed", Tid = 0x1F, Iface = 3 } },
+            { 0x02D5, new RazerKb { Name = "Razer BlackWidow V4 Tenkeyless HyperSpeed", Tid = 0x9F, Iface = 2, Wireless = true } },
+            { 0x02D7, new RazerKb { Name = "Razer BlackWidow V4 Tenkeyless HyperSpeed", Tid = 0x1F, Iface = 3 } },
+            { 0x025C, new RazerKb { Name = "Razer BlackWidow V3 Pro", Tid = 0x9F, Iface = -1, Wireless = true } },
+            { 0x025A, new RazerKb { Name = "Razer BlackWidow V3 Pro", Tid = 0x3F, Iface = -1 } } };
+
         static void ReadRazer(List<HidInfo> devs, List<Reading> outp)
         {
             foreach (var g in devs.GroupBy(d => d.Pid))
@@ -201,13 +218,18 @@ namespace SwarlexBattery
                 }
                 else
                 {
-                    // every collection with the 90-byte feature report: the one that answered last time first
-                    var feats = g.Where(d => d.FeatLen >= 91).OrderBy(d => RazerPath.ContainsValue(d.Path) ? 0 : 1).ThenBy(d => d.Interface).ToList();
+                    RazerKb kb; RazerKeyboards.TryGetValue(pid, out kb);
+                    if (kb != null) { r.Name = kb.Name; r.Kind = "keyboard"; r.Id = "razer-" + System.Text.RegularExpressions.Regex.Replace(kb.Name.ToLowerInvariant(), "[^a-z0-9]+", "-").Trim('-'); }
+                    // every collection with the 90-byte feature report: the one that answered last time first, then a
+                    // known keyboard's own interface
+                    var feats = g.Where(d => d.FeatLen >= 91).OrderBy(d => RazerPath.ContainsValue(d.Path) ? 0 : 1)
+                                 .ThenBy(d => kb != null && d.Interface == kb.Iface ? 0 : 1).ThenBy(d => d.Interface).ToList();
                     if (feats.Count == 0) continue;                               // no battery interface
                     DateTime retry;
                     if (feats.All(f => NoBattery.TryGetValue(f.Path, out retry) && DateTime.UtcNow < retry)) continue;
                     var tids = new List<byte>();
                     byte known; if (RazerTid.TryGetValue(pid, out known)) tids.Add(known);
+                    if (kb != null && !tids.Contains(kb.Tid)) tids.Add(kb.Tid);
                     foreach (byte t in new byte[] { 0x1F, 0x3F, 0xFF, 0x9F, 0x08 }) if (!tids.Contains(t)) tids.Add(t);
                     bool sawNotSupported = false, asleep = false;
                     foreach (var feat in feats)
@@ -233,7 +255,7 @@ namespace SwarlexBattery
                         else if (!answered) NoBattery[feat.Path] = DateTime.UtcNow.AddMinutes(2);   // this collection does not speak the protocol
                     }
                     if (v == null && sawNotSupported && !asleep) continue;
-                    r.Receiver = System.Text.RegularExpressions.Regex.IsMatch(first.Product ?? "", "(?i)hyperspeed|dongle|receiver|wireless");
+                    r.Receiver = (kb != null && kb.Wireless) || System.Text.RegularExpressions.Regex.IsMatch(first.Product ?? "", "(?i)hyperspeed|dongle|receiver|wireless");
                     if (v == null && !r.Receiver) continue;                           // never answered and not a receiver: not a battery device
                 }
                 if (v != null) { r.Level = Math.Min(100, v[0]); r.Charging = v[1] != 0; }

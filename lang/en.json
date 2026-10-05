@@ -55,5 +55,6 @@
   "timeLeftM": "about {0} min left",
   "iconPercent": "Percentage in the icon",
   "beta": "Get beta versions",
-  "noLevelReceiver": "no battery level over its receiver; shown when connected by Bluetooth"
+  "noLevelReceiver": "no battery level over its receiver; shown when connected by Bluetooth",
+  "lowSound": "Sound with low battery alerts"
 }
