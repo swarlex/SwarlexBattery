@@ -50,5 +50,7 @@
   "kindKeyboard": "Keyboard",
   "kindController": "Controller",
   "noDevicesTip": "Batteries - no device found",
-  "diagnostics": "Diagnostics..."
+  "diagnostics": "Diagnostics...",
+  "timeLeftH": "about {0} h left",
+  "timeLeftM": "about {0} min left"
 }

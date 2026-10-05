@@ -22,6 +22,7 @@ namespace SwarlexBattery
         public string Id, Name, Kind, Detail, Glyph;   // Glyph: tray / panel icon when it is not the kind's default
         public int Pct;
         public bool Charging, Approx, Online, Asleep;
+        public double HoursLeft = -1;                     // estimated hours of use left, -1 = no estimate
     }
 
     class TraySpec { public string Id, Icon, State, Tooltip; public double? Ring; public double[] Rings; public bool Charging, Dim; }
@@ -36,6 +37,98 @@ namespace SwarlexBattery
         Dictionary<string, Dictionary<string, object>> last = new Dictionary<string, Dictionary<string, object>>();
         List<Gadget> slow = new List<Gadget>(); DateTime slowAt = DateTime.MinValue;
         string lastSeen;
+
+        // ------------------------------------------------------------ estimated time left
+        // Per device, the level against the time it was awake and on battery since its last charge. Gaps
+        // longer than a few polls (asleep, switched off, PC suspended) are not counted as use. An estimate
+        // needs 30 minutes of use and a 3-point drop; it comes from a least-squares line through the points.
+        class Track { public long Last; public double Use; public List<double[]> Pts = new List<double[]>(); }
+        readonly string histFile = Path.Combine(Program.CacheDir, "state", "gadgets", "history.json");
+        Dictionary<string, Track> tracks = new Dictionary<string, Track>();
+        long histSavedAt; bool histDirty;
+
+        void LoadHistory()
+        {
+            try
+            {
+                if (!File.Exists(histFile)) return;
+                foreach (var kv in Json.Deserialize<Dictionary<string, object>>(File.ReadAllText(histFile)))
+                {
+                    var d = kv.Value as Dictionary<string, object>; if (d == null) continue;
+                    var t = new Track { Last = Convert.ToInt64(d["last"]), Use = Convert.ToDouble(d["use"], CultureInfo.InvariantCulture) };
+                    foreach (var o in (System.Collections.ArrayList)d["pts"]) { var a = (System.Collections.ArrayList)o; t.Pts.Add(new[] { Convert.ToDouble(a[0], CultureInfo.InvariantCulture), Convert.ToDouble(a[1], CultureInfo.InvariantCulture) }); }
+                    tracks[kv.Key] = t;
+                }
+            }
+            catch { tracks.Clear(); }
+        }
+
+        void Estimate(List<Gadget> list)
+        {
+            if (!Config.Bool(S("timeLeft"), true)) return;
+            long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            double gap = Math.Max(330, 3 * PollSeconds + 30);
+            foreach (var g in list)
+            {
+                if (!g.Online || g.Asleep) continue;
+                if (g.Charging) { if (tracks.Remove(g.Id)) histDirty = true; continue; }    // a new charge starts a new history
+                if (g.Approx) continue;                                                     // coarse steps make no slope
+                Track t;
+                if (!tracks.TryGetValue(g.Id, out t)) { t = new Track(); tracks[g.Id] = t; }
+                if (t.Pts.Count > 0 && g.Pct > t.Pts[t.Pts.Count - 1][1] + 5) { t = new Track(); tracks[g.Id] = t; }  // charged somewhere else
+                double dt = now - t.Last;
+                if (t.Last > 0 && dt > 0 && dt <= gap) t.Use += dt;
+                t.Last = now;
+                var lastPt = t.Pts.Count > 0 ? t.Pts[t.Pts.Count - 1] : null;
+                if (lastPt == null || lastPt[1] != g.Pct || t.Use - lastPt[0] >= 300)
+                {
+                    t.Pts.Add(new[] { t.Use, (double)g.Pct }); if (t.Pts.Count > 400) t.Pts.RemoveAt(0); histDirty = true;
+                }
+                if (t.Pts.Count < 3) continue;
+                double span = t.Pts[t.Pts.Count - 1][0] - t.Pts[0][0], drop = t.Pts[0][1] - t.Pts[t.Pts.Count - 1][1];
+                if (span < 1800 || drop < 3) continue;
+                double mx = t.Pts.Average(q => q[0]), my = t.Pts.Average(q => q[1]), sxy = 0, sxx = 0;
+                foreach (var q in t.Pts) { sxy += (q[0] - mx) * (q[1] - my); sxx += (q[0] - mx) * (q[0] - mx); }
+                if (sxx <= 0) continue;
+                double slope = sxy / sxx;                                                   // points per second
+                if (slope >= 0) continue;
+                double hours = g.Pct / -slope / 3600;
+                if (hours > 0 && hours < 500) g.HoursLeft = hours;
+            }
+            if (histDirty && now - histSavedAt >= 300)
+            {
+                try
+                {
+                    var o = tracks.ToDictionary(kv => kv.Key, kv => (object)new Dictionary<string, object> { { "last", kv.Value.Last }, { "use", kv.Value.Use }, { "pts", kv.Value.Pts } });
+                    File.WriteAllText(histFile, Json.Serialize(o), new UTF8Encoding(false)); histSavedAt = now; histDirty = false;
+                }
+                catch { }
+            }
+        }
+
+        public static string TimeLeft(double hours)
+        {
+            if (hours < 1) return Strings.T("timeLeftM", Math.Max(5, (int)Math.Round(hours * 12) * 5));
+            return Strings.T("timeLeftH", hours < 10 ? Math.Round(hours * 2) / 2 : Math.Round(hours));
+        }
+
+        // ------------------------------------------------------------ menu > status file for other apps (Rainmeter, Stream Deck, scripts)
+        public static void WriteStatus(List<Gadget> list)
+        {
+            if (!Config.Bool("statusFile", false)) return;
+            try
+            {
+                var o = new Dictionary<string, object> {
+                    { "updated", DateTimeOffset.UtcNow.ToUnixTimeSeconds() }, { "version", Program.AppVersion.ToString() },
+                    { "devices", list.Select(g => new Dictionary<string, object> {
+                        { "id", g.Id }, { "name", g.Name }, { "kind", g.Kind }, { "level", g.Pct }, { "charging", g.Charging }, { "online", g.Online },
+                        { "asleep", g.Asleep }, { "approximate", g.Approx }, { "hoursLeft", g.HoursLeft > 0 ? (object)Math.Round(g.HoursLeft, 1) : null } }).ToList() } };
+                string file = Path.Combine(Program.DataDir, "status.json"), tmp = file + ".tmp";
+                File.WriteAllText(tmp, Json.Serialize(o), new UTF8Encoding(false));
+                if (File.Exists(file)) File.Replace(tmp, file, null); else File.Move(tmp, file);   // readers never see half a file
+            }
+            catch (Exception e) { Log.Once("status.json: " + e.Message); }
+        }
 
         static string S(string key) { return "plugins.gadgets." + key; }
 
@@ -55,6 +148,7 @@ namespace SwarlexBattery
                     }
             }
             catch { }
+            LoadHistory();
         }
 
         static readonly Dictionary<string, string> KindIcons = new Dictionary<string, string> {
@@ -178,6 +272,7 @@ namespace SwarlexBattery
                     }
             }
             ReadExternal(list);
+            Estimate(list);
             return list;
         }
 
@@ -344,6 +439,7 @@ namespace SwarlexBattery
                 // a full device on its cable is "full", not "charging"; coarse levels say so
                 string sub = g.Charging && g.Pct >= 100 ? Strings.T("full") : g.Charging ? Strings.T("charging") : !string.IsNullOrEmpty(g.Detail) ? g.Detail : !g.Online ? Strings.T("notConnected") : "";
                 if (g.Approx) sub = string.Join(" - ", new[] { sub, Strings.T("approx") }.Where(x => x != ""));
+                if (g.HoursLeft > 0 && g.Online && !g.Charging) sub = string.Join(" - ", new[] { sub, TimeLeft(g.HoursLeft) }.Where(x => x != ""));
                 snap.Items.Add(new PanelItem { Icon = g.Glyph ?? IconFor(g.Kind), Label = g.Name, Value = g.Pct + "%", Pct = g.Pct / 100.0, State = state, Sub = sub });
                 if (low > 0 && g.Online && !g.Charging && g.Pct <= low)
                     snap.Notify.Add(new Notice { Key = "low-" + g.Id, Title = Strings.T("lowTitle", g.Name), Body = Strings.T("lowBody", g.Pct) });

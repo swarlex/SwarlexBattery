@@ -50,5 +50,7 @@
   "kindKeyboard": "Klavye",
   "kindController": "Kumanda",
   "noDevicesTip": "Piller - cihaz bulunamadı",
-  "diagnostics": "Tanılama..."
+  "diagnostics": "Tanılama...",
+  "timeLeftH": "yaklaşık {0} sa kaldı",
+  "timeLeftM": "yaklaşık {0} dk kaldı"
 }

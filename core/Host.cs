@@ -80,6 +80,8 @@ namespace SwarlexBattery
                 themeAt = now.AddSeconds(5);
                 bool light = TrayRenderer.IsLightTaskbar();
                 if (light != TrayRenderer.LightTaskbar) { TrayRenderer.LightTaskbar = light; tray.Repaint(); }
+                // notifications held back while a full-screen app was in front: shown once it is gone
+                if (held.Count > 0 && !Gaming()) ShowHeld();
             }
         }
 
@@ -92,12 +94,13 @@ namespace SwarlexBattery
             ThreadPool.QueueUserWorkItem(_ =>
             {
                 Snapshot snap = null;
-                try { snap = BatteryReader.Build(reader.Read()); }
+                try { var gadgets = reader.Read(); snap = BatteryReader.Build(gadgets); BatteryReader.WriteStatus(gadgets); }
                 catch (Exception e) { Log.Once("poll: " + e); }
                 ui.BeginInvoke(new Action(() =>
                 {
                     polling = false;
-                    nextPoll = DateTime.Now.AddSeconds(flyout.Open == "panel" ? 5 : BatteryReader.PollSeconds);
+                    // during a full-screen game the devices are asked less often (a plug-in still reads at once)
+                    nextPoll = DateTime.Now.AddSeconds(flyout.Open == "panel" ? 5 : Gaming() ? Math.Max(BatteryReader.PollSeconds, 300) : BatteryReader.PollSeconds);
                     if (snap != null && !stopping) Apply(snap);
                 }));
             });
@@ -119,11 +122,30 @@ namespace SwarlexBattery
             if (flyout.Open == "panel") flyout.Refresh(); else flyout.Warm();
         }
 
+        bool Gaming() { return Config.Bool("quietWhileGaming", true) && Win.ForegroundIsFullscreen(); }
+
+        // While a full-screen app is in front, a notification is held (one per title) instead of dropped,
+        // and shown when the app is gone.
+        readonly List<Tuple<string, string, ToolTipIcon>> held = new List<Tuple<string, string, ToolTipIcon>>();
+
         void Toast(string title, string body, ToolTipIcon kind = ToolTipIcon.Info)
         {
             if (string.IsNullOrEmpty(title)) return;
-            if (Config.Bool("quietWhileGaming", true) && Win.ForegroundIsFullscreen()) return;
+            if (Gaming())
+            {
+                held.RemoveAll(x => x.Item1 == title);
+                held.Add(Tuple.Create(title, body, kind));
+                return;
+            }
             tray.Balloon(title, body, kind);
+        }
+
+        void ShowHeld()
+        {
+            var list = held.ToList(); held.Clear();
+            if (list.Count == 1) tray.Balloon(list[0].Item1, list[0].Item2, list[0].Item3);
+            else tray.Balloon("SwarlexBattery", string.Join("\n", list.Select(x => x.Item1 + (string.IsNullOrEmpty(x.Item2) ? "" : " - " + x.Item2))),
+                              list.Any(x => x.Item3 == ToolTipIcon.Warning) ? ToolTipIcon.Warning : ToolTipIcon.Info);
         }
 
         // ------------------------------------------------------------ settings from the menu

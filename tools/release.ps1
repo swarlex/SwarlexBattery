@@ -57,9 +57,19 @@ if ($LASTEXITCODE -ne 0) { throw 'git commit failed' }
 git push -q origin HEAD:main
 if ($LASTEXITCODE -ne 0) { throw 'git push failed' }
 
-# 4. GitHub release (the tag is created on the pushed commit)
+# 4. GitHub release (the tag is created on the pushed commit). The release text is this version's section
+#    of docs/CHANGELOG.md (summary paragraph, then ### Added / ### Fixed / ...); -Notes when there is none.
 $setup = Join-Path $root 'dist\SwarlexBattery-Setup.exe'
-& $gh release create "v$Version" $setup $exe $sha --repo $Repo --target main --title "SwarlexBattery v$Version" --notes $Notes
+$body = $Notes
+$log = Join-Path $root 'docs\CHANGELOG.md'
+if (Test-Path -LiteralPath $log) {
+    $m = [regex]::Match([IO.File]::ReadAllText($log), "(?ms)^## $([regex]::Escape($Version))\s*\r?\n(.*?)(?=^## |\z)")
+    if ($m.Success -and $m.Groups[1].Value.Trim()) { $body = $m.Groups[1].Value.Trim() }
+}
+$notesFile = Join-Path ([IO.Path]::GetTempPath()) "swarlexbattery-notes-$Version.md"
+[IO.File]::WriteAllText($notesFile, $body + "`n`n---`nDownload **SwarlexBattery-Setup.exe** to install, or **SwarlexBattery.exe** to run it without installing. Installed copies update themselves (right-click > *Check for updates*).", (New-Object Text.UTF8Encoding $false))
+& $gh release create "v$Version" $setup $exe $sha --repo $Repo --target main --title "SwarlexBattery $Version" --notes-file $notesFile
+Remove-Item -LiteralPath $notesFile -ErrorAction SilentlyContinue
 if ($LASTEXITCODE -ne 0) { throw 'gh release create failed (the code was pushed, the release was not created)' }
 Write-Host "Published: v$Version  https://github.com/$Repo/releases/tag/v$Version"
 Write-Host 'Installed copies see the update within 6 hours (or right away with right-click > Check for updates).'

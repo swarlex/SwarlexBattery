@@ -2,6 +2,42 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.7.0
+Battery levels now come with an estimate of the time left, notifications wait until your game is over,
+and other apps can read every level from a status file. Plus four fixes found by comparing notes with
+HaloBattery 1.13.0.
+
+### Added
+- **Estimated time left** in the flyout ("about 5 h left"). It comes from a least-squares line through
+  the level against the time the device was awake and on battery since its last charge; time asleep,
+  switched off or with the PC suspended does not count. No estimate until 30 minutes of use and a 3-point
+  drop, none for devices that only report rough steps, and a new charge starts a new history. Kept in
+  `%LOCALAPPDATA%\SwarlexBattery\state\gadgets\history.json`, so it survives a restart. Setting:
+  `plugins.gadgets.timeLeft`.
+- **Quiet while gaming, the better way**: while a full-screen app is in front, a low-battery notification
+  is now held (one per device) and shown when the game closes - it used to be dropped. The devices are
+  asked only every 5 minutes during the game, so the app talks to them less; plugging something in still
+  reads it at once.
+- **Status file for other apps** (off by default, `"statusFile": true`): `%APPDATA%\SwarlexBattery\status.json`,
+  rewritten after every read and replaced in one step, so a reader never sees half a file. Each device has
+  its name, kind, level, charging, online / asleep, approximate and hours left - for Rainmeter, Stream Deck
+  or a script.
+
+### Fixed
+- **A Razer mouse on its cable and on its receiver showed as two devices**: the two use different product
+  ids, which were the device's key. The key is now the model, so they are one device and the cable's
+  (charging) reading wins.
+- **Razer Barracuda Pro switched off delayed every other device** by about 4 seconds per read: it is now
+  asked twice for half a second each, then left alone until the next read.
+- **HyperX Cloud III Wireless**: a dongle that refuses the battery request as a normal write ("Incorrect
+  function") now gets it as a feature report, as the vendor intends.
+- **Audeze Maxwell**: a dongle that is stuck - it answers every packet with an empty echo, so no battery
+  ever arrives - is now recognised; *Diagnostics…* says to unplug it and plug it back in.
+
+### Changed
+- Release notes like this one: a summary, then what was added and fixed, taken straight from this
+  changelog.
+
 ## 1.6.0
 - Many more devices, ported from HaloBattery's providers (MIT) and the projects they name. All of them
   are read with battery / status requests only, and every answer is checked before it is shown:
