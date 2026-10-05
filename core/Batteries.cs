@@ -505,6 +505,9 @@ namespace SwarlexBattery
             var iconChoice = Config.Map(S("icons"));
             var snap = new Snapshot { Title = Strings.T("title") };
             int low = (int)Config.Num(S("lowThreshold"), 15);
+            // a device's own low battery level (the device menu), else the general one
+            var lowLevels = Config.Map(S("lowLevels"));
+            Func<Gadget, int> lowFor = x => { string v; int n; return x.Id != null && lowLevels.TryGetValue(x.Id, out v) && int.TryParse(v, out n) ? n : low; };
             var order = new Dictionary<string, int> { { "mouse", 0 }, { "headphones", 1 }, { "earbuds", 1 }, { "keyboard", 2 }, { "gamepad", 3 } };
             bool showOff = Config.Bool(S("showDisconnected"), false);
             // mouse first, then headset, then the rest; sleeping devices last
@@ -513,14 +516,14 @@ namespace SwarlexBattery
 
             foreach (var g in shown)
             {
-                string state = !g.Online ? "off" : (g.Pct <= low && !g.Charging) ? "error" : "";
+                string state = !g.Online ? "off" : (g.Pct <= lowFor(g) && !g.Charging) ? "error" : "";
                 // a full device on its cable is "full", not "charging"; coarse levels say so
                 string sub = g.Charging && g.Pct >= 100 ? Strings.T("full") : g.Charging ? Strings.T("charging") : !string.IsNullOrEmpty(g.Detail) ? g.Detail : !g.Online ? Strings.T("notConnected") : "";
                 if (g.Approx) sub = string.Join(" - ", new[] { sub, Strings.T("approx") }.Where(x => x != ""));
                 if (g.HoursLeft > 0 && g.Online && !g.Charging) sub = string.Join(" - ", new[] { sub, TimeLeft(g.HoursLeft) }.Where(x => x != ""));
                 snap.Items.Add(new PanelItem { Icon = g.Glyph ?? IconFor(g.Kind), Label = g.Name, Value = g.Pct + "%", Pct = g.Pct / 100.0, State = state, Sub = sub,
                                                Id = g.Id, OwnName = g.OwnName, IconChoice = g.Id != null && iconChoice.ContainsKey(g.Id) ? iconChoice[g.Id] : null });
-                if (low > 0 && g.Online && !g.Charging && g.Pct <= low)
+                if (lowFor(g) > 0 && g.Online && !g.Charging && g.Pct <= lowFor(g))
                     snap.Notify.Add(new Notice { Key = "low-" + g.Id, Title = Strings.T("lowTitle", g.Name), Body = Strings.T("lowBody", g.Pct), Pct = g.Pct });
             }
             // devices that give no level: name and reason only (no number, no bar, never in the tray icon)
@@ -536,11 +539,10 @@ namespace SwarlexBattery
                 var pair = shown.Take(2).ToList();
                 var parts = shown.Select(g => (label.ContainsKey(g.Kind ?? "") ? label[g.Kind] : g.Name) + " " + (g.Approx ? "~" : "") + g.Pct + "%" +
                     (g.Charging && g.Pct >= 100 ? Strings.T("shortFull") : g.Charging ? Strings.T("shortCharging") : !g.Online ? Strings.T("shortAsleep") : ""));
-                var lowest = pair.Where(g => g.Online && !g.Charging).OrderBy(g => g.Pct).FirstOrDefault();
                 snap.Icons.Add(new TraySpec {
                     Id = "all", Icon = pair.Count == 1 ? (pair[0].Glyph ?? IconFor(pair[0].Kind)) : "E83F",
                     Rings = pair.Select(g => g.Pct / 100.0).ToArray(),
-                    State = lowest != null && lowest.Pct <= low ? "error" : lowest != null && lowest.Pct <= low + 10 ? "warn" : "ok",
+                    State = pair.Any(g => g.Online && !g.Charging && g.Pct <= lowFor(g)) ? "error" : pair.Any(g => g.Online && !g.Charging && g.Pct <= lowFor(g) + 10) ? "warn" : "ok",
                     Charging = pair.Any(g => g.Charging), Dim = !pair.Any(g => g.Online),
                     // the number for "percentage in the icon": the lowest exact level of the two (the one that needs a charge first)
                     Percent = pair.Where(g => g.Online && !g.Approx).Select(g => g.Pct).DefaultIfEmpty(-1).Min(), Tooltip = string.Join("  |  ", parts) });
@@ -550,7 +552,7 @@ namespace SwarlexBattery
                 foreach (var g in shown)
                     snap.Icons.Add(new TraySpec {
                         Id = g.Id, Icon = g.Glyph ?? IconFor(g.Kind), Ring = g.Pct / 100.0,
-                        State = g.Pct <= low && !g.Charging ? "error" : g.Pct <= low + 10 && !g.Charging ? "warn" : "ok",
+                        State = g.Pct <= lowFor(g) && !g.Charging ? "error" : g.Pct <= lowFor(g) + 10 && !g.Charging ? "warn" : "ok",
                         Charging = g.Charging, Dim = !g.Online, Percent = g.Online && !g.Approx ? g.Pct : -1,
                         Tooltip = g.Name + ": " + (g.Approx ? "~" : "") + g.Pct + "%" + (g.Charging && g.Pct >= 100 ? Strings.T("tipFull") : g.Charging ? Strings.T("tipCharging") : g.Asleep ? Strings.T("tipAsleep") : !g.Online ? Strings.T("tipNotConnected") : "") });
             }

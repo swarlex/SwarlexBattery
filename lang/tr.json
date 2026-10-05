@@ -83,5 +83,20 @@
   "showAgain": "{0} göster",
   "deviceHint": "Seçenekler için cihaza sağ tıkla",
   "pinIcon": "İkonu saatin yanında tut",
-  "themeAutoSub": "Windows'un açık/koyu moduna uyar"
+  "themeAutoSub": "Windows'un açık/koyu moduna uyar",
+  "colorIcon": "Renkli ikon",
+  "deviceLow": "Düşük pil uyarısı: {0}",
+  "lowGeneral": "genel ({0})",
+  "intervalNote": "pillerin ne sıklıkla okunacağı",
+  "lowAlertNote": "pil bu seviyeye inince bildirim gelir",
+  "timeLeftNote": "cihazın ne kadar hızlı tükettiğine göre",
+  "quietGamingNote": "bildirimler tam ekran oyun bitince gelir",
+  "lowSoundNote": "oyun bildirimi gizlese bile duyulur",
+  "bluetoothNote": "Windows'un Bluetooth cihazlar için gösterdiği seviyeler",
+  "pinIconNote": "kapalıyken Windows ^ okunun altına alabilir",
+  "iconPercentNote": "halkada simge yerine sayı",
+  "colorIconNote": "seviyeye göre yeşil, turuncu ya da kırmızı",
+  "statusFileNote": "Rainmeter, Stream Deck gibi programlar için",
+  "autoUpdateNote": "6 saatte bir GitHub'a bakar",
+  "betaNote": "yeni sürümleri herkesten önce dener"
 }

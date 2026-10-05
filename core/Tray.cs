@@ -39,6 +39,7 @@ namespace SwarlexBattery
             if (charging) return Color.FromArgb(63, 209, 106);
             if (state == "warn") return Color.FromArgb(245, 165, 36);
             if (state == "error") return Color.FromArgb(240, 74, 74);
+            if (state == "ok") return LightTaskbar ? Color.FromArgb(30, 150, 70) : Color.FromArgb(63, 209, 106);   // "Coloured icon": green while the level is fine
             return LightTaskbar ? Color.FromArgb(28, 28, 28) : Color.FromArgb(245, 245, 245);
         }
 
@@ -48,7 +49,7 @@ namespace SwarlexBattery
             bool hasRing = rings.Length > 0;
             var inv = CultureInfo.InvariantCulture;
             bool number = hasRing && !spec.Charging && spec.Percent >= 0 && Config.Bool("iconPercent", false);
-            string key = Size + "|" + spec.Icon + "|" + string.Join(";", rings.Select(r => r.ToString("0.00", inv))) + "|" + spec.State + "|" + spec.Charging + "|" + spec.Dim + "|" + LightTaskbar + "|" + (number ? spec.Percent : -1);
+            string key = Size + "|" + Config.Bool("monochrome", true) + "|" + spec.Icon + "|" + string.Join(";", rings.Select(r => r.ToString("0.00", inv))) + "|" + spec.State + "|" + spec.Charging + "|" + spec.Dim + "|" + LightTaskbar + "|" + (number ? spec.Percent : -1);
             Icon cached; if (Cache.TryGetValue(key, out cached)) return cached;
 
             // drawn 4x larger, then scaled down: smooth ring and a glyph that is bold enough at 16-24 px
