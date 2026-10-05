@@ -32,7 +32,7 @@ right half the headset. Left click for details, right click for the menu.
 </p>
 
 <p align="center">
-  <img src="docs/images/tray-icons.png" width="760" alt="Tray icon: normal, charging, low battery, asleep, one device; on dark and light taskbars">
+  <img src="docs/images/tray-states.png" width="760" alt="Tray icon: normal, charging, low battery, asleep, headset only, controller; on dark and light taskbars">
 </p>
 
 - **Honest numbers:** a value is shown only when the device itself answered; nothing is estimated.
