@@ -81,7 +81,7 @@ and keeps your settings; uninstall from **Settings > Apps**.
 | **Logitech / Astro** | Mice and keyboards on Lightspeed, Unifying and Bolt receivers; G533 / 535 / 633 / 635 / 733 / 933 / 935, G PRO X (2) headsets, G PRO X 2 LIGHTSPEED (Centurion); Astro A50 Gen 5 |
 | **SteelSeries** | Arctis Nova 7 / 7X / 7P / 5 / 3, Arctis 7+, Arctis Nova Pro Wireless, Arctis Nova Elite, GameBuds, Arctis 1 / 7 / 7P / 7X / 9 / Pro Wireless (2019); Aerox 3 / 5 / 9, Rival 3 Wireless |
 | **HyperX** | Cloud II Wireless, Cloud III Wireless, Cloud III S Wireless, Cloud Alpha 2 |
-| **Corsair** | Void v2 Wireless, Virtuoso Max, HS80 Max |
+| **Corsair** | Void v2 Wireless, Virtuoso Max, HS80 Max; Dark Core RGB Pro SE mouse |
 | **ATK / VXE / Pulsar** | MAD series and mice with the same protocol |
 | **ASUS** | ROG Gladius III, Chakram (X), Keris, Harpe Ace, Spatha X, Pugio II, Strix Impact II Wireless; TUF M4 Wireless and more |
 | **WLmouse / LAMZU / G-Wolves** | Beast X (Max / Mini Pro), Maya X; G-Wolves on the shared 8K receiver (HTS Plus, Lycan, HTXU, Fenrir, HTX Mini, WARG) and the models with a receiver of their own (HSK Pro / Plus / Lite / ACE, HTS, HTX, HTR, HT-S2, Fenrir, VUK, HTM Plus) |
