@@ -66,9 +66,9 @@
   "quietGaming": "Silenzioso durante il gioco",
   "bluetoothOpt": "Dispositivi Bluetooth di Windows",
   "themeOpt": "Tema: {0}",
-  "themeAuto": "come la barra delle applicazioni",
-  "themeLight": "chiaro",
-  "themeDark": "scuro",
+  "themeAuto": "Automatico",
+  "themeLight": "Chiaro",
+  "themeDark": "Scuro",
   "statusFileOpt": "File di stato per altre app",
   "autoUpdate": "Controlla gli aggiornamenti automaticamente",
   "rename": "Rinomina",
@@ -82,5 +82,6 @@
   "hiddenDevices": "Dispositivi nascosti ({0})",
   "showAgain": "Mostra {0}",
   "deviceHint": "Clic destro su un dispositivo per le sue opzioni",
-  "pinIcon": "Tieni l'icona accanto all'orologio"
+  "pinIcon": "Tieni l'icona accanto all'orologio",
+  "themeAutoSub": "segue la modalità chiara o scura di Windows"
 }

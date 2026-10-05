@@ -494,7 +494,7 @@ namespace SwarlexBattery
             var mode = Config.Str("theme.mode", "auto").ToLowerInvariant();
             string next = mode == "light" ? "dark" : mode == "dark" ? "auto" : "light";
             root.Children.Add(MenuRow(null, Strings.T("themeOpt", Strings.T(mode == "light" ? "themeLight" : mode == "dark" ? "themeDark" : "themeAuto")),
-                () => { host.SetTheme(next); ApplyTheme(); Refresh(); }));
+                () => { host.SetTheme(next); ApplyTheme(); Refresh(); }, false, mode == "light" || mode == "dark" ? null : Strings.T("themeAutoSub")));
             // "Language" opens the list of languages right below it (each in its own language)
             root.Children.Add(MenuRow(null, Strings.T("language"), () => { langOpen = !langOpen; redo(); }, false, null, false, langOpen ? "E70E" : "E70D"));
             if (langOpen)
