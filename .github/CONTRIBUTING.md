@@ -16,7 +16,7 @@ Before you start, look at the [open issues](../../issues): someone may already b
 3. **Wake the device**: move the mouse, press a key, turn the headset on.
 4. Right-click the tray icon and select **Diagnostics…**.
 
-   <img src="../docs/images/menu-prefs-dark.png" alt="The right-click menu (Diagnostics... is in it) with Preferences beside it" width="480">
+   <img src="../docs/images/menu-preferences-dark.png" alt="The right-click menu (Diagnostics... is in it) with Preferences beside it" width="480">
 
 5. The report opens in Notepad. It is `diagnostics-<date>.txt` in `%TEMP%\SwarlexBattery` and starts like this:
 
