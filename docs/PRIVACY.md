@@ -14,8 +14,8 @@ Nothing else leaves your computer. Battery levels, device names and the log stay
 
 ## What it keeps on your computer
 
-- `%APPDATA%\SwarlexBattery`: settings (`config.json`), the *Diagnostics…* report when you ask for one, and
-  `status.json` when you turn that on.
+- `%APPDATA%\SwarlexBattery`: settings (`config.json`), and `status.json` when you turn that on.
+- `%TEMP%\SwarlexBattery`: the last three *Diagnostics…* reports, when you ask for one.
 - `%LOCALAPPDATA%\SwarlexBattery`: the log, the last reading and the battery history of each device (for the
   time-left estimate), and the app's icon for Windows notifications.
 
