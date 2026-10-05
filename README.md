@@ -28,15 +28,15 @@ device in the panel to rename it, give it another icon or hide it.
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: light)" srcset="docs/images/panel-light.png">
-    <img src="docs/images/panel-dark.png" width="320" alt="The panel with battery levels and the time left">
+    <source media="(prefers-color-scheme: light)" srcset="docs/images/panel-2-light.png">
+    <img src="docs/images/panel-2-dark.png" width="320" alt="The panel with battery levels and the time left">
   </picture>
 </p>
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: light)" srcset="docs/images/menu-prefs-light.png">
-    <img src="docs/images/menu-prefs-dark.png" width="578" alt="The right-click menu with Preferences beside it">
+    <source media="(prefers-color-scheme: light)" srcset="docs/images/menu-preferences-light.png">
+    <img src="docs/images/menu-preferences-dark.png" width="608" alt="The right-click menu with Preferences beside it">
   </picture>
 </p>
 
