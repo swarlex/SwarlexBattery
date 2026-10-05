@@ -83,5 +83,20 @@
   "showAgain": "Mostra {0}",
   "deviceHint": "Clic destro su un dispositivo per le sue opzioni",
   "pinIcon": "Tieni l'icona accanto all'orologio",
-  "themeAutoSub": "segue la modalità chiara o scura di Windows"
+  "themeAutoSub": "segue la modalità chiara o scura di Windows",
+  "colorIcon": "Icona colorata",
+  "deviceLow": "Avviso batteria scarica: {0}",
+  "lowGeneral": "generale ({0})",
+  "intervalNote": "ogni quanto vengono lette le batterie",
+  "lowAlertNote": "una notifica a questo livello",
+  "timeLeftNote": "in base a quanto velocemente si scarica ogni dispositivo",
+  "quietGamingNote": "le notifiche aspettano la fine del gioco a schermo intero",
+  "lowSoundNote": "si sente anche se un gioco nasconde la notifica",
+  "bluetoothNote": "i livelli che Windows mostra per i dispositivi Bluetooth",
+  "pinIconNote": "disattivato: Windows può spostarla dietro la freccia ^",
+  "iconPercentNote": "un numero nell'anello al posto del pittogramma",
+  "colorIconNote": "verde, arancione o rosso in base al livello",
+  "statusFileNote": "per Rainmeter, Stream Deck e altre app",
+  "autoUpdateNote": "controlla GitHub ogni 6 ore",
+  "betaNote": "le nuove versioni prima di tutti"
 }
