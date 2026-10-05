@@ -66,9 +66,9 @@
   "quietGaming": "Oyun sırasında sessiz",
   "bluetoothOpt": "Windows Bluetooth cihazları",
   "themeOpt": "Tema: {0}",
-  "themeAuto": "görev çubuğu gibi",
-  "themeLight": "açık",
-  "themeDark": "koyu",
+  "themeAuto": "Otomatik",
+  "themeLight": "Açık",
+  "themeDark": "Koyu",
   "statusFileOpt": "Diğer uygulamalar için durum dosyası",
   "autoUpdate": "Güncellemeleri otomatik denetle",
   "rename": "Yeniden adlandır",
@@ -82,5 +82,6 @@
   "hiddenDevices": "Gizli cihazlar ({0})",
   "showAgain": "{0} göster",
   "deviceHint": "Seçenekler için cihaza sağ tıkla",
-  "pinIcon": "İkonu saatin yanında tut"
+  "pinIcon": "İkonu saatin yanında tut",
+  "themeAutoSub": "Windows'un açık/koyu moduna uyar"
 }

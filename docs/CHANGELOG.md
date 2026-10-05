@@ -2,6 +2,11 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.9.5
+### Fixed
+- The theme in Preferences read "like the taskbar", which said little: it is now *Theme: Automatic*, with
+  "follows Windows' light or dark mode" below it, and *Light* / *Dark*.
+
 ## 1.9.4
 ### Added
 - **Keep the icon next to the clock** (Preferences, on by default): the app keeps its icon in the visible part

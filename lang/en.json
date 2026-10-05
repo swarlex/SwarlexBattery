@@ -66,9 +66,9 @@
   "quietGaming": "Quiet while gaming",
   "bluetoothOpt": "Windows Bluetooth devices",
   "themeOpt": "Theme: {0}",
-  "themeAuto": "like the taskbar",
-  "themeLight": "light",
-  "themeDark": "dark",
+  "themeAuto": "Automatic",
+  "themeLight": "Light",
+  "themeDark": "Dark",
   "statusFileOpt": "Status file for other apps",
   "autoUpdate": "Check for updates automatically",
   "rename": "Rename",
@@ -82,5 +82,6 @@
   "hiddenDevices": "Hidden devices ({0})",
   "showAgain": "Show {0}",
   "deviceHint": "Right-click a device for its options",
-  "pinIcon": "Keep the icon next to the clock"
+  "pinIcon": "Keep the icon next to the clock",
+  "themeAutoSub": "follows Windows' light or dark mode"
 }
