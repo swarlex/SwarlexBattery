@@ -23,37 +23,60 @@ namespace SwarlexBattery
         public string Open;                       // null, "panel" or "menu"
         string lastClosed; DateTime lastClosedAt = DateTime.MinValue;
 
-        readonly Brush fg, muted, accent, warn, error, track;
+        Brush fg, muted, accent, warn, error, track;
         readonly FontFamily iconFont = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets");
-        readonly Style rowStyle, rowStyleMarked;
+        Style rowStyle, rowStyleMarked;
+        bool? light;                              // the theme the brushes were made for
+        bool langOpen;                            // the menu's language list is expanded
 
         static Brush MakeBrush(string c) { var b = (Brush)new BrushConverter().ConvertFromString(c); b.Freeze(); return b; }
+
+        // Light or dark like the taskbar (theme.mode: "auto", "light" or "dark"). The dark colours can be changed
+        // with theme.*; the light ones are those of Windows 11's own light flyouts.
+        void ApplyTheme()
+        {
+            var mode = Config.Str("theme.mode", "auto").ToLowerInvariant();
+            bool l = mode == "light" || (mode != "dark" && TrayRenderer.LightTaskbar);
+            if (light == l) return;
+            light = l;
+            string panel, hover;
+            if (l)
+            {
+                fg = MakeBrush("#1b1b1b"); muted = MakeBrush("#5d5d5d"); accent = fg; warn = MakeBrush("#b25e00"); error = MakeBrush("#c42b1c");
+                track = MakeBrush("#24000000"); panel = "f3f3f3"; hover = "#12000000";
+            }
+            else
+            {
+                fg = MakeBrush(Config.Str("theme.foreground", "#f2f2f2")); muted = MakeBrush(Config.Str("theme.muted", "#9a9a9a"));
+                accent = MakeBrush(Config.Str("theme.accent", "#f2f2f2")); warn = MakeBrush(Config.Str("theme.warn", "#f5a524"));
+                error = MakeBrush(Config.Str("theme.error", "#f04a4a")); track = MakeBrush("#2EFFFFFF");
+                panel = Config.Str("theme.panel", "#202020").TrimStart('#'); hover = "#1FFFFFFF";
+                if (panel.Length == 8) panel = panel.Substring(2);                        // the window is opaque: drop the alpha
+            }
+            // Row highlight follows IsMouseOver through a style trigger. (MouseEnter / MouseLeave handlers could
+            // miss the "leave" when the menu was redrawn under the pointer, leaving two rows highlighted.)
+            const string xaml = "<Style xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" TargetType=\"Border\"><Setter Property=\"Background\" Value=\"{0}\"/><Style.Triggers><Trigger Property=\"IsMouseOver\" Value=\"True\"><Setter Property=\"Background\" Value=\"{1}\"/></Trigger></Style.Triggers></Style>";
+            rowStyle = (Style)XamlReader.Parse(string.Format(xaml, "Transparent", hover));
+            rowStyleMarked = (Style)XamlReader.Parse(string.Format(xaml, hover, hover));   // e.g. "Update": highlighted all the time
+            win.Background = MakeBrush("#" + panel); win.Foreground = fg;
+            if (hwnd != IntPtr.Zero) Win.FlyoutFrame(hwnd, !l);
+        }
 
         public Flyout(Host host)
         {
             this.host = host;
-            fg = MakeBrush(Config.Str("theme.foreground", "#f2f2f2")); muted = MakeBrush(Config.Str("theme.muted", "#9a9a9a"));
-            accent = MakeBrush(Config.Str("theme.accent", "#f2f2f2")); warn = MakeBrush(Config.Str("theme.warn", "#f5a524"));
-            error = MakeBrush(Config.Str("theme.error", "#f04a4a")); track = MakeBrush("#2EFFFFFF");
-            // Row highlight follows IsMouseOver through a style trigger. (MouseEnter / MouseLeave handlers could
-            // miss the "leave" when the menu was redrawn under the pointer, leaving two rows highlighted.)
-            const string xaml = "<Style xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" TargetType=\"Border\"><Setter Property=\"Background\" Value=\"{0}\"/><Style.Triggers><Trigger Property=\"IsMouseOver\" Value=\"True\"><Setter Property=\"Background\" Value=\"#1FFFFFFF\"/></Trigger></Style.Triggers></Style>";
-            rowStyle = (Style)XamlReader.Parse(string.Format(xaml, "Transparent"));
-            rowStyleMarked = (Style)XamlReader.Parse(string.Format(xaml, "#1FFFFFFF"));   // e.g. "Update": highlighted all the time
-
-            var panel = Config.Str("theme.panel", "#202020").TrimStart('#');
-            if (panel.Length == 8) panel = panel.Substring(2);                            // the window is opaque: drop the alpha
             win = new Window {
-                WindowStyle = WindowStyle.None, AllowsTransparency = false, Background = MakeBrush("#" + panel),
+                WindowStyle = WindowStyle.None, AllowsTransparency = false,
                 ShowInTaskbar = false, Topmost = true, ResizeMode = ResizeMode.NoResize, SizeToContent = SizeToContent.Height,
-                Width = Config.Num("panel.width", 320), FontFamily = new FontFamily("Segoe UI Variable Text, Segoe UI"), Foreground = fg, Title = "SwarlexBattery" };
+                Width = Config.Num("panel.width", 320), FontFamily = new FontFamily("Segoe UI Variable Text, Segoe UI"), Title = "SwarlexBattery" };
+            ApplyTheme();
             // nothing in the flyout takes keyboard focus: otherwise WPF draws its dotted focus rectangle around
             // the content when the window is activated (Escape still closes it: KeyDown is on the window)
             scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, MaxHeight = Config.Num("panel.maxHeight", 620),
                                         Focusable = false, FocusVisualStyle = null };
             win.Content = new Border { Padding = new Thickness(14), Child = scroll, Focusable = false, FocusVisualStyle = null };
             win.FocusVisualStyle = null;
-            win.SourceInitialized += (s, e) => { hwnd = new WindowInteropHelper(win).Handle; Win.FlyoutFrame(hwnd, true); };
+            win.SourceInitialized += (s, e) => { hwnd = new WindowInteropHelper(win).Handle; Win.FlyoutFrame(hwnd, light != true); };
             win.Deactivated += (s, e) => { if (Open != null) Close(); };
             win.KeyDown += (s, e) => { if (e.Key == Key.Escape) Close(); };
             // create the window now, so the first click opens it without WPF's cold-start delay
@@ -88,6 +111,7 @@ namespace SwarlexBattery
             if (Open == "panel") { Close(); return; }
             if (JustClosed("panel")) return;
             Open = "panel";
+            ApplyTheme();
             RenderPanel();
             Show(Config.Num("panel.width", 320));
             host.PollSoon();   // fresh data while open
@@ -98,6 +122,7 @@ namespace SwarlexBattery
             if (Open == "menu") { Close(); return; }
             if (JustClosed("menu")) return;
             Open = "menu";
+            ApplyTheme(); langOpen = false;
             scroll.Content = BuildMenu();
             Show(270);
         }
@@ -144,6 +169,7 @@ namespace SwarlexBattery
             {
                 win.ShowActivated = false; win.Left = -20000; win.Top = -20000;
                 win.Show();
+                ApplyTheme();
                 RenderPanel(); win.UpdateLayout();
                 scroll.Content = BuildMenu(); win.UpdateLayout();
                 win.Hide();
@@ -198,13 +224,14 @@ namespace SwarlexBattery
             scroll.Content = root;
         }
 
-        Border MenuRow(string icon, string text, Action action, bool check = false, string sub = null, bool marked = false)
+        Border MenuRow(string icon, string text, Action action, bool check = false, string sub = null, bool marked = false, string tail = null)
         {
             var b = new Border { Padding = new Thickness(10, 7, 10, 7), CornerRadius = new CornerRadius(4), Cursor = Cursors.Hand,
                                  Style = marked ? rowStyleMarked : rowStyle };   // no local Background: it would override the trigger
             var g = new Grid();
             foreach (var w in new[] { new GridLength(26), new GridLength(1, GridUnitType.Star), GridLength.Auto }) g.ColumnDefinitions.Add(new ColumnDefinition { Width = w });
-            var ic = Glyph(icon, fg, 13); ic.VerticalAlignment = VerticalAlignment.Center; g.Children.Add(ic);
+            if (icon != null) { var ic = Glyph(icon, fg, 13); ic.VerticalAlignment = VerticalAlignment.Center; g.Children.Add(ic); }
+            if (tail != null) { var t = Glyph(tail, muted, 10); t.VerticalAlignment = VerticalAlignment.Center; Grid.SetColumn(t, 2); g.Children.Add(t); }
             UIElement label = Text(text, fg, 13);
             if (!string.IsNullOrEmpty(sub)) { var two = new StackPanel(); two.Children.Add(label); two.Children.Add(Text(sub, muted, 11)); label = two; }
             Grid.SetColumn(label, 1); g.Children.Add(label);
@@ -230,7 +257,14 @@ namespace SwarlexBattery
             root.Children.Add(MenuRow("E72C", Strings.T("refresh"), () => { Close(); host.PollSoon(); }));
             root.Children.Add(new Border { Height = 1, Background = track, Margin = new Thickness(4, 5, 4, 5) });
             root.Children.Add(MenuRow("E7E8", Strings.T("startWithWindows"), () => { Close(); host.ToggleAutostart(); }, host.Autostart));
-            root.Children.Add(MenuRow("E774", Strings.T("language"), () => { Close(); host.SwitchLanguage(); }));
+            // "Language" opens the list of languages right below it (each in its own language)
+            root.Children.Add(MenuRow("E774", Strings.T("language"), () => { langOpen = !langOpen; Refresh(); }, false, null, false, langOpen ? "E70E" : "E70D"));
+            if (langOpen)
+                foreach (var l in Strings.Languages)
+                {
+                    var code = l[0];
+                    root.Children.Add(MenuRow(null, l[1], () => { Close(); host.SetLanguage(code); }, Strings.Lang == code));
+                }
             root.Children.Add(MenuRow("E8EF", Strings.T("iconPercent"), () => { host.ToggleIconPercent(); Refresh(); }, Config.Bool("iconPercent", false)));   // keeps the menu open: the tray icon changes right away
             if (Config.Str("update.repo", "") != "") root.Children.Add(MenuRow("E7C1", Strings.T("beta"), () => { host.ToggleBeta(); Refresh(); }, Config.Bool("update.beta", false)));
             if (Config.Str("update.repo", "") != "")

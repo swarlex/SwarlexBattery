@@ -197,10 +197,9 @@ namespace SwarlexBattery
             if (Current != null) tray.Sync(Current.Icons);
         }
 
-        // "Language": toggles en <-> tr, saves it in config.json and re-polls in the new language
-        public void SwitchLanguage()
+        // "Language" > a language: saves it in config.json and re-polls in the new language
+        public void SetLanguage(string next)
         {
-            var next = Strings.Lang == "tr" ? "en" : "tr";
             try { Config.SetUser("language", next); } catch (Exception e) { Log.Write("language save: " + e.Message); }
             Strings.Load(next);
             PollSoon();
