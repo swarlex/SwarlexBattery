@@ -2,6 +2,18 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.9.2
+A more accurate *time left*.
+
+### Changed
+- **The time left follows how a device is used now.** It is worked out from the moments a new, lower level
+  first appeared, so devices that report in steps (5 % for the VXE / ATK mice) are no longer misjudged by the
+  time spent on one step. Recent use counts more than older use (half as much per 3 hours of use), the
+  first 10 minutes after a charge or a start are left out while the reading settles, and a device that stays
+  on its level longer than its rate allows is taken to be draining slower now. On recorded histories: a
+  BlackShark V2 HyperSpeed at 72 % went from 25 to about 42 hours (it drains some 1.7 % an hour), a VXE MAD
+  8K mouse at 55 % from 5 to about 7 hours.
+
 ## 1.9.1
 Light theme, German, Spanish and Italian, new devices from HaloBattery 1.14.0, a portable mode and automatic
 tests on every build.

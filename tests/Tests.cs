@@ -43,7 +43,7 @@ namespace SwarlexBatteryTests
         {
             // the defaults only: the user's own config.json is never read
             Program_.Init();
-            foreach (var test in new Action[] { Texts, SetupTexts, Atk, RazerMtk, SteelSeries, NovaElite, CloudIIIS, Centurion, GWolves, Logitech, Names, Versions, LowBattery, NoLevelNote, TrayIcon, TimeLeft })
+            foreach (var test in new Action[] { Texts, SetupTexts, Atk, RazerMtk, SteelSeries, NovaElite, CloudIIIS, Centurion, GWolves, Logitech, Names, Versions, LowBattery, NoLevelNote, TrayIcon, Estimate, TimeLeft })
             {
                 try { test(); }
                 catch (Exception e) { failed++; Console.WriteLine("FAIL: " + test.Method.Name + " threw " + (e.InnerException ?? e).Message); }
@@ -282,6 +282,34 @@ namespace SwarlexBatteryTests
             var a = BatteryReader.Build(new List<Gadget> { G("m", "mouse", 60), G("x", "gamepad", 25, false, true) });
             Equal(60, a.Icons[0].Percent, "a coarse level is not shown as a number");
             Check(BatteryReader.Build(new List<Gadget> { G("k", "keyboard", 50), G("m", "mouse", 90) }).Icons[0].Tooltip.StartsWith(Strings.T("kindMouse")), "the mouse comes first");
+        }
+
+        static List<double[]> Pts(string s)
+        {
+            return s.Split(' ').Select(x => x.Split(',')).Select(a => new[] { double.Parse(a[0], CultureInfo.InvariantCulture), double.Parse(a[1], CultureInfo.InvariantCulture) }).ToList();
+        }
+
+        // histories recorded by the app on real devices (seconds of use, level)
+        const string MadHistory = "0,100 330,100 655,100 898,95 1204,95 1529,95 1858,95 2178,95 2649,95 2969,95 3277,95 3592,95 3912,95 4234,95 4538,95 4954,95 5262,95 5566,95 5884,95 6177,90 6482,90 6790,90 7002,85 7379,85 7704,85 8008,85 8318,85 8618,85 8649,80 8971,80 9429,80 9554,75 9872,75 10184,75 10670,75 10857,70 11359,70 11662,70 11897,65 12300,65 12630,65 12940,60 13241,60 13551,60 14016,60 14357,60 14667,60 14878,55 15200,55 15510,55 15820,55 16130,55 16441,55 16744,55 17066,55 17375,55";
+        const string HeadsetHistory = "0,89 74,88 106,87 137,85 168,82 199,79 504,79 703,78 1004,78 1316,78 1620,78 1837,77 2168,77 2469,77 3041,77 3325,76 3805,76 4291,76 4571,75 4980,75 5283,75 5611,75 5921,75 6251,75 6561,75 6862,75 7172,75 7482,75 7792,75 7885,74 8195,74 8499,74 8801,74 9122,74 9432,74 9742,74 10052,74 10363,74 10673,74 10982,73 11285,73 11607,73 11705,72";
+
+        static void Estimate()
+        {
+            // BlackShark V2 HyperSpeed: about 2 % an hour after the first minutes -> some 30-40 hours, not the 25 the
+            // old fit gave (it counted the 89 -> 79 % settling of the first 3 minutes)
+            double h = BatteryReader.HoursLeft(Pts(HeadsetHistory), 11705, 72);
+            Console.WriteLine("  estimate: headset 72 % -> " + h.ToString("0.0", CultureInfo.InvariantCulture) + " h");
+            Check(h > 28 && h < 45, "headset estimate follows its steady drain");
+            // VXE MAD 8K in 5 % steps: 95 -> 55 % in 2.4 h of use, then 40 minutes on 55 %
+            double m = BatteryReader.HoursLeft(Pts(MadHistory), 17375, 55);
+            Console.WriteLine("  estimate: mouse 55 % -> " + m.ToString("0.0", CultureInfo.InvariantCulture) + " h");
+            Check(m > 3 && m < 9, "mouse estimate from its 5 % steps");
+            // right after a new step the fitted rate alone counts
+            double m2 = BatteryReader.HoursLeft(Pts(MadHistory.Substring(0, MadHistory.IndexOf(" 15200,55"))), 14878, 55);
+            Check(m2 > 2.5 && m2 < m, "a longer stay on a step means a slower drain now");
+            Equal(-1.0, BatteryReader.HoursLeft(Pts("0,80 600,80 1200,80 2400,80 4000,80"), 4000, 80), "no drop: no estimate");
+            Equal(-1.0, BatteryReader.HoursLeft(Pts("0,80 700,79 900,78"), 900, 78), "too short: no estimate");
+            Equal(-1.0, BatteryReader.HoursLeft(Pts("0,100 900,100 3000,100"), 3000, 100), "full: no estimate");
         }
 
         static void TimeLeft()
