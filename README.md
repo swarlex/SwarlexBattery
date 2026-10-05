@@ -136,6 +136,22 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 Maintainers release with `.\tools\release.ps1 -Notes "..."` (GitHub CLI).
 </details>
 
+## Code signing policy
+
+Release files are built from this repository by GitHub Actions ([build workflow](.github/workflows/build.yml)),
+so every binary can be traced back to its source. Code signing through the SignPath Foundation is requested;
+until it is granted, releases are not signed.
+
+| Role | Who |
+|---|---|
+| Authors (change the code) | [swarlex](https://github.com/swarlex) |
+| Reviewers (approve changes from others) | [swarlex](https://github.com/swarlex) |
+| Approvers (approve each signed release) | [swarlex](https://github.com/swarlex) |
+
+**Privacy:** this program will not transfer any information to other networked systems unless
+specifically requested by the user, except for the check for a new release on GitHub, which can be turned
+off. Details: [privacy policy](docs/PRIVACY.md).
+
 ## License
 
 <a href="https://www.gnu.org/licenses/gpl-3.0.html"><img src="https://www.gnu.org/graphics/gplv3-with-text-136x68.png" alt="GPLv3 - Free as in Freedom" align="right"></a>

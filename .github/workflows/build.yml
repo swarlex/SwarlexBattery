@@ -1,0 +1,36 @@
+# Builds SwarlexBattery from this repository on GitHub's own Windows runners, so every binary can be traced
+# back to the source it was built from. The artifacts are the files a release ships (the exe, the setup and
+# the exe's SHA-256). Code signing (SignPath Foundation) is added to this workflow once it is granted.
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build with the C# compiler that ships with Windows
+        shell: powershell
+        run: .\build.ps1
+
+      - name: SHA-256 of the build
+        shell: powershell
+        run: Get-FileHash dist\SwarlexBattery.exe, dist\SwarlexBattery-Setup.exe -Algorithm SHA256 | Format-Table Hash, Path -AutoSize | Out-String -Width 200
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SwarlexBattery-${{ github.ref_name }}
+          path: |
+            dist/SwarlexBattery.exe
+            dist/SwarlexBattery-Setup.exe
+            dist/SwarlexBattery.exe.sha256
+          if-no-files-found: error
