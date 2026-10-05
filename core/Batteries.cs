@@ -85,16 +85,7 @@ namespace SwarlexBattery
                 {
                     t.Pts.Add(new[] { t.Use, (double)g.Pct }); if (t.Pts.Count > 400) t.Pts.RemoveAt(0); histDirty = true;
                 }
-                if (t.Pts.Count < 3) continue;
-                double span = t.Pts[t.Pts.Count - 1][0] - t.Pts[0][0], drop = t.Pts[0][1] - t.Pts[t.Pts.Count - 1][1];
-                if (span < 1800 || drop < 3) continue;
-                double mx = t.Pts.Average(q => q[0]), my = t.Pts.Average(q => q[1]), sxy = 0, sxx = 0;
-                foreach (var q in t.Pts) { sxy += (q[0] - mx) * (q[1] - my); sxx += (q[0] - mx) * (q[0] - mx); }
-                if (sxx <= 0) continue;
-                double slope = sxy / sxx;                                                   // points per second
-                if (slope >= 0) continue;
-                double hours = g.Pct / -slope / 3600;
-                if (hours > 0 && hours < 500) g.HoursLeft = hours;
+                g.HoursLeft = HoursLeft(t.Pts, t.Use, g.Pct);
             }
             if (histDirty && now - histSavedAt >= 300)
             {
@@ -105,6 +96,48 @@ namespace SwarlexBattery
                 }
                 catch { }
             }
+        }
+
+        // Hours of use left, or -1. pts = { use seconds, level } since the last charge, use = the use time now.
+        //  * Only the moments a new, lower level first appeared count ("edges"): many devices report in steps
+        //    (5 % for the VXE / ATK mice), and the time spent on one step says nothing until the next one comes.
+        //  * The first 10 minutes of a history are left out: right after a charge or a start the reading settles
+        //    (a BlackShark V2 HyperSpeed showed 89 -> 79 % in 3 minutes, then 1-2 % an hour).
+        //  * A weighted least-squares line: an edge counts half as much for every 3 hours of use it is older,
+        //    so the estimate follows how the device is used now.
+        //  * A device that has stayed on its level for longer than that rate allows is draining slower now: the
+        //    rate is capped at one step over that time, and the time already spent on the level is taken off.
+        // Needs 3 edges over at least 30 minutes of use and a 3-point drop.
+        public static double HoursLeft(List<double[]> pts, double use, int pct)
+        {
+            if (pts == null || pts.Count < 3 || pct <= 0) return -1;
+            double start = pts[0][0] + 600;
+            var edges = new List<double[]>();
+            double prev = double.MaxValue;
+            foreach (var p in pts)
+            {
+                if (p[1] < prev && p[1] < 100 && p[0] >= start) edges.Add(p);
+                prev = Math.Min(prev, p[1]);
+            }
+            if (edges.Count < 3) return -1;
+            var last = edges[edges.Count - 1];
+            if (last[0] - edges[0][0] < 1800 || edges[0][1] - last[1] < 3) return -1;
+            double sw = 0, mx = 0, my = 0;
+            var w = edges.Select(e => Math.Pow(0.5, (last[0] - e[0]) / 10800.0)).ToList();
+            for (int i = 0; i < edges.Count; i++) { sw += w[i]; mx += w[i] * edges[i][0]; my += w[i] * edges[i][1]; }
+            mx /= sw; my /= sw;
+            double sxy = 0, sxx = 0;
+            for (int i = 0; i < edges.Count; i++) { sxy += w[i] * (edges[i][0] - mx) * (edges[i][1] - my); sxx += w[i] * (edges[i][0] - mx) * (edges[i][0] - mx); }
+            if (sxx <= 0 || sxy >= 0) return -1;
+            double rate = -sxy / sxx;                                                   // points per second
+            var steps = new List<double>();
+            for (int i = 1; i < edges.Count; i++) steps.Add(edges[i - 1][1] - edges[i][1]);
+            steps.Sort();
+            double step = Math.Max(1, steps[steps.Count / 2]);
+            double since = Math.Max(0, use - last[0]);
+            if (since > 0) rate = Math.Min(rate, step / since);
+            double hours = (Math.Min(pct, last[1]) / rate - since) / 3600;
+            return hours > 0 && hours < 500 ? hours : -1;
         }
 
         public static string TimeLeft(double hours)
