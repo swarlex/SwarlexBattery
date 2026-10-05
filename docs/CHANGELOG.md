@@ -2,103 +2,48 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
-## 1.9.9
+## 2.0.0
+A new right-click menu with a **Preferences** window, a menu for each device, animations, an optional coloured
+icon and a more accurate time left.
+
 ### Added
-- **Corsair Dark Core RGB Pro SE** on its dongle (1B7F), with ckb-next's protocol as HaloBattery reads it: a
-  coarse level (0 / 15 / 30 / 50 / 100 %, marked approximate). Not tested on hardware yet.
-- Changing the theme in Preferences fades the open windows into the new colours instead of flipping them at
-  once.
+- **Preferences** (right-click > *Preferences*): a window beside the menu with every setting, applied at once,
+  each with a short note: the poll interval and the low battery level (- / +), *Estimated time left*, *Quiet
+  while gaming*, *Sound with low battery alerts*, *Windows Bluetooth devices*, *Keep the icon next to the
+  clock*, *Percentage in the icon*, *Coloured icon*, the charging and opening animations, the theme
+  (*Automatic*, *Light*, *Dark*), the status file, *Start with Windows* and the update settings.
+- **Language** in its own window beside the menu, above *Preferences*.
+- **A menu for each device** (right-click it in the panel): **rename** it (Enter keeps the name, Esc cancels,
+  *Reset name* goes back), choose its **icon**, give it its **own low battery level** (e.g. 15 % for the mouse,
+  30 % for the headset), or **hide** it. A hidden device is left out of the panel, the tray, the notifications
+  and the status file; right-click > *Hidden devices* shows it again. The icon and the level are picked in a
+  window beside the panel.
+- **Charging animation** (on by default): the ring of a charging device fills from its level to full, again
+  and again. The frames are cached and the timer runs only while something charges.
+- **Opening animation** (on by default): the panel, the menu and the windows beside them fade and slide in, and
+  a theme change fades into the new colours.
+- **Coloured icon** (off by default: the icon stays white / black): green while the level is fine, orange near
+  the low battery level, red at it; the bars in the panel follow it.
+- **Keep the icon next to the clock** (on by default, as before). Turned off, the icon goes behind the ^ arrow
+  once and then stays wherever you put it.
+- **Corsair Dark Core RGB Pro SE** on its dongle: a coarse level (0 / 15 / 30 / 50 / 100 %). Not tested on
+  hardware yet.
 
 ### Changed
-- A device's **icon** and **low battery level** are picked in a window beside the panel, so the panel no longer
-  grows to twice its height.
-- **JBL Quantum 910**: the receiver is read all the time in the background (as HaloBattery 1.14 does): a level
-  the headset sends between two polls is no longer missed, and a poll never waits for it.
-
-### Fixed
-- Opening *Language* while *Preferences* were open showed the window at its old size and place for a moment.
+- **The time left follows how a device is used now**: it is worked out from the moments a new, lower level
+  first appeared (devices that report in 5 % steps are no longer misjudged), recent use counts more, the first
+  10 minutes after a charge or a start are left out, and a device that stays on its level is taken to drain
+  slower now, at most three times slower. On recorded histories: a BlackShark V2 HyperSpeed at 72 % went from
+  25 to about 42 hours, a VXE MAD 8K at 55 % from 5 to about 7 hours.
+- **JBL Quantum 910**: the receiver is read all the time in the background, so a level the headset sends
+  between two polls is no longer missed and a poll never waits for it.
+- The right-click menu is shorter: Refresh, Language, Preferences, the update row, Diagnostics and Exit.
+- New screenshots on GitHub and on the website, in light and dark.
 
 ### Checked
-- The battery maths of every brand compared with HaloBattery 1.14: Logitech (HID++ 1004 / 1000 / 1001 / 1F20 and
-  the voltage curve), Razer, SteelSeries, HyperX, Corsair, PlayStation, Nintendo and the rest match.
-  PlayStation pads report in tenths; SwarlexBattery shows the middle of each tenth (as Linux's own
-  hid-playstation driver does) rather than its bottom.
-
-## 1.9.8
-### Added
-- **Charging animation** (Preferences, on by default): the ring of a charging device fills from its level to
-  full, again and again. The frames are cached, and the timer runs only while something charges.
-- **Opening animation** (Preferences, on by default): the panel, the menu and the window beside it fade in and
-  slide into place.
-
-### Changed
-- **Language** has its own window beside the menu, like Preferences, and sits above *Preferences* in the menu.
-- With *Coloured icon* on, only the bars in the panel are coloured; the pictograms and the numbers stay plain
-  (a low device is still red).
-
-## 1.9.7
-### Changed
-- With *Coloured icon* on, the panel follows the tray icon: the pictograms, levels and bars are green while the
-  level is fine, orange near the low battery level and red at it.
-
-### Fixed
-- Preferences showed a light grey scroll bar and had to be scrolled: the window is now as tall as the screen
-  allows, and when a scroll bar is needed it is a thin one in the theme's colours (the panel too).
-- The time left of a device that stayed on one level for hours kept growing without limit; the slowdown it
-  assumes is now at most three times the device's measured rate.
-
-## 1.9.6
-### Added
-- **A low battery level for each device**: right-click a device in the panel > *Low battery alert* - e.g. 15 %
-  for the mouse and 30 % for the headset. *General* follows the level in Preferences.
-- **Coloured icon** (Preferences, off by default: the icon stays white / black as before): green while the
-  level is fine, orange near the low battery level, red at it.
-- **A short note below each setting** in Preferences that says what it does.
-
-### Fixed
-- The Preferences window stayed open beside the panel when the panel was opened from the tray while it was
-  shown, and Esc did not close it.
-
-## 1.9.5
-### Fixed
-- The theme in Preferences read "like the taskbar", which said little: it is now *Theme: Automatic*, with
-  "follows Windows' light or dark mode" below it, and *Light* / *Dark*.
-
-## 1.9.4
-### Added
-- **Keep the icon next to the clock** (Preferences, on by default): the app keeps its icon in the visible part
-  of the tray, as before. Turned off, the icon goes behind the ^ arrow once, and from then on stays wherever
-  you put it (drag it, or Settings > Personalization > Taskbar > Other system tray icons).
-
-## 1.9.3
-Preferences in a window of their own, and a menu for each device: rename it, choose its icon or hide it.
-
-### Added
-- **Preferences** (right-click > *Preferences*): a window beside the menu with every setting, each applied at
-  once: the poll interval and the low battery level with - / +, *Estimated time left*, *Quiet while gaming*,
-  *Sound with low battery alerts*, *Windows Bluetooth devices*, *Percentage in the icon*, the theme (like the
-  taskbar, light or dark), the language, the status file, *Start with Windows*, *Check for updates
-  automatically* and *Get beta versions*. The menu itself is shorter: Refresh, Preferences, the update row,
-  Diagnostics and Exit.
-- **A menu for each device**: right-click a device in the panel to **rename** it (type the name, Enter keeps
-  it, Esc cancels; *Reset name* goes back to the device's own), choose its **icon** (mouse, headset, earbuds,
-  keyboard, controller, speaker, other) or **hide** it. A hidden device is left out of the panel, the tray,
-  the notifications and the status file; right-click > *Hidden devices* shows it again.
-
-### Changed
-- New screenshots on GitHub, in light and dark.
-
-## 1.9.2
-A more accurate *time left*.
-
-### Changed
-- **The time left follows how a device is used now.** It is worked out from the moments a new, lower level
-  first appeared, so devices that report in steps (5 % for the VXE / ATK mice) are no longer misjudged by the
-  time spent on one step. Recent use counts more than older use (half as much per 3 hours of use), the
-  first 10 minutes after a charge or a start are left out while the reading settles, and a device that stays
-  on its level longer than its rate allows is taken to be draining slower now. On recorded histories: a
-  BlackShark V2 HyperSpeed at 72 % went from 25 to about 42 hours (it drains some 1.7 % an hour), a VXE MAD
-  8K mouse at 55 % from 5 to about 7 hours.
+- The battery maths of every brand compared with HaloBattery 1.14: Logitech (HID++ 1004 / 1000 / 1001 / 1F20
+  and the voltage curve), Razer, SteelSeries, HyperX, Corsair, PlayStation and Nintendo match. PlayStation pads
+  report in tenths; SwarlexBattery shows the middle of each tenth, as Linux's own driver does.
 
 ## 1.9.1
 Light theme, German, Spanish and Italian, new devices from HaloBattery 1.14.0, a portable mode and automatic
