@@ -2,6 +2,17 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.9.7
+### Changed
+- With *Coloured icon* on, the panel follows the tray icon: the pictograms, levels and bars are green while the
+  level is fine, orange near the low battery level and red at it.
+
+### Fixed
+- Preferences showed a light grey scroll bar and had to be scrolled: the window is now as tall as the screen
+  allows, and when a scroll bar is needed it is a thin one in the theme's colours (the panel too).
+- The time left of a device that stayed on one level for hours kept growing without limit; the slowdown it
+  assumes is now at most three times the device's measured rate.
+
 ## 1.9.6
 ### Added
 - **A low battery level for each device**: right-click a device in the panel > *Low battery alert* - e.g. 15 %
