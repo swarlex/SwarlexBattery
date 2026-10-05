@@ -21,13 +21,15 @@ namespace SwarlexBattery
     {
         public string Id, Name, Kind, Detail, Glyph;   // Glyph: tray / panel icon when it is not the kind's default
         public string Hint;                              // a device that gives no level at all: why (shown instead of a level)
+        public string OwnName;                           // the device's own name when the user renamed it
+        public Gadget Copy() { return (Gadget)MemberwiseClone(); }
         public int Pct;
         public bool Charging, Approx, Online, Asleep;
         public double HoursLeft = -1;                     // estimated hours of use left, -1 = no estimate
     }
 
     class TraySpec { public string Id, Icon, State, Tooltip; public double? Ring; public double[] Rings; public bool Charging, Dim; public int Percent = -1; }
-    class PanelItem { public string Icon, Label, Value, State, Sub; public double Pct; }
+    class PanelItem { public string Icon, Label, Value, State, Sub; public double Pct; public string Id, OwnName, IconChoice; }
     class Notice { public string Key, Title, Body; public int Pct = -1; }
     class Snapshot { public List<TraySpec> Icons = new List<TraySpec>(); public List<PanelItem> Items = new List<PanelItem>(); public string Empty; public List<Notice> Notify = new List<Notice>(); public string Title; }
 
@@ -154,7 +156,7 @@ namespace SwarlexBattery
             {
                 var o = new Dictionary<string, object> {
                     { "updated", DateTimeOffset.UtcNow.ToUnixTimeSeconds() }, { "version", Program.AppVersion.ToString() },
-                    { "devices", list.Where(g => g.Hint == null).Select(g => new Dictionary<string, object> {
+                    { "devices", View(list).Where(g => g.Hint == null).Select(g => new Dictionary<string, object> {
                         { "id", g.Id }, { "name", g.Name }, { "kind", g.Kind }, { "level", g.Pct }, { "charging", g.Charging }, { "online", g.Online },
                         { "asleep", g.Asleep }, { "approximate", g.Approx }, { "hoursLeft", g.HoursLeft > 0 ? (object)Math.Round(g.HoursLeft, 1) : null } }).ToList() } };
                 string file = Path.Combine(Program.DataDir, "status.json"), tmp = file + ".tmp";
@@ -282,10 +284,10 @@ namespace SwarlexBattery
         void Add(List<Gadget> list, Gadget g)
         {
             if (g.Glyph == null && g.Kind == "gamepad") g.Glyph = PadGlyph(g.Id, g.Name);
-            var names = Config.Get(S("names")) as Dictionary<string, object>;
-            object rn; if (names != null && g.Name != null && names.TryGetValue(g.Name, out rn) && rn is string) g.Name = (string)rn;
             list.Add(g);
         }
+
+        public void RefreshSlow() { slowAt = DateTime.MinValue; }   // e.g. Bluetooth turned on or off in Preferences
 
         public List<Gadget> Read()
         {
@@ -474,8 +476,33 @@ namespace SwarlexBattery
         }
 
         // ------------------------------------------------------------ what to show
+        // The user's choices from the panel (plugins.gadgets.hidden / names / icons, by device id): a hidden device is
+        // left out everywhere (panel, tray, notices, status file), a renamed one gets its new name, a chosen icon
+        // replaces the kind's own. Applied to copies, so the readings keep the device's own name. "names" may also
+        // be keyed by the device's own name (how it was set by hand in config.json before).
+        public static readonly string[] IconChoices = { "mouse", "headphones", "earbuds", "keyboard", "gamepad", "speaker", "other" };
+
+        public static List<Gadget> View(List<Gadget> gadgets)
+        {
+            var hidden = Config.Map(S("hidden")); var names = Config.Map(S("names")); var icons = Config.Map(S("icons"));
+            var o = new List<Gadget>();
+            foreach (var g in gadgets)
+            {
+                if (g.Id != null && hidden.ContainsKey(g.Id)) continue;
+                var c = g.Copy(); c.OwnName = g.Name;
+                string n;
+                if ((g.Id != null && names.TryGetValue(g.Id, out n)) || (g.Name != null && names.TryGetValue(g.Name, out n))) c.Name = n;
+                string k;
+                if (g.Id != null && icons.TryGetValue(g.Id, out k) && Array.IndexOf(IconChoices, k) >= 0) { c.Kind = k; c.Glyph = k == "gamepad" ? PadGlyph(g.Id, g.Name) : null; }
+                o.Add(c);
+            }
+            return o;
+        }
+
         public static Snapshot Build(List<Gadget> gadgets)
         {
+            gadgets = View(gadgets);
+            var iconChoice = Config.Map(S("icons"));
             var snap = new Snapshot { Title = Strings.T("title") };
             int low = (int)Config.Num(S("lowThreshold"), 15);
             var order = new Dictionary<string, int> { { "mouse", 0 }, { "headphones", 1 }, { "earbuds", 1 }, { "keyboard", 2 }, { "gamepad", 3 } };
@@ -491,13 +518,15 @@ namespace SwarlexBattery
                 string sub = g.Charging && g.Pct >= 100 ? Strings.T("full") : g.Charging ? Strings.T("charging") : !string.IsNullOrEmpty(g.Detail) ? g.Detail : !g.Online ? Strings.T("notConnected") : "";
                 if (g.Approx) sub = string.Join(" - ", new[] { sub, Strings.T("approx") }.Where(x => x != ""));
                 if (g.HoursLeft > 0 && g.Online && !g.Charging) sub = string.Join(" - ", new[] { sub, TimeLeft(g.HoursLeft) }.Where(x => x != ""));
-                snap.Items.Add(new PanelItem { Icon = g.Glyph ?? IconFor(g.Kind), Label = g.Name, Value = g.Pct + "%", Pct = g.Pct / 100.0, State = state, Sub = sub });
+                snap.Items.Add(new PanelItem { Icon = g.Glyph ?? IconFor(g.Kind), Label = g.Name, Value = g.Pct + "%", Pct = g.Pct / 100.0, State = state, Sub = sub,
+                                               Id = g.Id, OwnName = g.OwnName, IconChoice = g.Id != null && iconChoice.ContainsKey(g.Id) ? iconChoice[g.Id] : null });
                 if (low > 0 && g.Online && !g.Charging && g.Pct <= low)
                     snap.Notify.Add(new Notice { Key = "low-" + g.Id, Title = Strings.T("lowTitle", g.Name), Body = Strings.T("lowBody", g.Pct), Pct = g.Pct });
             }
             // devices that give no level: name and reason only (no number, no bar, never in the tray icon)
             foreach (var g in gadgets.Where(x => x.Hint != null))
-                snap.Items.Add(new PanelItem { Icon = g.Glyph ?? IconFor(g.Kind), Label = g.Name, Value = "", Pct = -1, State = "off", Sub = g.Hint });
+                snap.Items.Add(new PanelItem { Icon = g.Glyph ?? IconFor(g.Kind), Label = g.Name, Value = "", Pct = -1, State = "off", Sub = g.Hint,
+                                               Id = g.Id, OwnName = g.OwnName, IconChoice = g.Id != null && iconChoice.ContainsKey(g.Id) ? iconChoice[g.Id] : null });
             if (snap.Items.Count == 0) snap.Empty = Strings.T("noDevices");
 
             if (Config.Bool(S("combine"), true) && shown.Count >= 1)
