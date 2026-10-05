@@ -2,6 +2,10 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.5.4
+- New controller tray icon: drawn as a shape (body, grips, D-pad and buttons) instead of the font glyph,
+  which was too wide for the ring and turned into a blob at tray size.
+
 ## 1.5.3
 - Game controllers: PS5 DualSense / DualSense Edge and PS4 DualShock 4 (USB, and Bluetooth while Steam or
   a game uses them), Nintendo Switch Pro Controller and Joy-Con (Bluetooth), 8BitDo in D-input mode.
