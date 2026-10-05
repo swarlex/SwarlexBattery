@@ -2,6 +2,24 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.9.3
+Preferences in a window of their own, and a menu for each device: rename it, choose its icon or hide it.
+
+### Added
+- **Preferences** (right-click > *Preferences*): a window beside the menu with every setting, each applied at
+  once: the poll interval and the low battery level with - / +, *Estimated time left*, *Quiet while gaming*,
+  *Sound with low battery alerts*, *Windows Bluetooth devices*, *Percentage in the icon*, the theme (like the
+  taskbar, light or dark), the language, the status file, *Start with Windows*, *Check for updates
+  automatically* and *Get beta versions*. The menu itself is shorter: Refresh, Preferences, the update row,
+  Diagnostics and Exit.
+- **A menu for each device**: right-click a device in the panel to **rename** it (type the name, Enter keeps
+  it, Esc cancels; *Reset name* goes back to the device's own), choose its **icon** (mouse, headset, earbuds,
+  keyboard, controller, speaker, other) or **hide** it. A hidden device is left out of the panel, the tray,
+  the notifications and the status file; right-click > *Hidden devices* shows it again.
+
+### Changed
+- New screenshots on GitHub, in light and dark.
+
 ## 1.9.2
 A more accurate *time left*.
 

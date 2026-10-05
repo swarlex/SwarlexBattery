@@ -43,7 +43,7 @@ namespace SwarlexBatteryTests
         {
             // the defaults only: the user's own config.json is never read
             Program_.Init();
-            foreach (var test in new Action[] { Texts, SetupTexts, Atk, RazerMtk, SteelSeries, NovaElite, CloudIIIS, Centurion, GWolves, Logitech, Names, Versions, LowBattery, NoLevelNote, TrayIcon, Estimate, TimeLeft })
+            foreach (var test in new Action[] { Texts, SetupTexts, Atk, RazerMtk, SteelSeries, NovaElite, CloudIIIS, Centurion, GWolves, Logitech, Names, Versions, LowBattery, NoLevelNote, UserChoices, TrayIcon, Estimate, TimeLeft })
             {
                 try { test(); }
                 catch (Exception e) { failed++; Console.WriteLine("FAIL: " + test.Method.Name + " threw " + (e.InnerException ?? e).Message); }
@@ -271,6 +271,31 @@ namespace SwarlexBatteryTests
             Check(s.Icons.All(i => !(i.Tooltip ?? "").Contains("G435") && (i.Rings ?? new double[0]).All(r => r >= 0)), "a device without a level stays out of the tray icon");
             var only = BatteryReader.Build(new List<Gadget> { note });
             Check(only.Icons.Count == 1 && only.Icons[0].Dim, "only a note: the dim placeholder icon keeps the menu reachable");
+        }
+
+        static void UserChoices()
+        {
+            var gadgets = (Dictionary<string, object>)((Dictionary<string, object>)Config.Data["plugins"])["gadgets"];
+            var keep = new Dictionary<string, object>(gadgets);
+            try
+            {
+                gadgets["hidden"] = new Dictionary<string, object> { { "h", "Hidden headset" } };
+                gadgets["names"] = new Dictionary<string, object> { { "m", "Game mouse" }, { "Old Keyboard", "Desk keyboard" } };
+                gadgets["icons"] = new Dictionary<string, object> { { "m", "gamepad" }, { "k", "not-a-kind" } };
+                var list = new List<Gadget> { G("m", "mouse", 60), G("h", "headphones", 10), G("k", "keyboard", 50) };
+                list[2].Name = "Old Keyboard";
+                var s = BatteryReader.Build(list);
+                Check(s.Items.All(i => i.Id != "h") && s.Notify.Count == 0, "a hidden device: not in the panel, no low battery notice");
+                Check(s.Icons.All(i => !(i.Tooltip ?? "").Contains("10%")), "a hidden device stays out of the tray");
+                var m = s.Items.First(i => i.Id == "m");
+                Check(m.Label == "Game mouse" && m.OwnName == "m" && m.IconChoice == "gamepad", "renamed, own name kept, icon chosen");
+                Check(m.Icon != BatteryReader.IconFor("mouse"), "the chosen icon replaces the mouse pictogram");
+                var k = s.Items.First(i => i.Id == "k");
+                Check(k.Label == "Desk keyboard", "names set by hand in config.json by the device's own name still work");
+                Check(k.Icon == BatteryReader.IconFor("keyboard"), "an unknown icon choice is ignored");
+                Equal("m", list[0].Name, "the reading itself keeps its own name (Reset name goes back to it)");
+            }
+            finally { gadgets.Clear(); foreach (var kv in keep) gadgets[kv.Key] = kv.Value; }
         }
 
         static void TrayIcon()
