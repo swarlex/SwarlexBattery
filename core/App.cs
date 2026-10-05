@@ -24,6 +24,7 @@ namespace SwarlexBattery
         public static string ExePath;
         public static Version AppVersion;
         public static string DataDir, CacheDir;
+        public static bool Portable;              // settings and log next to the exe (portable.txt)
 
         [STAThread]
         static int Main()
@@ -33,8 +34,24 @@ namespace SwarlexBattery
             AppVersion = new Version(v.Major, v.Minor, Math.Max(0, v.Build));
             DataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SwarlexBattery");
             CacheDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SwarlexBattery");
+            // portable: an empty portable.txt next to the exe keeps settings, log and history in a "data" folder beside
+            // it; a folder that cannot be written (e.g. a read-only stick) falls back to %APPDATA%, and the log says so
+            string portableNote = null;
+            var exeDir = Path.GetDirectoryName(ExePath);
+            if (File.Exists(Path.Combine(exeDir, "portable.txt")))
+            {
+                var dir = Path.Combine(exeDir, "data");
+                try
+                {
+                    Directory.CreateDirectory(dir);
+                    var probe = Path.Combine(dir, ".write-test"); File.WriteAllText(probe, ""); File.Delete(probe);
+                    DataDir = CacheDir = dir; Portable = true;
+                }
+                catch (Exception e) { portableNote = "portable.txt found, but its data folder cannot be written (" + e.Message + "): using %APPDATA%"; }
+            }
             Directory.CreateDirectory(DataDir); Directory.CreateDirectory(Path.Combine(CacheDir, "state"));
             Log.Init(Path.Combine(CacheDir, "swarlexbattery.log"));
+            if (portableNote != null) Log.Write(portableNote);
 
             // right after a self-update the previous version is still closing: wait for it instead of quitting
             bool justUpdated = File.Exists(ExePath + ".old");
