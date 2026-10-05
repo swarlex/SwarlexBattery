@@ -73,7 +73,7 @@ and keeps your settings; uninstall from **Settings > Apps**.
 
 | Brand | Devices |
 |---|---|
-| **Razer** | BlackShark V2 HyperSpeed / V2 Pro, Barracuda Pro, wireless Razer mice and keyboards |
+| **Razer** | BlackShark V2 HyperSpeed / V2 Pro, Barracuda Pro, wireless Razer mice; DeathStalker V2 Pro, BlackWidow HyperSpeed and V3 Pro keyboards |
 | **Logitech / Astro** | Mice and keyboards on Lightspeed, Unifying and Bolt receivers; G533 / 535 / 633 / 635 / 733 / 933 / 935, G PRO X (2) headsets, G PRO X 2 LIGHTSPEED (Centurion); Astro A50 Gen 5 |
 | **SteelSeries** | Arctis Nova 7 / 7X / 7P / 5 / 3, Arctis 7+, Arctis Nova Pro Wireless, Arctis Nova Elite, GameBuds, Arctis 1 / 7 / 7P / 7X / 9 / Pro Wireless (2019); Aerox 3 / 5 / 9, Rival 3 Wireless |
 | **HyperX** | Cloud II Wireless, Cloud III Wireless, Cloud III S Wireless, Cloud Alpha 2 |
@@ -124,6 +124,7 @@ The right-click menu has *Start with Windows*, *Language*, *Percentage in the ic
 | `"plugins": { "gadgets": { "interval": 60 } }` | seconds between battery reads (default 30; 5 while the panel is open) |
 | `"monochrome": false` | coloured icons |
 | `"quietWhileGaming": false` | notify during fullscreen apps too |
+| `"lowSound": true` | a sound with low battery alerts (also in the right-click menu) |
 | `"update": { "check": false }` | no automatic update check |
 | `"statusFile": true` | write every level to `%APPDATA%\SwarlexBattery\status.json` for Rainmeter, Stream Deck or scripts |
 | `"plugins": { "gadgets": { "timeLeft": false } }` | no "time left" estimate |

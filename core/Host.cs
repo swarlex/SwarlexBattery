@@ -135,7 +135,34 @@ namespace SwarlexBattery
                 notified[n.Key] = now;
             }
             foreach (var k in notified.Keys.ToList()) if ((now - notified[k]).TotalMinutes > 30) notified.Remove(k);
+            LowSound(snap.Notify.Where(n => n.Pct >= 0).ToList(), now);
             if (flyout.Open == "panel") flyout.Refresh(); else flyout.Warm();
+        }
+
+        // "Sound with low battery alerts" (off by default), for full-screen games where a notification is not seen:
+        // Windows' own Battery Low sound (Battery Critical at 5 % or less), and again every 5 minutes while a device
+        // stays low, awake and off the charger (a low notice is only made for such a device). The sound files are
+        // played directly: the "low battery" sound events are often left empty on desktop PCs.
+        DateTime lowSoundAt = DateTime.MinValue;
+
+        void LowSound(List<Notice> low, DateTime now)
+        {
+            if (low.Count == 0) { lowSoundAt = DateTime.MinValue; return; }
+            if (!Config.Bool("lowSound", false) || (now - lowSoundAt).TotalMinutes < 5) return;
+            lowSoundAt = now;
+            var file = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "Media",
+                                    low.Any(n => n.Pct <= 5) ? "Windows Battery Critical.wav" : "Windows Battery Low.wav");
+            try
+            {
+                if (File.Exists(file)) { var p = new System.Media.SoundPlayer(file); p.Play(); }
+                else System.Media.SystemSounds.Exclamation.Play();
+            }
+            catch (Exception e) { Log.Once("low battery sound: " + e.Message); }
+        }
+
+        public void ToggleLowSound()
+        {
+            try { Config.SetUser("lowSound", !Config.Bool("lowSound", false)); } catch (Exception e) { Log.Write("lowSound save: " + e.Message); }
         }
 
         bool Gaming() { return Config.Bool("quietWhileGaming", true) && Win.ForegroundIsFullscreen(); }

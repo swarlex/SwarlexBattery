@@ -2,6 +2,19 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.10.6
+A sound for low batteries during games, and the Razer keyboards with a battery by name.
+
+### Added
+- **Sound with low battery alerts** (right-click menu, off by default), for full-screen games where the
+  notification is not seen: Windows' own *Battery Low* sound (*Battery Critical* at 5 % or less), and again
+  every 5 minutes while the device stays low, awake and off the charger. The sound files are played directly,
+  since the low battery sound events are often left empty on desktop PCs.
+- **Razer DeathStalker V2 Pro / Pro TKL, BlackWidow V3 Mini, V4 Mini and V4 Tenkeyless HyperSpeed, BlackWidow
+  V3 Pro** keyboards, on the receiver or the cable (from OpenRazer's keyboard driver): the battery query goes
+  to the keyboard's own USB interface with its own transaction id first, so it answers on the first try, and a
+  sleeping keyboard on its receiver stays in the panel as asleep. Not tested on hardware yet.
+
 ## 1.10.5
 New devices from HaloBattery 1.14.0, and a portable mode.
 
