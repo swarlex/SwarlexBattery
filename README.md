@@ -26,9 +26,15 @@ software running in the background. One small icon: the left half of the ring is
 right half the headset. Left click for details, right click for the menu.
 
 <p align="center">
-  <img src="docs/images/flyout.png" width="320" alt="Flyout with battery levels">
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset="docs/images/flyout-light.png">
+    <img src="docs/images/flyout.png" width="320" alt="Flyout with battery levels and the time left">
+  </picture>
   &nbsp;&nbsp;
-  <img src="docs/images/menu.png" width="270" alt="Right-click menu">
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset="docs/images/menu-light.png">
+    <img src="docs/images/menu.png" width="270" alt="Right-click menu">
+  </picture>
 </p>
 
 <p align="center">

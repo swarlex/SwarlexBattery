@@ -2,6 +2,17 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.10.2
+The menu stays in place when the language list opens or closes.
+
+### Fixed
+- Opening the language list made the menu grow below the taskbar, and closing it left the menu floating
+  in the middle of the screen: the menu was placed by its old height. It now stays on the taskbar.
+
+### Changed
+- The app wakes up half as often while idle (once a second), a little kinder to laptop batteries.
+- New screenshots on GitHub, in light and dark.
+
 ## 1.10.1
 A fix for *Diagnostics…*.
 
