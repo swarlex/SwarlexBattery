@@ -337,9 +337,15 @@ namespace SwarlexBattery
 
         // Windows 11 parks new tray icons behind the ^ overflow. This flips the same per-icon switch as
         // Settings > Personalization > Taskbar > Other system tray icons, only for this exe's own icons.
+        // "Keep the icon next to the clock" (Preferences, on by default). Turned off, the icon is handed back once
+        // (SetPromoted(false)) and from then on stays wherever the user puts it in Windows' own settings.
         public static void Promote()
         {
-            if (!Config.Bool("alwaysShowInTray", true)) return;
+            if (Config.Bool("alwaysShowInTray", true)) SetPromoted(true);
+        }
+
+        public static void SetPromoted(bool on)
+        {
             using (var root = Registry.CurrentUser.OpenSubKey(@"Control Panel\NotifyIconSettings"))
             {
                 if (root == null) return;
@@ -353,7 +359,8 @@ namespace SwarlexBattery
                         if (exe == null) continue;
                         if (!(string.Equals(exe, Program.ExePath, StringComparison.OrdinalIgnoreCase) || exe.EndsWith(leaf, StringComparison.OrdinalIgnoreCase))) continue;
                         var v = k.GetValue("IsPromoted");
-                        if (!(v is int && (int)v == 1)) k.SetValue("IsPromoted", 1, RegistryValueKind.DWord);
+                        int want = on ? 1 : 0;
+                        if (!(v is int && (int)v == want)) k.SetValue("IsPromoted", want, RegistryValueKind.DWord);
                     }
                 }
             }

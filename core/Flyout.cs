@@ -488,6 +488,7 @@ namespace SwarlexBattery
             root.Children.Add(toggle(Strings.T("lowSound"), "lowSound", false));
             root.Children.Add(Separator());
             root.Children.Add(toggle(Strings.T("bluetoothOpt"), "plugins.gadgets.bluetooth", true));
+            root.Children.Add(toggle(Strings.T("pinIcon"), "alwaysShowInTray", true));
             root.Children.Add(toggle(Strings.T("iconPercent"), "iconPercent", false));
             // the theme: like the taskbar -> light -> dark
             var mode = Config.Str("theme.mode", "auto").ToLowerInvariant();

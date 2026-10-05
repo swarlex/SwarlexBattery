@@ -81,5 +81,6 @@
   "hide": "Nascondi questo dispositivo",
   "hiddenDevices": "Dispositivi nascosti ({0})",
   "showAgain": "Mostra {0}",
-  "deviceHint": "Clic destro su un dispositivo per le sue opzioni"
+  "deviceHint": "Clic destro su un dispositivo per le sue opzioni",
+  "pinIcon": "Tieni l'icona accanto all'orologio"
 }
