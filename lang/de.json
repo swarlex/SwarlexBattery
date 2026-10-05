@@ -55,5 +55,6 @@
   "timeLeftM": "noch etwa {0} Min.",
   "iconPercent": "Prozent im Symbol",
   "beta": "Beta-Versionen erhalten",
-  "noLevelReceiver": "kein Akkustand über den Empfänger; erscheint bei Verbindung über Bluetooth"
+  "noLevelReceiver": "kein Akkustand über den Empfänger; erscheint bei Verbindung über Bluetooth",
+  "lowSound": "Ton bei niedrigem Akkustand"
 }

@@ -282,6 +282,7 @@ namespace SwarlexBattery
                     var code = l[0];
                     root.Children.Add(MenuRow(null, l[1], () => { Close(); host.SetLanguage(code); }, Strings.Lang == code));
                 }
+            root.Children.Add(MenuRow("E767", Strings.T("lowSound"), () => { host.ToggleLowSound(); Refresh(); }, Config.Bool("lowSound", false)));   // keeps the menu open
             root.Children.Add(MenuRow("E8EF", Strings.T("iconPercent"), () => { host.ToggleIconPercent(); Refresh(); }, Config.Bool("iconPercent", false)));   // keeps the menu open: the tray icon changes right away
             if (Config.Str("update.repo", "") != "") root.Children.Add(MenuRow("E7C1", Strings.T("beta"), () => { host.ToggleBeta(); Refresh(); }, Config.Bool("update.beta", false)));
             if (Config.Str("update.repo", "") != "")
