@@ -759,16 +759,49 @@ namespace SwarlexBattery
         {
             var c = devs.FirstOrDefault(d => d.Pid == 0x2088 && d.UsagePage == 0xFF13 && d.Usage == 0x0001 && d.InLen >= 2); if (c == null) return;
             var r = new Reading { Id = "jbl-q910", Name = "JBL Quantum 910 Wireless", Kind = "headphones", Source = "jbl", Receiver = true };
-            using (var h = Open(c.Path))
+            // The headset sends its level now and then on its own: a listener reads the receiver all the time in the
+            // background (as HaloBattery 1.14 does), so a level sent between polls is not missed and a poll never
+            // waits. A level older than 3 minutes is not used.
+            lock (JblLock)
             {
-                if (!h.IsInvalid)
+                JblSeen = DateTime.UtcNow;
+                if (JblThread == null || !JblThread.IsAlive || JblPath != c.Path)
                 {
-                    var end = DateTime.UtcNow.AddMilliseconds(800);
-                    while (DateTime.UtcNow < end) { var x = Read(h, c.InLen, 100); if (x != null && x[0] == 0x08 && x[1] <= 100) { r.Level = x[1]; break; } }
+                    JblPath = c.Path; JblLevel = -1;
+                    var path = c.Path; int len = c.InLen;
+                    JblThread = new Thread(() => JblListen(path, len)) { IsBackground = true, Name = "jbl listener" };
+                    JblThread.Start();
                 }
+                if (JblLevel >= 0 && (DateTime.UtcNow - JblAt).TotalSeconds < 180) r.Level = JblLevel;
             }
             outp.Add(r);
         }
+
+        static readonly object JblLock = new object();
+        static Thread JblThread; static string JblPath; static int JblLevel = -1; static DateTime JblAt, JblSeen;
+
+        // runs while the receiver is plugged in: stops 5 minutes after the last poll that saw it
+        static void JblListen(string path, int len)
+        {
+            try
+            {
+                using (var h = Open(path))
+                {
+                    if (h.IsInvalid) return;
+                    while (true)
+                    {
+                        lock (JblLock) { if (JblPath != path || (DateTime.UtcNow - JblSeen).TotalMinutes > 5) return; }
+                        var x = Read(h, len, 1000);
+                        int lvl = JblParse(x);
+                        if (lvl >= 0) lock (JblLock) { JblLevel = lvl; JblAt = DateTime.UtcNow; }
+                    }
+                }
+            }
+            catch (Exception e) { lock (Trace) Trace.Add("jbl listener: " + e.Message); }
+        }
+
+        // the level report 08 <level %>
+        public static int JblParse(byte[] x) { return x != null && x.Length >= 2 && x[0] == 0x08 && x[1] <= 100 ? x[1] : -1; }
 
         // ---------------------------------------------------------------- Audeze Maxwell (3329)
         // HeadsetControl (audeze_maxwell.hpp), as HaloBattery reads it: only the battery packet
@@ -1575,10 +1608,43 @@ namespace SwarlexBattery
         static readonly Dictionary<int, string> CorsairHeadsets = new Dictionary<int, string> {
             { 0x2A08, "Corsair Void v2 Wireless" }, { 0x2A02, "Corsair Virtuoso Max Wireless" }, { 0x0A97, "Corsair HS80 Max Wireless" } };
 
+        // Corsair Dark Core RGB Pro SE on its dongle (1B7F): ckb-next's "nxp" protocol, via HaloBattery providers/corsair.py.
+        // Output report 0, 64 bytes 0e 50 (CMD_GET, FIELD_BATTERY); the reply's byte 4 is an index into 0/15/30/50/100 %,
+        // so the level is coarse. The dongle's vendor collections are on usage page FF42.
+        static readonly int[] NxpLevels = { 0, 15, 30, 50, 100 };
+
+        static Reading ReadCorsairNxp(IEnumerable<HidInfo> g)
+        {
+            var r = new Reading { Id = "corsair-1B7F", Name = "Corsair Dark Core RGB Pro SE", Kind = "mouse", Source = "corsair", Receiver = true, Approx = true };
+            var cands = g.Where(d => d.UsagePage == 0xFF42).OrderBy(d => d.Usage == 0x0001 ? 0 : 1).ThenBy(d => d.Interface).ToList();
+            foreach (var c in cands)
+            {
+                using (var h = Open(c.Path))
+                {
+                    if (h.IsInvalid) continue;
+                    var x = Ask(h, new byte[] { 0x00, 0x0E, 0x50 }, Math.Max(65, c.OutLen), c.InLen, 500, q => true);   // the first reply, as ckb-next reads it
+                    int lvl = CorsairNxpParse(x);
+                    if (lvl >= 0) { r.Level = lvl; break; }
+                }
+            }
+            return cands.Count > 0 ? r : null;
+        }
+
+        // the reply (with or without the report id byte in front) -> level %, or -1
+        public static int CorsairNxpParse(byte[] x)
+        {
+            if (x == null) return -1;
+            int off = x.Length >= 65 ? 1 : 0;
+            if (x.Length < off + 6) return -1;
+            int idx = x[off + 4];
+            return idx < NxpLevels.Length ? NxpLevels[idx] : -1;
+        }
+
         static void ReadCorsair(List<HidInfo> devs, List<Reading> outp)
         {
             foreach (var g in devs.GroupBy(d => d.Pid))
             {
+                if (g.Key == 0x1B7F) { var nxp = ReadCorsairNxp(g); if (nxp != null) outp.Add(nxp); continue; }
                 string name; if (!CorsairHeadsets.TryGetValue(g.Key, out name)) continue;
                 var c = g.FirstOrDefault(d => d.Interface == 4); if (c == null) continue;
                 var r = new Reading { Id = "corsair-" + g.Key.ToString("X4"), Name = name, Kind = "headphones", Source = "corsair", Receiver = true };
