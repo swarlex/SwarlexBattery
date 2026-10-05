@@ -43,7 +43,7 @@ namespace SwarlexBatteryTests
         {
             // the defaults only: the user's own config.json is never read
             Program_.Init();
-            foreach (var test in new Action[] { Texts, SetupTexts, Atk, RazerMtk, SteelSeries, NovaElite, CloudIIIS, Centurion, GWolves, Logitech, Names, Versions, LowBattery, NoLevelNote, UserChoices, TrayIcon, Estimate, TimeLeft })
+            foreach (var test in new Action[] { Texts, SetupTexts, Atk, RazerMtk, SteelSeries, NovaElite, CloudIIIS, Centurion, GWolves, Jbl, CorsairNxp, Logitech, Names, Versions, LowBattery, NoLevelNote, UserChoices, TrayIcon, Estimate, TimeLeft })
             {
                 try { test(); }
                 catch (Exception e) { failed++; Console.WriteLine("FAIL: " + test.Method.Name + " threw " + (e.InnerException ?? e).Message); }
@@ -197,6 +197,24 @@ namespace SwarlexBatteryTests
             var legacy = Hex("51 0B 00 00 00 00 00 00 04 00 3C 00 02");
             var l = Hid.CentLegacy(legacy);
             Check(l != null && l[0] == 60 && l[1] == 1, "Centurion legacy reply: 60 %, charging");
+        }
+
+        static void CorsairNxp()
+        {
+            var r = new byte[65]; r[5] = 3;   // report id 0, then the reply: byte 4 = index 3
+            Equal(50, Hid.CorsairNxpParse(r), "Dark Core: index 3 = 50 %");
+            var s = new byte[64]; s[4] = 4;
+            Equal(100, Hid.CorsairNxpParse(s), "Dark Core: without the report id, index 4 = 100 %");
+            s[4] = 9;
+            Equal(-1, Hid.CorsairNxpParse(s), "Dark Core: an index out of the table is no level");
+        }
+
+        static void Jbl()
+        {
+            Equal(64, Hid.JblParse(Hex("08 40 00")), "JBL Quantum 910: 64 %");
+            Equal(-1, Hid.JblParse(Hex("08 C8 00")), "JBL: above 100 refused");
+            Equal(-1, Hid.JblParse(Hex("09 40 00")), "JBL: other reports ignored");
+            Equal(-1, Hid.JblParse(null), "JBL: nothing read");
         }
 
         static void GWolves()
