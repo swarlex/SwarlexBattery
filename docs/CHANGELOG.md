@@ -2,86 +2,53 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
-## 1.10.6
-A sound for low batteries during games, and the Razer keyboards with a battery by name.
-
-### Added
-- **Sound with low battery alerts** (right-click menu, off by default), for full-screen games where the
-  notification is not seen: Windows' own *Battery Low* sound (*Battery Critical* at 5 % or less), and again
-  every 5 minutes while the device stays low, awake and off the charger. The sound files are played directly,
-  since the low battery sound events are often left empty on desktop PCs.
-- **Razer DeathStalker V2 Pro / Pro TKL, BlackWidow V3 Mini, V4 Mini and V4 Tenkeyless HyperSpeed, BlackWidow
-  V3 Pro** keyboards, on the receiver or the cable (from OpenRazer's keyboard driver): the battery query goes
-  to the keyboard's own USB interface with its own transaction id first, so it answers on the first try, and a
-  sleeping keyboard on its receiver stays in the panel as asleep. Not tested on hardware yet.
-
-## 1.10.5
-New devices from HaloBattery 1.14.0, and a portable mode.
-
-### Added
-- **SteelSeries Arctis Nova Elite** (base station 1038:2244): level and charging of the headset, without
-  SteelSeries GG. A switched-off headset, which the station reports as 0 %, shows no level.
-- **HyperX Cloud III S Wireless** (03F0:02CC and 03F0:06BE): level and charging, without NGENUITY.
-- **Logitech G PRO X 2 LIGHTSPEED** (046D:0AF7) on its receiver, which speaks Logitech's Centurion protocol
-  instead of HID++: level and charging, without G HUB.
-- **G-Wolves models with a receiver of their own** (HSK Pro / Plus / Lite and their ACE versions, HTS, HTX, HTR,
-  HT-S2, Fenrir, VUK, HTM Plus), from the model list of G-Wolves' web driver, on the receiver or the cable.
-- **Portable mode**: an empty `portable.txt` next to `SwarlexBattery.exe` keeps the settings, log and battery
-  history in a `data` folder beside it. A folder that cannot be written falls back to `%APPDATA%`.
-
-All of these send read-only requests. The Arctis Nova Elite, Cloud III S and G PRO X 2 protocols are
-confirmed on real hardware in HaloBattery; the G-Wolves models are not confirmed anywhere yet. None of them
-is tested with SwarlexBattery yet: a diagnostics report from an owner is welcome.
-
-## 1.10.4
-The installer speaks German, Spanish and Italian too, and every build is now checked by automatic tests.
-
-### Added
-- **Setup in five languages**: English, Turkish, German, Spanish and Italian, picked from the Windows display
-  language or in the wizard; the choice is also the app's language. `/lang:de|es|it` for a silent install.
-- **Automatic tests** run on every build and on GitHub: battery replies captured on real devices (VXE MAD,
-  BlackShark V2 HyperSpeed, SteelSeries Arctis), the Logitech voltage curve, what the panel and the tray icon
-  show (low-battery notices, devices without a level never shown as a number), version comparison, and that
-  every text exists in every language with the same placeholders. A failing test stops the build, so a
-  broken release cannot be published.
-
-## 1.10.3
-A device that cannot report its battery is now listed with the reason, instead of being missing.
-
-### Added
-- **Logitech G435 on its LIGHTSPEED receiver** appears in the panel with a note: the receiver gives no
-  battery level (it would have to be put into its firmware-update mode, which cuts the sound), and the
-  level shows when the headset is connected by Bluetooth. No number is shown for it, and it never enters
-  the tray icon, notifications or the status file. The note goes away while the headset reports its level
-  over Bluetooth.
-
-## 1.10.2
-The menu stays in place when the language list opens or closes.
-
-### Fixed
-- Opening the language list made the menu grow below the taskbar, and closing it left the menu floating
-  in the middle of the screen: the menu was placed by its old height. It now stays on the taskbar.
-
-### Changed
-- The app wakes up half as often while idle (once a second), a little kinder to laptop batteries.
-- New screenshots on GitHub, in light and dark.
-
-## 1.10.1
-A fix for *Diagnostics…*.
-
-### Fixed
-- *Diagnostics…* opened an empty Notepad tab: the new Windows 11 Notepad shows files under `%APPDATA%` as
-  empty. Reports are now written to `%TEMP%\SwarlexBattery`, where Notepad shows them.
-
-## 1.10.0
-A light look for light Windows, and three new languages: German, Spanish and Italian.
+## 1.9.1
+Light theme, German, Spanish and Italian, new devices from HaloBattery 1.14.0, a portable mode and automatic
+tests on every build.
 
 ### Added
 - **Light theme**: the flyout and the menu are light when the taskbar is light, and follow it when it
   changes. `"theme": { "mode": "dark" }` or `"light"` in config.json keeps one look.
-- **German, Spanish and Italian.** *Language* in the menu now opens a list of all languages. With
-  `"language": "auto"` the app follows the Windows display language. The installer itself stays English or
-  Turkish, and on a German, Spanish or Italian Windows it sets the app to that language.
+- **German, Spanish and Italian**, in the app and in the installer. *Language* in the menu opens a list of all
+  languages; with `"language": "auto"` the app follows the Windows display language. `/lang:de|es|it` for a
+  silent install.
+- **New devices**, all with read-only requests:
+  - SteelSeries Arctis Nova Elite (base station 1038:2244): level and charging, without SteelSeries GG. A
+    switched-off headset, which the station reports as 0 %, shows no level.
+  - HyperX Cloud III S Wireless (03F0:02CC and 03F0:06BE): level and charging, without NGENUITY.
+  - Logitech G PRO X 2 LIGHTSPEED (046D:0AF7) on its receiver, which speaks Logitech's Centurion protocol
+    instead of HID++: level and charging, without G HUB.
+  - G-Wolves models with a receiver of their own (HSK Pro / Plus / Lite and their ACE versions, HTS, HTX, HTR,
+    HT-S2, Fenrir, VUK, HTM Plus), on the receiver or the cable.
+  - Razer DeathStalker V2 Pro / Pro TKL, BlackWidow V3 Mini, V4 Mini and V4 Tenkeyless HyperSpeed and
+    BlackWidow V3 Pro keyboards: asked on their own USB interface and transaction id first (from OpenRazer),
+    and a sleeping keyboard on its receiver stays in the panel as asleep.
+
+  The Arctis Nova Elite, Cloud III S and G PRO X 2 protocols are confirmed on real hardware in HaloBattery;
+  the G-Wolves models and the keyboards are not confirmed yet. None of them is tested with SwarlexBattery yet:
+  a diagnostics report from an owner is welcome.
+- **Logitech G435 on its LIGHTSPEED receiver** is listed with a note instead of being missing: the receiver
+  gives no battery level (only in its firmware-update mode, which cuts the sound); the level shows when the
+  headset is connected by Bluetooth. No number is shown for it, and it never enters the tray icon,
+  notifications or the status file.
+- **Sound with low battery alerts** (right-click menu, off by default), for full-screen games where the
+  notification is not seen: Windows' own *Battery Low* sound (*Battery Critical* at 5 % or less), and again
+  every 5 minutes while the device stays low, awake and off the charger.
+- **Portable mode**: an empty `portable.txt` next to `SwarlexBattery.exe` keeps the settings, log and battery
+  history in a `data` folder beside it. A folder that cannot be written falls back to `%APPDATA%`.
+- **Automatic tests** on every build and on GitHub: battery replies captured on real devices, what the panel
+  and the tray icon show, version comparison, and every text in every language. A failing test stops the
+  build, so a broken release cannot be published.
+
+### Fixed
+- *Diagnostics…* opened an empty Notepad tab: the new Windows 11 Notepad shows files under `%APPDATA%` as
+  empty. Reports are now written to `%TEMP%\SwarlexBattery`, where Notepad shows them.
+- Opening the language list made the menu grow below the taskbar, and closing it left the menu floating in
+  the middle of the screen. It now stays on the taskbar.
+
+### Changed
+- The app wakes up half as often while idle (once a second), a little kinder to laptop batteries.
+- New screenshots on GitHub, in light and dark.
 
 ## 1.9.0
 A beta channel for those who want fixes first, and a round of Windows 10 / 11 compatibility fixes.
