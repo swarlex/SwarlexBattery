@@ -174,6 +174,7 @@ namespace SwarlexBattery
         }
         TextBlock Glyph(string hex, Brush brush, double size)
         {
+            if (hex.StartsWith("PAD:")) hex = "E7FC";   // the panel uses the font's gamepad for every controller
             var t = Text(((char)Convert.ToInt32(hex, 16)).ToString(), brush, size); t.FontFamily = iconFont; return t;
         }
         Brush StateBrush(string s) { return s == "warn" ? warn : s == "error" ? error : s == "off" ? muted : fg; }
