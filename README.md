@@ -41,7 +41,8 @@ right half the headset. Left click for details, right click for the menu.
   <img src="docs/images/tray-states4.png" width="800" alt="Tray icon: normal, charging, low battery, asleep, headset only, PS5 / PS4 / Xbox controllers; on dark and light taskbars">
 </p>
 
-- **Honest numbers:** a value is shown only when the device itself answered; nothing is estimated.
+- **Honest numbers:** a level is shown only when the device itself answered; levels are never made up. The
+  time left is an estimate from how fast each device drains now, and says "about".
 - **Light:** one small C# program, about 10 MB of memory, no services, no vendor software.
 - **Low battery notifications**, quiet while a fullscreen game is running.
 - **Updates itself** from this page when you click *Update* (SHA-256 checked).
