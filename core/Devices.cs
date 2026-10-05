@@ -114,6 +114,52 @@ namespace SwarlexBattery
             return null;
         }
 
+        // Devices whose interface Windows splits into several collections, each with its own handle: the request goes
+        // as an output report to the first collection that takes it (Windows refuses a report id a collection does not
+        // declare), vendor pages first and the one that took it last time before all; the reply is looked for on every
+        // collection, because Windows delivers an input report to the collection that declares it. accept() may keep
+        // state across reports (a level and a power state that come in two frames); null frame = only listen.
+        static readonly Dictionary<string, string> TookRequest = new Dictionary<string, string>();   // key -> path
+
+        static byte[] AskAll(string key, IEnumerable<HidInfo> cols, byte[] frame, int timeoutMs, Func<byte[], bool> accept)
+        {
+            var hs = new List<KeyValuePair<HidInfo, SafeFileHandle>>();
+            try
+            {
+                string known; TookRequest.TryGetValue(key, out known);
+                foreach (var c in cols.OrderBy(c => c.Path == known ? 0 : c.UsagePage >= 0xFF00 ? 1 : 2))
+                {
+                    var h = Open(c.Path);
+                    if (h.IsInvalid) { h.Dispose(); continue; }   // e.g. keyboard and mouse collections, kept by Windows
+                    hs.Add(new KeyValuePair<HidInfo, SafeFileHandle>(c, h));
+                }
+                foreach (var p in hs) if (p.Key.InLen > 0) Drain(p.Value, p.Key.InLen);
+                if (frame != null)
+                {
+                    bool sent = false;
+                    foreach (var p in hs)
+                    {
+                        if (p.Key.OutLen < frame.Length) continue;
+                        var f = new byte[p.Key.OutLen]; Array.Copy(frame, f, frame.Length);
+                        if (Write(p.Value, f)) { TookRequest[key] = p.Key.Path; sent = true; break; }
+                    }
+                    if (!sent) Trace.Add(key + ": no collection took the request, listening only");
+                }
+                var end = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+                while (DateTime.UtcNow < end)
+                    foreach (var p in hs)
+                    {
+                        if (p.Key.InLen <= 0) continue;
+                        var r = Read(p.Value, p.Key.InLen, 15);
+                        if (r == null) continue;
+                        Trace.Add(key + " in: " + Hex(r, 16));
+                        if (accept(r)) return r;
+                    }
+                return null;
+            }
+            finally { foreach (var p in hs) p.Value.Dispose(); }
+        }
+
         static byte[] Strip0(byte[] r) { if (r != null && r.Length > 1 && r[0] == 0) { var o = new byte[r.Length - 1]; Array.Copy(r, 1, o, 0, o.Length); return o; } return r; }
 
         // ================================================================ Razer
@@ -383,14 +429,76 @@ namespace SwarlexBattery
                 for (int t = 0; t < tries; t++)
                 {
                     Thread.Sleep(50);
-                    var r = GetFeature(h, 0, q.Length); if (r == null) continue;
-                    for (int i = 5; i < r.Length - 2; i++)
-                        if (r[i] == 0x83 && r[i - 1] == 0x00 && r[i - 2] == 0x02 && (r[i - 5] == 0xA1 || r[i - 5] == 0xA2) && r[i + 2] <= 100)
-                            return new[] { (int)r[i + 2], r[i + 1] };
+                    var v = W83Parse(GetFeature(h, 0, q.Length));
+                    if (v != null) return v;
                 }
                 Trace.Add("w83: no a1 answer (mouse asleep or off)");
                 return null;
             }
+        }
+
+        // the 0x83 answer -> { level %, charging 0/1 } or null
+        public static int[] W83Parse(byte[] r)
+        {
+            if (r == null) return null;
+            for (int i = 5; i < r.Length - 2; i++)
+                if (r[i] == 0x83 && r[i - 1] == 0x00 && r[i - 2] == 0x02 && (r[i - 5] == 0xA1 || r[i - 5] == 0xA2) && r[i + 2] <= 100)
+                    return new[] { (int)r[i + 2], r[i + 1] != 0 ? 1 : 0 };
+            return null;
+        }
+
+        // G-Wolves' older exchange (the web driver's getOldBattery): feature report 0, 64 bytes 00 02 8f <01 over a
+        // receiver, 00 on the cable>; the answer a1 02 8f .. <charging> <level %>, with or without the report id byte
+        static int[] W83OldRead(string path, int featLen, bool wired)
+        {
+            using (var h = OpenQuery(path))
+            {
+                if (h.IsInvalid) return null;
+                var q = new byte[Math.Max(65, featLen)]; q[2] = 0x02; q[3] = 0x8F; q[4] = (byte)(wired ? 0x00 : 0x01);   // [0] report id 0
+                if (!SetFeature(h, q)) { Trace.Add("w83 old: request refused"); return null; }
+                for (int t = 0; t < 15; t++)
+                {
+                    Thread.Sleep(50);
+                    var v = W83OldParse(GetFeature(h, 0, q.Length));
+                    if (v != null) return v;
+                }
+                Trace.Add("w83 old: no a1 answer (mouse asleep or off)");
+                return null;
+            }
+        }
+
+        public static int[] W83OldParse(byte[] r)
+        {
+            if (r == null) return null;
+            foreach (int off in new[] { 1, 0 })
+                if (r.Length > off + 5 && r[off] == 0xA1 && r[off + 1] == 0x02 && r[off + 2] == 0x8F && r[off + 5] <= 100)
+                    return new[] { (int)r[off + 5], r[off + 4] != 0 ? 1 : 0 };
+            return null;
+        }
+
+        // G-Wolves models with a receiver of their own, from the model list of G-Wolves' web driver (via HaloBattery
+        // providers/gwolves.py; HSK Pro ACE confirmed there): pid -> name, the model's receiver (one icon per model),
+        // the older exchange, on the cable
+        class GwModel { public string Name; public int Receiver; public bool Old, Wired; }
+        static readonly Dictionary<int, GwModel> GWolvesModels = GwList(
+            "HTM Plus:3817:N:3808,3817", "HSK Pro 2.0:6817:N:6808,6817", "HTXU:5617:N:5608,5617", "Fenrir Pro:3617:N:3608,3617",
+            "VUK:3917:O:3908,3917", "HT-S2:7913:O:7904,7913", "Fenrir Max:3717:O:3708,3717", "HTS Ultra:5317:O:5308,5317",
+            "HTR:7713:O:7704,7713", "Fenrir:3517:O:3508,3517", "HT-S2 Pro:7917:O:7908,7917", "HSK Pro:5817:O:5808,5817,5807",
+            "HTX Mini:2717:O:2708,2717", "HTS Plus:5417:O:5408,5417,5407", "HTX:5717:O:5708,5717,5707", "HSK Plus:5917:O:5908,5917,5907",
+            "HSK Lite:7203:O:7204,7203", "HTR Pro:7717:O:7708,7717", "HSK Pro ACE:5803:O:5804,5803", "HTS Plus ACE:5403:O:5404,5403",
+            "HTX ACE:5703:O:5704,5703", "HSK Plus ACE:5903:O:5904,5903");
+
+        // "name:receiver:N|O:the cable pid,the receiver pid[,another receiver pid]"
+        static Dictionary<int, GwModel> GwList(params string[] rows)
+        {
+            var d = new Dictionary<int, GwModel>();
+            foreach (var row in rows)
+            {
+                var p = row.Split(':'); int rcv = Convert.ToInt32(p[1], 16); var pids = p[3].Split(',');
+                for (int i = 0; i < pids.Length; i++)
+                    d[Convert.ToInt32(pids[i], 16)] = new GwModel { Name = "G-Wolves " + p[0], Receiver = rcv, Old = p[2] == "O", Wired = i == 0 };
+            }
+            return d;
         }
 
         static readonly Dictionary<int, string> WlMice = new Dictionary<int, string> { { 0xA887, "WLmouse Beast X" }, { 0xA868, "WLmouse Beast X Mini Pro" }, { 0xA880, "WLmouse Beast X Max" } };
@@ -429,6 +537,21 @@ namespace SwarlexBattery
                 if (v != null) { r.Level = v[0]; r.Charging = v[1] != 0; r.Receiver = receiver; if (!receiver) r.Name = name; break; }
             }
             if (r != null) outp.Add(r);
+            if (vid != 0x33E4) return;
+            // G-Wolves models on a receiver of their own: one icon per model, the cable first (it charges)
+            foreach (var model in devs.Where(d => GWolvesModels.ContainsKey(d.Pid)).GroupBy(d => GWolvesModels[d.Pid].Receiver))
+            {
+                var mr = new Reading { Id = "gwolves-" + model.Key.ToString("X4"), Name = GWolvesModels[model.First().Pid].Name, Kind = "mouse", Source = "w83", Receiver = true };
+                foreach (var pg in model.GroupBy(d => d.Pid).OrderBy(x => GWolvesModels[x.Key].Wired ? 0 : 1))
+                {
+                    var m = GWolvesModels[pg.Key];
+                    var c = pg.FirstOrDefault(d => d.FeatLen == 65);
+                    if (c == null) continue;
+                    var v = m.Old ? W83OldRead(c.Path, c.FeatLen, m.Wired) : W83Read(c.Path, c.FeatLen, 15);
+                    if (v != null) { mr.Level = v[0]; mr.Charging = v[1] != 0; mr.Receiver = !m.Wired; break; }
+                }
+                outp.Add(mr);
+            }
         }
 
         // ---------------------------------------------------------------- Keychron (3434): M5, Ultra-Link 8K receiver
@@ -948,6 +1071,149 @@ namespace SwarlexBattery
             return 0;
         }
 
+        // ---------------------------------------------------------------- Logitech Centurion (G PRO X 2 LIGHTSPEED, 046D:0AF7)
+        // HaloBattery providers/logitech_centurion.py (confirmed there on a real headset), from Solaar and HeadsetControl.
+        // Collection FFA0:0001, 64-byte reports with id 51: 51 <len> <flags> <payload>, len = payload length + 1.
+        // A request to the receiver: <feature index> <function | sw id 1> <params>; the reply echoes the first two
+        // bytes, an error is ff <index> <function>. The headset is reached through the receiver's CenturionBridge
+        // (feature 0003): <bridge> 11 <size hi> <size lo> 00 <index> <function | 1> <params>; the receiver acknowledges
+        // (<bridge> 11), the headset answers (<bridge> 10 <size> <size> 00 <index> <function> <data>). Battery: the
+        // headset's feature 0104, function 0: [0] percent, [2] 1/2/3 = on the cable. Discovery and battery only read.
+        public static byte[] CentFrame(byte[] payload)
+        {
+            var f = new byte[64]; f[0] = 0x51; f[1] = (byte)(payload.Length + 1);
+            Array.Copy(payload, 0, f, 3, Math.Min(payload.Length, 61));
+            return f;
+        }
+
+        public static byte[] CentPayload(byte[] r)
+        {
+            if (r == null || r.Length < 4 || r[0] != 0x51) return null;
+            int n = r[1]; if (n <= 1 || n + 2 > r.Length) return null;
+            var p = new byte[n - 1]; Array.Copy(r, 3, p, 0, n - 1); return p;
+        }
+
+        static byte[] Tail(byte[] p, int from) { var o = new byte[Math.Max(0, p.Length - from)]; Array.Copy(p, from, o, 0, o.Length); return o; }
+
+        // a request to the receiver (bridge < 0) or, through the bridge, to the headset; -> the data, or null.
+        // offline = the receiver took a bridge request and the headset did not answer
+        static byte[] CentAsk(SafeFileHandle h, HidInfo c, int bridge, byte index, byte function, byte[] prm, out bool offline)
+        {
+            offline = false;
+            byte fs = (byte)((function & 0xF0) | 0x01);
+            byte[] pl;
+            if (bridge < 0) { pl = new byte[2 + prm.Length]; pl[0] = index; pl[1] = fs; Array.Copy(prm, 0, pl, 2, prm.Length); }
+            else
+            {
+                int sub = 3 + prm.Length;
+                pl = new byte[4 + sub]; pl[0] = (byte)bridge; pl[1] = 0x11; pl[2] = (byte)((sub >> 8) & 0x0F); pl[3] = (byte)(sub & 0xFF);
+                pl[4] = 0x00; pl[5] = index; pl[6] = fs; Array.Copy(prm, 0, pl, 7, prm.Length);
+            }
+            var f = CentFrame(pl);
+            var w = new byte[Math.Max(64, c.OutLen)]; Array.Copy(f, w, 64);
+            Drain(h, c.InLen);
+            if (!Write(h, w)) { Trace.Add("centurion: write failed " + System.Runtime.InteropServices.Marshal.GetLastWin32Error()); return null; }
+            bool acked = false;
+            var end = DateTime.UtcNow.AddMilliseconds(1500);
+            while (DateTime.UtcNow < end)
+            {
+                var p = CentPayload(Read(h, c.InLen, 100));
+                if (p == null || p.Length < 2) continue;
+                if (bridge < 0)
+                {
+                    if (p[0] == 0xFF && p.Length >= 3 && p[1] == index && p[2] == fs) { Trace.Add("centurion: receiver feature " + index + " error"); return null; }
+                    if (p[0] == index && p[1] == fs) return Tail(p, 2);
+                    continue;
+                }
+                if (p[0] != bridge || (p[1] >> 4) != 0x1) continue;
+                if ((p[1] & 0x0F) == 0x01) { acked = true; continue; }
+                if ((p[1] & 0x0F) != 0 || p.Length < 7 || p[4] != 0x00) continue;
+                if (p[5] == 0xFF && p[6] == index) { Trace.Add("centurion: headset rejected feature " + index); return null; }
+                if (p[5] == index && p[6] == fs) return Tail(p, 7);
+            }
+            offline = acked;
+            return null;
+        }
+
+        static readonly Dictionary<string, int[]> CentFeatures = new Dictionary<string, int[]>();   // path -> { bridge, battery index }
+
+        static Reading ReadCenturion(IEnumerable<HidInfo> g)
+        {
+            var c = Pick(g, 0xFFA0, 0x0001);
+            if (c == null) return null;
+            var r = new Reading { Id = "logi-centurion-0af7", Name = "Logitech G PRO X 2 LIGHTSPEED", Kind = "headphones", Source = "logitech", Receiver = true };
+            using (var h = Open(c.Path))
+            {
+                if (h.IsInvalid) return r;
+                bool off; var none = new byte[0];
+                int[] known;
+                if (!CentFeatures.TryGetValue(c.Path, out known))
+                {
+                    // the receiver's FeatureSet, its CenturionBridge, then the headset's FeatureSet and battery feature
+                    var fs = CentAsk(h, c, -1, 0x00, 0x00, new byte[] { 0x00, 0x01 }, out off);
+                    if (fs == null || fs.Length < 1 || fs[0] == 0) return r;
+                    var cnt = CentAsk(h, c, -1, fs[0], 0x00, none, out off);
+                    if (cnt == null || cnt.Length < 1) return r;
+                    int bridge = -1;
+                    for (int n = 0; n < cnt[0] && bridge < 0; n++)
+                    {
+                        var d = CentAsk(h, c, -1, fs[0], 0x10, new[] { (byte)n }, out off);
+                        if (d != null && d.Length >= 3 && ((d[1] << 8) | d[2]) == 0x0003) bridge = n;
+                    }
+                    if (bridge < 0) { Trace.Add("centurion: no bridge on the receiver"); return r; }
+                    var sfs = CentAsk(h, c, bridge, 0x00, 0x00, new byte[] { 0x00, 0x01 }, out off);
+                    if (sfs == null || sfs.Length < 1 || sfs[0] == 0) { if (off) Trace.Add("centurion: headset off"); return r; }
+                    var scnt = CentAsk(h, c, bridge, sfs[0], 0x00, none, out off);
+                    if (scnt == null || scnt.Length < 1) return r;
+                    int battery = -1;
+                    for (int n = 0; n < scnt[0] && battery < 0; n++)
+                    {
+                        var d = CentAsk(h, c, bridge, sfs[0], 0x10, new[] { (byte)n }, out off);
+                        if (d == null) return r;
+                        if (d.Length >= 3 && ((d[1] << 8) | d[2]) == 0x0104) battery = n;
+                    }
+                    known = new[] { bridge, battery };
+                    CentFeatures[c.Path] = known;
+                }
+                if (known[1] >= 0)
+                {
+                    var data = CentAsk(h, c, known[0], (byte)known[1], 0x00, none, out off);
+                    if (data == null) { if (off) Trace.Add("centurion: headset off"); else CentFeatures.Remove(c.Path); return r; }
+                    var v = CentBattery(data);
+                    if (v != null) { r.Level = v[0]; r.Charging = v[1] != 0; }
+                    return r;
+                }
+                // firmware without 0104: HeadsetControl's fixed request
+                var legacy = new byte[Math.Max(64, c.OutLen)];
+                Array.Copy(new byte[] { 0x51, 0x08, 0x00, 0x03, 0x1A, 0x00, 0x03, 0x00, 0x04, 0x0A }, legacy, 10);
+                Drain(h, c.InLen);
+                if (!Write(h, legacy)) return r;
+                for (int i = 0; i < 4; i++)
+                {
+                    var x = Read(h, c.InLen, 1500);
+                    if (x == null) break;
+                    if (x.Length >= 7 && x[0] == 0x51 && x[1] == 0x05 && x[6] == 0x00) { Trace.Add("centurion: headset off"); break; }
+                    var v = CentLegacy(x);
+                    if (v != null) { r.Level = v[0]; r.Charging = v[1] != 0; break; }
+                }
+            }
+            return r;
+        }
+
+        // feature 0104 data -> { percent, on the cable 0/1 } or null
+        public static int[] CentBattery(byte[] d)
+        {
+            if (d == null || d.Length < 1 || d[0] > 100) return null;
+            return new[] { (int)d[0], d.Length >= 3 && d[2] >= 1 && d[2] <= 3 ? 1 : 0 };
+        }
+
+        // the fixed request's battery reply 51 0b .. with [8] = 04: [10] percent, [12] = 02 charging
+        public static int[] CentLegacy(byte[] x)
+        {
+            if (x == null || x.Length < 13 || x[0] != 0x51 || x[1] != 0x0B || x[8] != 0x04 || x[10] > 100) return null;
+            return new[] { (int)x[10], x[12] == 0x02 ? 1 : 0 };
+        }
+
         static void ReadLogitech(List<HidInfo> devs, List<Reading> outp)
         {
             foreach (var g in devs.GroupBy(d => d.Pid.ToString("X4") + "|" + d.Instance))
@@ -956,6 +1222,8 @@ namespace SwarlexBattery
                 int pid = first.Pid;
                 // the Astro A50 Gen 5 base station speaks its own protocol, not HID++
                 if (pid == 0x0B1C) { var astro = ReadAstro(g); if (astro != null) outp.Add(astro); continue; }
+                // the G PRO X 2 LIGHTSPEED receiver speaks Centurion, not HID++
+                if (pid == 0x0AF7) { var cent = ReadCenturion(g); if (cent != null) outp.Add(cent); continue; }
                 var lng = Pick(g, 0xFF00, 0x0002);
                 var sht = Pick(g, 0xFF00, 0x0001);
                 var cands = new List<HidInfo>();
@@ -1094,6 +1362,27 @@ namespace SwarlexBattery
         static readonly Dictionary<int, string> SsRival = new Dictionary<int, string> {
             { 0x1830, "SteelSeries Rival 3 Wireless" }, { 0x1872, "SteelSeries Rival 3 Wireless Gen 2" } };
 
+        // Arctis Nova Elite: st = { level, charging 0/1, power state }, filled from one report; true when it was one of
+        // the station's. The direct reply 01 b0: level [6], power [14], charging [15] (02); 07 b7: level [2], charging
+        // [4] (02); 07 b5: power [4] (01 headset off, 02 charging on the cable, 04 standby, 08 on).
+        public static bool EliteParse(byte[] r, int[] st)
+        {
+            if (r == null || r.Length < 5) return false;
+            if (r[0] == 0x01 && r[1] == 0xB0 && r.Length > 15) { if (r[6] <= 100) st[0] = r[6]; st[1] = r[15] == 0x02 ? 1 : 0; st[2] = r[14]; return true; }
+            if (r[0] == 0x07 && r[1] == 0xB7) { if (r[2] <= 100) { st[0] = r[2]; st[1] = r[4] == 0x02 ? 1 : 0; } return true; }
+            if (r[0] == 0x07 && r[1] == 0xB5) { st[2] = r[4]; return true; }
+            return false;
+        }
+
+        // the level to show, or -1: an offline headset gives none, and the station reports a switched-off headset as
+        // 0 % (SteelSeries GG shows that 0), which is not a battery level
+        public static int EliteLevel(int[] st)
+        {
+            if (st[0] < 0 || st[2] == 0x01) return -1;
+            if (st[0] == 0 && st[1] == 0 && st[2] != 0x02) return -1;
+            return st[0];
+        }
+
         static void ReadSteelSeries(List<HidInfo> devs, List<Reading> outp)
         {
             foreach (var g in devs.GroupBy(d => d.Pid))
@@ -1102,6 +1391,18 @@ namespace SwarlexBattery
                 var classic = ReadArctisClassic(pid, g);
                 if (classic != null) { outp.Add(classic); continue; }
                 var r = new Reading { Id = "ss-" + pid.ToString("X4"), Source = "steelseries", Receiver = true };
+                if (pid == 0x2244)
+                {
+                    // Arctis Nova Elite base station (HaloBattery providers/steelseries_elite.py, verified there on a real
+                    // station): 64-byte output report 01 b0 to interface 3; the direct reply 01 b0 or 07 b7 / 07 b5 frames
+                    r.Name = "Arctis Nova Elite"; r.Kind = "headphones";
+                    var st = new[] { -1, 0, -1 };   // level, charging, power state
+                    AskAll("ss-elite", g.Where(d => d.Interface == 3), new byte[] { 0x01, 0xB0 }, 1000,
+                        q => EliteParse(q, st) && (st[2] == 0x01 || (st[0] >= 0 && st[2] >= 0)));
+                    int lvl = EliteLevel(st);
+                    if (lvl >= 0) { r.Level = lvl; r.Charging = st[1] != 0 || st[2] == 0x02; }
+                    outp.Add(r); continue;
+                }
                 if (pid == 0x12E0 || pid == 0x12E5)
                 {
                     // Nova Pro Wireless base station: 06 b0; level code 0..8 at [6], state at [15] (01 off, 02 charging, 08 battery)
@@ -1159,6 +1460,21 @@ namespace SwarlexBattery
         }
 
         // ================================================================ HyperX (HP)
+        // Cloud III S Wireless: request 0c 02 03 01 00 <cmd> (01 = read a value); reply 0c .. .. .. .. <cmd> <value>
+        // (ff = no value); pushed notification 0d .. .. .. <1 battery | 10 charging> <value>.
+        // -> { 0x06 battery | 0x48 charging, value } or null
+        public static byte[] Cloud3SRequest(byte cmd) { return new byte[] { 0x0C, 0x02, 0x03, 0x01, 0x00, cmd }; }
+
+        public static int[] Cloud3SParse(byte[] r)
+        {
+            if (r == null || r.Length < 7) return null;
+            if (r[0] == 0x0C && r[5] == 0x06) return r[6] <= 100 ? new[] { 0x06, (int)r[6] } : null;
+            if (r[0] == 0x0C && r[5] == 0x48) return r[6] <= 2 ? new[] { 0x48, (int)r[6] } : null;
+            if (r[0] == 0x0D && r[4] == 1) return r[5] <= 100 ? new[] { 0x06, (int)r[5] } : null;
+            if (r[0] == 0x0D && r[4] == 10) return r[5] <= 2 ? new[] { 0x48, (int)r[5] } : null;
+            return null;
+        }
+
         static void ReadHyperX(List<HidInfo> devs, List<Reading> outp)
         {
             foreach (var g in devs.GroupBy(d => d.Pid))
@@ -1179,6 +1495,22 @@ namespace SwarlexBattery
                             var y = Ask(h, new byte[] { 0x06, 0xFF, 0xBB, 0x03 }, c.OutLen, c.InLen, 1000, q => q.Length > 4 && q[0] == 0x06 && q[1] == 0xFF && q[2] == 0xBB && q[3] == 0x03);
                             r.Charging = y != null && y[4] == 1;
                         }
+                    }
+                    outp.Add(r);
+                }
+                else if (pid == 0x02CC || pid == 0x06BE)
+                {
+                    // Cloud III S Wireless (HaloBattery providers/hyperx_cloud3s.py, verified there on both ids; from
+                    // HyperHeadset and NGENUITY captures): output report 0c 02 03 01 00 <cmd>, 06 battery, 48 charging
+                    var r = new Reading { Id = "hyperx-cloud3s", Name = "HyperX Cloud III S Wireless", Kind = "headphones", Source = "hyperx", Receiver = true };
+                    int[] v = null;
+                    AskAll("hyperx-cloud3s", g, Cloud3SRequest(0x06), 1000, q => { var x = Cloud3SParse(q); if (x != null && x[0] == 0x06) v = x; return v != null; });
+                    if (v != null)
+                    {
+                        r.Level = v[1];
+                        int[] c = null;
+                        AskAll("hyperx-cloud3s", g, Cloud3SRequest(0x48), 1000, q => { var x = Cloud3SParse(q); if (x != null && x[0] == 0x48) c = x; return c != null; });
+                        r.Charging = c != null && (c[1] == 1 || c[1] == 2);   // 1 charging, 2 full (on the cable)
                     }
                     outp.Add(r);
                 }
