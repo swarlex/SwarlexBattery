@@ -89,6 +89,24 @@ namespace SwarlexBattery
             return r;
         }
 
+        // Beta channel: pre-releases included. /releases/latest never points at a pre-release, so the newest
+        // version is taken from the releases feed (releases.atom, no API rate limit), stable ones included.
+        public static ReleaseInfo CheckWithBeta(string repo)
+        {
+            Tls();
+            string feed;
+            using (var wc = new WebClient()) { wc.Headers["User-Agent"] = Agent; feed = wc.DownloadString("https://github.com/" + repo + "/releases.atom?t=" + DateTime.UtcNow.Ticks); }
+            string best = null; Version bestV = null;
+            foreach (Match m in Regex.Matches(feed, "/" + Regex.Escape(repo) + "/releases/tag/([^\"/?#<]+)", RegexOptions.IgnoreCase))
+            {
+                var tag = Uri.UnescapeDataString(m.Groups[1].Value); var v = Norm(tag);
+                if (v != null && (bestV == null || v > bestV)) { bestV = v; best = tag; }
+            }
+            if (best == null) return Check(repo);                    // feed unreadable: the stable check
+            string b = "https://github.com/" + repo + "/releases/download/" + Uri.EscapeDataString(best);
+            return new ReleaseInfo { Tag = best, Version = bestV, Url = b + "/SwarlexBattery.exe", Sha = b + "/SwarlexBattery.exe.sha256", Page = "https://github.com/" + repo + "/releases/tag/" + best };
+        }
+
         public static void Download(ReleaseInfo info, string dest, string repo)
         {
             Tls();

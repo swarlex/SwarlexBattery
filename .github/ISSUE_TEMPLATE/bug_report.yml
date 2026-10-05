@@ -31,5 +31,5 @@ body:
   - type: textarea
     id: diagnostics
     attributes:
-      label: diagnostics.txt
+      label: Diagnostics report
       description: Right-click the tray icon > Diagnostics… and drag the file here (no personal data in it).

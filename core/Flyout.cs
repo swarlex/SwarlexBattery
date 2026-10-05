@@ -232,6 +232,7 @@ namespace SwarlexBattery
             root.Children.Add(MenuRow("E7E8", Strings.T("startWithWindows"), () => { Close(); host.ToggleAutostart(); }, host.Autostart));
             root.Children.Add(MenuRow("E774", Strings.T("language"), () => { Close(); host.SwitchLanguage(); }));
             root.Children.Add(MenuRow("E8EF", Strings.T("iconPercent"), () => { host.ToggleIconPercent(); Refresh(); }, Config.Bool("iconPercent", false)));   // keeps the menu open: the tray icon changes right away
+            if (Config.Str("update.repo", "") != "") root.Children.Add(MenuRow("E7C1", Strings.T("beta"), () => { host.ToggleBeta(); Refresh(); }, Config.Bool("update.beta", false)));
             if (Config.Str("update.repo", "") != "")
             {
                 // the result of the last check is shown right here, not only as a notification

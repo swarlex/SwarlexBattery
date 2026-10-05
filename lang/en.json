@@ -53,5 +53,6 @@
   "diagnostics": "Diagnostics...",
   "timeLeftH": "about {0} h left",
   "timeLeftM": "about {0} min left",
-  "iconPercent": "Percentage in the icon"
+  "iconPercent": "Percentage in the icon",
+  "beta": "Get beta versions"
 }
