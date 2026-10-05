@@ -40,5 +40,6 @@
     }
   },
   "statusFile": false,
-  "iconPercent": false
+  "iconPercent": false,
+  "lowSound": false
 }

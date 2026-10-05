@@ -55,5 +55,6 @@
   "timeLeftM": "yaklaşık {0} dk kaldı",
   "iconPercent": "İkonda yüzde göster",
   "beta": "Beta sürümleri al",
-  "noLevelReceiver": "alıcısı pil seviyesini vermiyor; Bluetooth ile bağlanınca görünür"
+  "noLevelReceiver": "alıcısı pil seviyesini vermiyor; Bluetooth ile bağlanınca görünür",
+  "lowSound": "Düşük pilde sesli uyarı"
 }
