@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading;
@@ -162,12 +163,13 @@ namespace SwarlexBattery
         public static double Num(string path, double def) { var o = Get(path); try { return o == null ? def : Convert.ToDouble(o, CultureInfo.InvariantCulture); } catch { return def; } }
         public static string Str(string path, string def) { var o = Get(path) as string; return o ?? def; }
 
-        // "auto" follows the Windows display language: Turkish -> tr, anything else -> en
+        // "auto" follows the Windows display language when the app has it, English otherwise
         public static string Language()
         {
             var l = Str("language", "auto").ToLowerInvariant();
-            if (l == "en" || l == "tr") return l;
-            return CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "tr" ? "tr" : "en";
+            if (Strings.Has(l)) return l;
+            var sys = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+            return Strings.Has(sys) ? sys : "en";
         }
 
         // changes one top-level value in the user's config.json and keeps everything else
@@ -187,6 +189,10 @@ namespace SwarlexBattery
     {
         public static string Lang = "en";
         static Dictionary<string, object> en, cur;
+        // code and name (in that language) of every lang/<code>.json, in menu order
+        public static readonly string[][] Languages = {
+            new[] { "en", "English" }, new[] { "tr", "Türkçe" }, new[] { "de", "Deutsch" }, new[] { "es", "Español" }, new[] { "it", "Italiano" } };
+        public static bool Has(string code) { return Languages.Any(x => x[0] == code); }
         public static void Load(string lang)
         {
             var js = new JavaScriptSerializer();

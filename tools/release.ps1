@@ -81,10 +81,15 @@ if (Test-Path -LiteralPath $log) {
     $m = [regex]::Match([IO.File]::ReadAllText($log), "(?ms)^## $([regex]::Escape($Version))\s*\r?\n(.*?)(?=^## |\z)")
     if ($m.Success -and $m.Groups[1].Value.Trim()) { $body = $m.Groups[1].Value.Trim() }
 }
+$title = "SwarlexBattery $Version"
+if ($Beta) {
+    $title += ' beta'
+    $body = "> [!NOTE]`n> **Beta (pre-release).** Offered only to copies with right-click > *Get beta versions* turned on. Everyone else gets these changes with the next stable release.`n`n" + $body
+}
 $notesFile = Join-Path ([IO.Path]::GetTempPath()) "swarlexbattery-notes-$Version.md"
-[IO.File]::WriteAllText($notesFile, $body + "`n`n---`nDownload **SwarlexBattery-Setup.exe** to install, or **SwarlexBattery.exe** to run it without installing. Installed copies update themselves (right-click > *Check for updates*).", (New-Object Text.UTF8Encoding $false))
+[IO.File]::WriteAllText($notesFile, $body +"`n`n---`nDownload **SwarlexBattery-Setup.exe** to install, or **SwarlexBattery.exe** to run it without installing. Installed copies update themselves (right-click > *Check for updates*).", (New-Object Text.UTF8Encoding $false))
 $pre = @(); if ($Beta) { $pre = @('--prerelease') }
-& $gh release create "v$Version" $setup $exe $sha --repo $Repo --target main --title "SwarlexBattery $Version" --notes-file $notesFile @pre
+& $gh release create "v$Version" $setup $exe $sha --repo $Repo --target main --title $title --notes-file $notesFile @pre
 Remove-Item -LiteralPath $notesFile -ErrorAction SilentlyContinue
 if ($LASTEXITCODE -ne 0) { throw 'gh release create failed (the code was pushed, the release was not created)' }
 Write-Host "Published: v$Version  https://github.com/$Repo/releases/tag/v$Version"
