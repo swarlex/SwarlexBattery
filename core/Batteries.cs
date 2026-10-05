@@ -28,7 +28,12 @@ namespace SwarlexBattery
         public double HoursLeft = -1;                     // estimated hours of use left, -1 = no estimate
     }
 
-    class TraySpec { public string Id, Icon, State, Tooltip; public double? Ring; public double[] Rings; public bool Charging, Dim; public int Percent = -1; }
+    class TraySpec
+    {
+        public string Id, Icon, State, Tooltip; public double? Ring; public double[] Rings; public bool Charging, Dim; public int Percent = -1;
+        public bool[] RingCharging;              // which ring belongs to a charging device (the charging animation)
+        public TraySpec Copy() { var c = (TraySpec)MemberwiseClone(); if (Rings != null) c.Rings = (double[])Rings.Clone(); return c; }
+    }
     class PanelItem { public string Icon, Label, Value, State, Sub; public double Pct; public string Id, OwnName, IconChoice; }
     class Notice { public string Key, Title, Body; public int Pct = -1; }
     class Snapshot { public List<TraySpec> Icons = new List<TraySpec>(); public List<PanelItem> Items = new List<PanelItem>(); public string Empty; public List<Notice> Notify = new List<Notice>(); public string Title; }
@@ -545,7 +550,7 @@ namespace SwarlexBattery
                     (g.Charging && g.Pct >= 100 ? Strings.T("shortFull") : g.Charging ? Strings.T("shortCharging") : !g.Online ? Strings.T("shortAsleep") : ""));
                 snap.Icons.Add(new TraySpec {
                     Id = "all", Icon = pair.Count == 1 ? (pair[0].Glyph ?? IconFor(pair[0].Kind)) : "E83F",
-                    Rings = pair.Select(g => g.Pct / 100.0).ToArray(),
+                    Rings = pair.Select(g => g.Pct / 100.0).ToArray(), RingCharging = pair.Select(g => g.Charging && g.Pct < 100).ToArray(),
                     State = pair.Any(g => g.Online && !g.Charging && g.Pct <= lowFor(g)) ? "error" : pair.Any(g => g.Online && !g.Charging && g.Pct <= lowFor(g) + 10) ? "warn" : "ok",
                     Charging = pair.Any(g => g.Charging), Dim = !pair.Any(g => g.Online),
                     // the number for "percentage in the icon": the lowest exact level of the two (the one that needs a charge first)
@@ -555,7 +560,7 @@ namespace SwarlexBattery
             {
                 foreach (var g in shown)
                     snap.Icons.Add(new TraySpec {
-                        Id = g.Id, Icon = g.Glyph ?? IconFor(g.Kind), Ring = g.Pct / 100.0,
+                        Id = g.Id, Icon = g.Glyph ?? IconFor(g.Kind), Ring = g.Pct / 100.0, RingCharging = new[] { g.Charging && g.Pct < 100 },
                         State = g.Pct <= lowFor(g) && !g.Charging ? "error" : g.Pct <= lowFor(g) + 10 && !g.Charging ? "warn" : "ok",
                         Charging = g.Charging, Dim = !g.Online, Percent = g.Online && !g.Approx ? g.Pct : -1,
                         Tooltip = g.Name + ": " + (g.Approx ? "~" : "") + g.Pct + "%" + (g.Charging && g.Pct >= 100 ? Strings.T("tipFull") : g.Charging ? Strings.T("tipCharging") : g.Asleep ? Strings.T("tipAsleep") : !g.Online ? Strings.T("tipNotConnected") : "") });

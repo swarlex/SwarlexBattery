@@ -320,7 +320,50 @@ namespace SwarlexBattery
             }
             foreach (var id in icons.Keys.ToList())
                 if (!seen.Contains(id)) { icons[id].Visible = false; icons[id].Dispose(); icons.Remove(id); specs.Remove(id); }
+            UpdateAnimation();
         }
+
+        // "Charging animation" (Preferences, on by default): the ring of a charging device fills from its level to
+        // full, again and again. The frames are rounded to 5 % steps and cached, so a charge draws few new icons
+        // and the timer runs only while something charges.
+        System.Windows.Threading.DispatcherTimer anim; int frame;
+        const int Frames = 14;                  // 10 filling + a short hold on full
+
+        public void UpdateAnimation()
+        {
+            bool want = Config.Bool("chargeAnimation", true) && specs.Values.Any(s => s.RingCharging != null && s.RingCharging.Any(c => c));
+            if (want && anim == null)
+            {
+                anim = new System.Windows.Threading.DispatcherTimer(System.Windows.Threading.DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(110) };
+                anim.Tick += (s, e) => { try { Step(); } catch (Exception ex) { Log.Once("animation: " + ex.Message); } };
+                frame = 0; anim.Start();
+            }
+            else if (!want && anim != null)
+            {
+                anim.Stop(); anim = null;
+                foreach (var kv in icons) kv.Value.Icon = TrayRenderer.Get(specs[kv.Key]);   // the still icon again
+                TrayRenderer.Clear(icons.Values.Select(n => n.Icon));
+            }
+        }
+
+        void Step()
+        {
+            frame = (frame + 1) % Frames;
+            double t = Math.Min(1.0, frame / 10.0);
+            foreach (var kv in icons)
+            {
+                var sp = specs[kv.Key];
+                if (sp.RingCharging == null || !sp.RingCharging.Any(c => c)) continue;
+                var f = sp.Copy();
+                if (f.Rings != null)
+                    for (int i = 0; i < f.Rings.Length && i < sp.RingCharging.Length; i++) { if (sp.RingCharging[i]) f.Rings[i] = Fill(f.Rings[i], t); }
+                else if (f.Ring.HasValue && sp.RingCharging[0]) f.Ring = Fill(f.Ring.Value, t);
+                var icon = TrayRenderer.Get(f);
+                if (kv.Value.Icon != icon) kv.Value.Icon = icon;
+            }
+        }
+
+        static double Fill(double level, double t) { return Math.Round((level + (1 - level) * t) * 20) / 20; }
 
         // taskbar theme switched: repaint everything and free the old images
         public void Repaint()

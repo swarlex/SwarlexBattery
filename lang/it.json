@@ -98,5 +98,9 @@
   "colorIconNote": "verde, arancione o rosso in base al livello",
   "statusFileNote": "per Rainmeter, Stream Deck e altre app",
   "autoUpdateNote": "controlla GitHub ogni 6 ore",
-  "betaNote": "le nuove versioni prima di tutti"
+  "betaNote": "le nuove versioni prima di tutti",
+  "chargeAnim": "Animazione di ricarica",
+  "chargeAnimNote": "l'anello si riempie mentre un dispositivo si ricarica",
+  "openAnim": "Animazione di apertura",
+  "openAnimNote": "il pannello e il menu scorrono in vista"
 }
