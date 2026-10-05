@@ -20,6 +20,7 @@ namespace SwarlexBattery
     class Gadget
     {
         public string Id, Name, Kind, Detail, Glyph;   // Glyph: tray / panel icon when it is not the kind's default
+        public string Hint;                              // a device that gives no level at all: why (shown instead of a level)
         public int Pct;
         public bool Charging, Approx, Online, Asleep;
         public double HoursLeft = -1;                     // estimated hours of use left, -1 = no estimate
@@ -120,7 +121,7 @@ namespace SwarlexBattery
             {
                 var o = new Dictionary<string, object> {
                     { "updated", DateTimeOffset.UtcNow.ToUnixTimeSeconds() }, { "version", Program.AppVersion.ToString() },
-                    { "devices", list.Select(g => new Dictionary<string, object> {
+                    { "devices", list.Where(g => g.Hint == null).Select(g => new Dictionary<string, object> {
                         { "id", g.Id }, { "name", g.Name }, { "kind", g.Kind }, { "level", g.Pct }, { "charging", g.Charging }, { "online", g.Online },
                         { "asleep", g.Asleep }, { "approximate", g.Approx }, { "hoursLeft", g.HoursLeft > 0 ? (object)Math.Round(g.HoursLeft, 1) : null } }).ToList() } };
                 string file = Path.Combine(Program.DataDir, "status.json"), tmp = file + ".tmp";
@@ -382,6 +383,14 @@ namespace SwarlexBattery
                     }
                 }
             }
+            // receivers known to give no level at all are listed with the reason, instead of being left out
+            // silently - unless the same device already shows a level (e.g. the headset on Bluetooth)
+            foreach (var k in NoLevel)
+            {
+                if (!Hid.LastList.Any(d => d.Vid == k.Vid && d.Pid == k.Pid)) continue;
+                if (list.Any(g => g.Hint == null && g.Online && (g.Name ?? "").IndexOf(k.Match, StringComparison.OrdinalIgnoreCase) >= 0)) continue;
+                list.Add(new Gadget { Id = "nolevel-" + k.Vid.ToString("X4") + k.Pid.ToString("X4"), Name = k.Name, Kind = k.Kind, Pct = -1, Hint = Strings.T(k.Text) });
+            }
             foreach (var k in last.Keys.ToList()) { object ts; if (!last[k].TryGetValue("ts", out ts) || now - Convert.ToInt64(ts) > 604800) last.Remove(k); }   // forget after a week
             // saved when a value changes, otherwise every 5 minutes (only for "last reading N min ago" after a restart)
             var sig = string.Join(";", last.OrderBy(kv => kv.Key).Select(kv => kv.Key + "=" + kv.Value["pct"] + "/" + kv.Value["charging"] + "/" + kv.Value["name"]));
@@ -391,6 +400,12 @@ namespace SwarlexBattery
             }
         }
         string lastSaved; long lastSavedAt;
+
+        class NoLevelDevice { public int Vid, Pid; public string Name, Kind, Match, Text; }
+        static readonly NoLevelDevice[] NoLevel = {
+            // Logitech G435 on its LIGHTSPEED receiver: the receiver answers no battery query unless it is put into
+            // its firmware-update mode, which cuts the sound; over Bluetooth Windows reports the level
+            new NoLevelDevice { Vid = 0x046D, Pid = 0x0ACB, Name = "Logitech G435", Kind = "headphones", Match = "G435", Text = "noLevelReceiver" } };
 
         // %APPDATA%\SwarlexBattery\gadgets\external.json: [{"id","name","kind","pct","charging","ts","ttl","left","right","case"}]
         void ReadExternal(List<Gadget> list)
@@ -432,7 +447,7 @@ namespace SwarlexBattery
             var order = new Dictionary<string, int> { { "mouse", 0 }, { "headphones", 1 }, { "earbuds", 1 }, { "keyboard", 2 }, { "gamepad", 3 } };
             bool showOff = Config.Bool(S("showDisconnected"), false);
             // mouse first, then headset, then the rest; sleeping devices last
-            var shown = gadgets.Where(g => g.Online || g.Asleep || showOff)
+            var shown = gadgets.Where(g => g.Hint == null && (g.Online || g.Asleep || showOff))
                 .OrderBy(g => !(g.Online || g.Asleep)).ThenBy(g => order.ContainsKey(g.Kind ?? "") ? order[g.Kind] : 9).ThenBy(g => g.Name).ToList();
 
             foreach (var g in shown)
@@ -446,6 +461,9 @@ namespace SwarlexBattery
                 if (low > 0 && g.Online && !g.Charging && g.Pct <= low)
                     snap.Notify.Add(new Notice { Key = "low-" + g.Id, Title = Strings.T("lowTitle", g.Name), Body = Strings.T("lowBody", g.Pct) });
             }
+            // devices that give no level: name and reason only (no number, no bar, never in the tray icon)
+            foreach (var g in gadgets.Where(x => x.Hint != null))
+                snap.Items.Add(new PanelItem { Icon = g.Glyph ?? IconFor(g.Kind), Label = g.Name, Value = "", Pct = -1, State = "off", Sub = g.Hint });
             if (snap.Items.Count == 0) snap.Empty = Strings.T("noDevices");
 
             if (Config.Bool(S("combine"), true) && shown.Count >= 1)
