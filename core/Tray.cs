@@ -140,86 +140,61 @@ namespace SwarlexBattery
             }
         }
 
-        // Controllers are drawn as shapes: the Fluent gamepad glyph is too wide for the ring, and the outline
-        // that makes glyphs solid at 16 px fills its buttons in. Each family keeps the outline that tells it
-        // apart at tray size (no brand logos): "PAD:DS5" two-tone wings with a dark middle, "PAD:DS4" the
-        // touchpad bar and two sticks side by side, "PAD:XBOX" an oval body with offset sticks, "E7FC" a
-        // plain pad. Cut-outs are transparent, so they read on any taskbar colour.
+        // Controllers are drawn as silhouettes: the Fluent gamepad glyph is too wide for the ring, and the
+        // outline that makes glyphs solid at 16 px fills its buttons in. The outlines (right half, mirrored,
+        // smoothed with a Catmull-Rom spline) and the cut-outs are HaloBattery's icons.py (MIT): "PAD:XBOX"
+        // and the plain "E7FC" pad get the Xbox outline with its offset sticks, "PAD:DS4" the DualShock 4
+        // outline with the touchpad and two sticks side by side; "PAD:DS5" the same outline with the DualSense's
+        // larger touchpad. No brand logos. Cut-outs are transparent, so they read on any taskbar colour.
         public static bool IsPad(string icon) { return icon == "E7FC" || (icon ?? "").StartsWith("PAD:"); }
+
+        // design grid about 40 units wide, x right, y down
+        static readonly float[] XboxHalf = { 0f, -13.9f, 5.5f, -13.9f, 9.3f, -12.9f, 12.8f, -10.3f, 15.2f, -7.9f, 16.3f, -5.9f,
+            18.1f, -0.3f, 19.7f, 4.8f, 20.0f, 7.6f, 19.5f, 10.7f, 17.9f, 12.8f, 15.3f, 14.0f, 14.5f, 13.6f, 9.0f, 8.1f, 6.0f, 6.8f, 0f, 6.8f };
+        static readonly float[] Ds4Half = { 0f, -11.44f, 9.67f, -11.44f, 9.73f, -12.18f, 10.44f, -12.31f, 14.67f, -12.22f,
+            15.22f, -11.6f, 16.22f, -10.44f, 17.33f, -8.89f, 18.22f, -7.11f, 18.89f, -4.44f, 19.44f, -1.11f, 19.82f, 2.22f,
+            20.0f, 5.56f, 19.89f, 8.44f, 19.44f, 10.44f, 18.44f, 12.0f, 17.11f, 12.62f, 15.78f, 12.71f, 14.22f, 12.33f,
+            12.89f, 11.56f, 12.0f, 10.22f, 11.33f, 8.67f, 10.67f, 6.67f, 10.11f, 5.11f, 9.67f, 3.89f, 8.22f, 4.22f,
+            6.67f, 4.56f, 4.89f, 4.22f, 3.78f, 3.38f, 0f, 3.33f };
+
+        static PointF[] Silhouette(float[] half, float cx, float cy, float k)
+        {
+            // the right half, then the mirrored left half without the two points on the centre line
+            var loop = new List<PointF>(); int n = half.Length / 2;
+            for (int i = 0; i < n; i++) loop.Add(new PointF(half[2 * i], half[2 * i + 1]));
+            for (int i = n - 2; i >= 1; i--) loop.Add(new PointF(-half[2 * i], half[2 * i + 1]));
+            var o = new List<PointF>(); int m = loop.Count; const int steps = 12;
+            for (int i = 0; i < m; i++)
+            {
+                PointF p0 = loop[(i - 1 + m) % m], p1 = loop[i], p2 = loop[(i + 1) % m], p3 = loop[(i + 2) % m];
+                for (int j = 0; j < steps; j++)
+                {
+                    float t = j / (float)steps, t2 = t * t, t3 = t2 * t;
+                    Func<float, float, float, float, float> cr = (a0, a1, a2, a3) =>
+                        0.5f * (2 * a1 + (-a0 + a2) * t + (2 * a0 - 5 * a1 + 4 * a2 - a3) * t2 + (-a0 + 3 * a1 - 3 * a2 + a3) * t3);
+                    o.Add(new PointF(cx + cr(p0.X, p1.X, p2.X, p3.X) * k, cy + cr(p0.Y, p1.Y, p2.Y, p3.Y) * k));
+                }
+            }
+            return o.ToArray();
+        }
 
         static void DrawGamepad(Graphics g, float B, bool ring, Color c, string style)
         {
-            float w = ring ? B * 0.64f : B * 0.94f, h = w * 0.66f;
-            float x = (B - w) / 2, y = (B - h) / 2 + h * 0.04f;
-            using (var body = new GraphicsPath(FillMode.Winding))
-            {
-                if (style == "PAD:XBOX")
-                {
-                    body.AddEllipse(x + w * 0.02f, y, w * 0.96f, h * 0.78f);                                  // oval body
-                    RoundRect(body, new RectangleF(x, y + h * 0.30f, w * 0.38f, h * 0.70f), w * 0.19f);
-                    RoundRect(body, new RectangleF(x + w * 0.62f, y + h * 0.30f, w * 0.38f, h * 0.70f), w * 0.19f);
-                }
-                else if (style == "PAD:DS5")
-                {
-                    // wider grips that flare out and down
-                    RoundRect(body, new RectangleF(x + w * 0.06f, y, w * 0.88f, h * 0.58f), h * 0.26f);
-                    using (var m = new System.Drawing.Drawing2D.Matrix())
-                    {
-                        var l = new GraphicsPath(); l.AddEllipse(x - w * 0.02f, y + h * 0.16f, w * 0.36f, h * 0.86f);
-                        m.RotateAt(18, new PointF(x + w * 0.16f, y + h * 0.59f)); l.Transform(m); body.AddPath(l, false);
-                        var r = new GraphicsPath(); r.AddEllipse(x + w * 0.66f, y + h * 0.16f, w * 0.36f, h * 0.86f);
-                        m.Reset(); m.RotateAt(-18, new PointF(x + w * 0.84f, y + h * 0.59f)); r.Transform(m); body.AddPath(r, false);
-                    }
-                }
-                else
-                {
-                    RoundRect(body, new RectangleF(x + w * 0.04f, y, w * 0.92f, h * 0.64f), h * 0.32f);        // top bar
-                    RoundRect(body, new RectangleF(x, y + h * 0.18f, w * 0.40f, h * 0.82f), w * 0.20f);         // left grip
-                    RoundRect(body, new RectangleF(x + w * 0.60f, y + h * 0.18f, w * 0.40f, h * 0.82f), w * 0.20f); // right grip
-                }
-                using (var brush = new SolidBrush(c)) g.FillPath(brush, body);
-            }
+            bool ps = style == "PAD:DS4" || style == "PAD:DS5";
+            float k = (ring ? B * 0.64f : B * 0.96f) / 40f, cx = B / 2, cy = B / 2 + (ps ? -0.2f * k : 0);
+            using (var brush = new SolidBrush(c)) g.FillPolygon(brush, Silhouette(ps ? Ds4Half : XboxHalf, cx, cy, k));
             var mode = g.CompositingMode; g.CompositingMode = CompositingMode.SourceCopy;
             using (var clear = new SolidBrush(Color.Transparent))
-            using (var fill = new SolidBrush(c))
             {
-                Action<float, float, float> hole = (cx, cy, rr) => g.FillEllipse(clear, x + w * cx - w * rr, y + h * cy - w * rr, 2 * w * rr, 2 * w * rr);
-                Action<float, float, float, float> cross = (cx, cy, arm, th) =>
+                Action<float, float, float> hole = (x, y, r) => g.FillEllipse(clear, cx + (x - r) * k, cy + (y - r) * k, 2 * r * k, 2 * r * k);
+                if (ps)
                 {
-                    g.FillRectangle(clear, x + w * cx - w * arm, y + h * cy - w * th / 2, 2 * w * arm, w * th);
-                    g.FillRectangle(clear, x + w * cx - w * th / 2, y + h * cy - w * arm, w * th, 2 * w * arm);
-                };
-                if (style == "PAD:DS5")
-                {
-                    // the dark middle of the two-tone body, with the two sticks standing in it
-                    var mid = new GraphicsPath(); RoundRect(mid, new RectangleF(x + w * 0.31f, y + h * 0.20f, w * 0.38f, h * 0.62f), w * 0.07f);
-                    g.FillPath(clear, mid);
-                    g.CompositingMode = CompositingMode.SourceOver;
-                    float sr = w * 0.07f;
-                    g.FillEllipse(fill, x + w * 0.40f - sr, y + h * 0.62f - sr, 2 * sr, 2 * sr);
-                    g.FillEllipse(fill, x + w * 0.60f - sr, y + h * 0.62f - sr, 2 * sr, 2 * sr);
-                    g.CompositingMode = CompositingMode.SourceCopy;
-                    hole(0.17f, 0.34f, 0.055f); hole(0.83f, 0.34f, 0.055f);
+                    // touchpad: half width, top, bottom (the DualSense's is larger), then the two sticks
+                    float hw = style == "PAD:DS5" ? 8.6f : 7.5f, top = -10.7f, bottom = style == "PAD:DS5" ? -2.4f : -3.6f;
+                    using (var pad = new GraphicsPath()) { RoundRect(pad, new RectangleF(cx - hw * k, cy + top * k, 2 * hw * k, (bottom - top) * k), 1.0f * k); g.FillPath(clear, pad); }
+                    hole(-6.5f, 0.6f, 2.35f); hole(6.5f, 0.6f, 2.35f);
                 }
-                else if (style == "PAD:DS4")
-                {
-                    g.FillRectangle(clear, x + w * 0.34f, y + h * 0.10f, w * 0.32f, h * 0.20f);            // touchpad
-                    hole(0.37f, 0.62f, 0.075f); hole(0.63f, 0.62f, 0.075f);                                  // two sticks, side by side
-                    cross(0.17f, 0.36f, 0.075f, 0.055f); hole(0.83f, 0.36f, 0.055f);
-                }
-                else if (style == "PAD:XBOX")
-                {
-                    hole(0.25f, 0.36f, 0.085f);                                                              // left stick, high
-                    hole(0.62f, 0.60f, 0.08f);                                                               // right stick, low
-                    cross(0.38f, 0.62f, 0.07f, 0.05f);                                                        // D-pad, low
-                    hole(0.76f, 0.34f, 0.06f);                                                               // buttons
-                    hole(0.50f, 0.17f, 0.045f);                                                              // centre button
-                }
-                else
-                {
-                    cross(0.26f, 0.36f, 0.13f, 0.095f);
-                    hole(0.67f, 0.24f, 0.075f); hole(0.80f, 0.47f, 0.075f);
-                }
+                else { hole(-9.7f, -6.1f, 2.6f); hole(5.2f, -0.3f, 2.6f); }
             }
             g.CompositingMode = mode;
         }
