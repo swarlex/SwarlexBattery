@@ -32,7 +32,7 @@ right half the headset. Left click for details, right click for the menu.
 </p>
 
 <p align="center">
-  <img src="docs/images/tray-states3.png" width="800" alt="Tray icon: normal, charging, low battery, asleep, headset only, PS5 / PS4 / Xbox controllers; on dark and light taskbars">
+  <img src="docs/images/tray-states4.png" width="800" alt="Tray icon: normal, charging, low battery, asleep, headset only, PS5 / PS4 / Xbox controllers; on dark and light taskbars">
 </p>
 
 - **Honest numbers:** a value is shown only when the device itself answered; nothing is estimated.
