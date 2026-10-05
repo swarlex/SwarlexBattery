@@ -49,5 +49,6 @@
   "kindHeadset": "Headset",
   "kindKeyboard": "Keyboard",
   "kindController": "Controller",
-  "noDevicesTip": "Batteries - no device found"
+  "noDevicesTip": "Batteries - no device found",
+  "diagnostics": "Diagnostics..."
 }

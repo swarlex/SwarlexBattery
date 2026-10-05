@@ -77,6 +77,24 @@ namespace SwarlexBattery
             file = path;
             try { if (File.Exists(file) && new FileInfo(file).Length > 1024 * 1024) File.Delete(file); } catch { }
         }
+        // the last lines of the log (for the diagnostics report); the log may be open for writing meanwhile
+        public static string[] Tail(int n)
+        {
+            try
+            {
+                lock (Sync)
+                    using (var fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                    using (var r = new StreamReader(fs, Encoding.UTF8))
+                    {
+                        var lines = r.ReadToEnd().Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+                        var o = new string[Math.Min(n, lines.Length)];
+                        Array.Copy(lines, lines.Length - o.Length, o, 0, o.Length);
+                        return o;
+                    }
+            }
+            catch { return new string[0]; }
+        }
+
         // for errors that would repeat on every poll: each distinct message is written once per run
         static readonly HashSet<string> Seen = new HashSet<string>();
         public static void Once(string msg)

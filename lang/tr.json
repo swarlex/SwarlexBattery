@@ -49,5 +49,6 @@
   "kindHeadset": "Kulaklık",
   "kindKeyboard": "Klavye",
   "kindController": "Kumanda",
-  "noDevicesTip": "Piller - cihaz bulunamadı"
+  "noDevicesTip": "Piller - cihaz bulunamadı",
+  "diagnostics": "Tanılama..."
 }
