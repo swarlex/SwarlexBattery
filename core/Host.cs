@@ -160,9 +160,67 @@ namespace SwarlexBattery
             catch (Exception e) { Log.Once("low battery sound: " + e.Message); }
         }
 
-        public void ToggleLowSound()
+        // ------------------------------------------------------------ Preferences and the device menu
+        void Save(string path, object value)
         {
-            try { Config.SetUser("lowSound", !Config.Bool("lowSound", false)); } catch (Exception e) { Log.Write("lowSound save: " + e.Message); }
+            try { Config.SetPath(path, value); } catch (Exception e) { Log.Write("save " + path + ": " + e.Message); }
+        }
+
+        // a switch in Preferences; the panel and the tray follow at once
+        public void Toggle(string path, bool def)
+        {
+            Save(path, !Config.Bool(path, def));
+            if (path == "plugins.gadgets.bluetooth") reader.RefreshSlow();
+            if (path == "iconPercent" && Current != null) tray.Sync(Current.Icons);
+            if (path == "update.check" || path == "update.beta") { Update = null; LastResult = ""; if (Config.Bool("update.check", true)) CheckUpdates(true); }
+            PollSoon();
+        }
+
+        public static readonly int[] Intervals = { 10, 15, 30, 60, 120, 300 };
+        public static readonly int[] LowLevels = { 5, 10, 15, 20, 25, 30, 40, 50 };
+
+        // - / + in Preferences: the next or the previous value of the list
+        public void Step(string path, int[] values, int def, int dir)
+        {
+            int cur = (int)Config.Num(path, def), i = Array.IndexOf(values, cur);
+            // a value set by hand that is not in the list: the next one of the list in that direction
+            if (i >= 0) i += dir;
+            else i = dir > 0 ? values.Count(v => v <= cur) : values.Count(v => v < cur) - 1;
+            i = Math.Max(0, Math.Min(values.Length - 1, i));
+            Save(path, values[i]);
+            if (path == "plugins.gadgets.interval") nextPoll = DateTime.Now.AddSeconds(values[i]);
+            else PollSoon();
+        }
+
+        public void SetTheme(string mode) { Save("theme.mode", mode); }
+
+        public void Rename(string id, string name)
+        {
+            if (string.IsNullOrEmpty(id)) return;
+            try { Config.SetMapEntry("plugins.gadgets.names", id, string.IsNullOrWhiteSpace(name) ? null : name.Trim()); } catch (Exception e) { Log.Write("rename: " + e.Message); }
+            PollSoon();
+        }
+
+        public void SetIcon(string id, string kind)
+        {
+            if (string.IsNullOrEmpty(id)) return;
+            try { Config.SetMapEntry("plugins.gadgets.icons", id, kind); } catch (Exception e) { Log.Write("icon: " + e.Message); }
+            PollSoon();
+        }
+
+        // hidden by id; the name is kept for the "Hidden devices" list
+        public void Hide(string id, string name)
+        {
+            if (string.IsNullOrEmpty(id)) return;
+            try { Config.SetMapEntry("plugins.gadgets.hidden", id, name ?? id); } catch (Exception e) { Log.Write("hide: " + e.Message); }
+            Log.Write("hidden by the user: " + name + " [" + id + "]");
+            PollSoon();
+        }
+
+        public void Unhide(string id)
+        {
+            try { Config.SetMapEntry("plugins.gadgets.hidden", id, null); } catch (Exception e) { Log.Write("unhide: " + e.Message); }
+            PollSoon();
         }
 
         bool Gaming() { return Config.Bool("quietWhileGaming", true) && Win.ForegroundIsFullscreen(); }
@@ -208,22 +266,6 @@ namespace SwarlexBattery
                 if (Autostart) k.DeleteValue("SwarlexBattery", false);
                 else k.SetValue("SwarlexBattery", "\"" + Program.ExePath + "\"");
             }
-        }
-
-        // "Beta versions" (off by default): pre-releases are offered too; turning it on checks at once
-        public void ToggleBeta()
-        {
-            var upd = Config.Get("update") as Dictionary<string, object> ?? new Dictionary<string, object>();
-            upd = new Dictionary<string, object>(upd); upd["beta"] = !Config.Bool("update.beta", false);
-            try { Config.SetUser("update", upd); } catch (Exception e) { Log.Write("beta save: " + e.Message); }
-            Update = null; LastResult = ""; CheckUpdates(true);
-        }
-
-        // "Percentage in the icon" (off by default): the ring shows the level as a number instead of the pictogram
-        public void ToggleIconPercent()
-        {
-            try { Config.SetUser("iconPercent", !Config.Bool("iconPercent", false)); } catch (Exception e) { Log.Write("iconPercent save: " + e.Message); }
-            if (Current != null) tray.Sync(Current.Icons);
         }
 
         // "Language" > a language: saves it in config.json and re-polls in the new language
