@@ -147,7 +147,10 @@ namespace SwarlexBatterySetup
                 else if (run.GetValue(AppName) != null) run.DeleteValue(AppName, false);
             }
 
-            SetAppLanguage(S.Tr ? "tr" : "en");   // the language picked in the wizard is the app's language too
+            // the language picked in the wizard is the app's language too; the wizard itself is English or Turkish,
+            // so English on a German, Spanish or Italian Windows means the app's own language for it
+            string sys = Thread.CurrentThread.CurrentUICulture.TwoLetterISOLanguageName;
+            SetAppLanguage(S.Tr ? "tr" : (sys == "de" || sys == "es" || sys == "it") ? sys : "en");
 
             progress(S.Get("stRegister"), 85);
             using (var k = Registry.CurrentUser.CreateSubKey(UninstallKey))

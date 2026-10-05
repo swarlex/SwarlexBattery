@@ -14,6 +14,7 @@
     "maxHeight": 620
   },
   "theme": {
+    "mode": "auto",
     "panel": "#EB202020",
     "foreground": "#f2f2f2",
     "muted": "#9a9a9a",

@@ -2,6 +2,16 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.10.0
+A light look for light Windows, and three new languages: German, Spanish and Italian.
+
+### Added
+- **Light theme**: the flyout and the menu are light when the taskbar is light, and follow it when it
+  changes. `"theme": { "mode": "dark" }` or `"light"` in config.json keeps one look.
+- **German, Spanish and Italian.** *Language* in the menu now opens a list of all languages. With
+  `"language": "auto"` the app follows the Windows display language. The installer itself stays English or
+  Turkish, and on a German, Spanish or Italian Windows it sets the app to that language.
+
 ## 1.9.0
 A beta channel for those who want fixes first, and a round of Windows 10 / 11 compatibility fixes.
 From now on small fixes are published as pre-releases and collected into fewer, larger stable releases.
