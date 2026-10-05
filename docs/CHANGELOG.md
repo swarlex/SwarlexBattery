@@ -2,6 +2,13 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.10.1
+A fix for *Diagnostics…*.
+
+### Fixed
+- *Diagnostics…* opened an empty Notepad tab: the new Windows 11 Notepad shows files under `%APPDATA%` as
+  empty. Reports are now written to `%TEMP%\SwarlexBattery`, where Notepad shows them.
+
 ## 1.10.0
 A light look for light Windows, and three new languages: German, Spanish and Italian.
 

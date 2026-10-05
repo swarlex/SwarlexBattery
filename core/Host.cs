@@ -213,11 +213,16 @@ namespace SwarlexBattery
             {
                 try
                 {
-                    // a new file for each report: an editor that still has an older report open (Windows 11 Notepad keeps
-                    // its tabs and does not reload them) would otherwise show that old copy instead of this one
-                    var file = Path.Combine(Program.DataDir, "diagnostics-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".txt");
-                    foreach (var old in new DirectoryInfo(Program.DataDir).GetFiles("diagnostics*.txt").OrderByDescending(x => x.LastWriteTimeUtc).Skip(2))
+                    // In the temp folder: Windows 11 Notepad (a packaged app) opens files under %APPDATA% and
+                    // %LOCALAPPDATA% as an empty tab, the temp folder it reads. A new file for each report: an editor
+                    // that still has an older report open (Notepad keeps its tabs) would otherwise show that old copy.
+                    var dir = Path.Combine(Path.GetTempPath(), "SwarlexBattery");
+                    Directory.CreateDirectory(dir);
+                    var file = Path.Combine(dir, "diagnostics-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".txt");
+                    foreach (var old in new DirectoryInfo(dir).GetFiles("diagnostics*.txt").OrderByDescending(x => x.LastWriteTimeUtc).Skip(2))
                         try { old.Delete(); } catch { }   // keep the two before this one
+                    foreach (var old in new DirectoryInfo(Program.DataDir).GetFiles("diagnostics*.txt"))
+                        try { old.Delete(); } catch { }   // reports of 1.10.0 and older were written there
                     // written beside it and swapped in at once: an editor that has the old report open would otherwise
                     // reload it while it is still empty (the write truncates first) and keep showing nothing
                     var tmp = file + ".tmp";
