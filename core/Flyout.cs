@@ -10,6 +10,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Markup;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using Forms = System.Windows.Forms;
 
 namespace SwarlexBattery
@@ -29,7 +30,7 @@ namespace SwarlexBattery
         readonly FontFamily iconFont = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets");
         Style rowStyle, rowStyleMarked;
         bool? light;                              // the theme the brushes were made for
-        bool langOpen;                            // the language list (in Preferences) is expanded
+
         // Preferences: a second window beside the menu that a click does not activate, so the menu stays open
         Window side; IntPtr sideHwnd; ScrollViewer sideScroll; bool sideOpen;
         bool hiddenOpen;                          // the menu's list of hidden devices is expanded
@@ -138,7 +139,7 @@ namespace SwarlexBattery
             TrimSoon();
         }
 
-        void CloseSide() { sideOpen = false; langOpen = false; side.Hide(); }
+        void CloseSide() { sideOpen = false; side.Hide(); }
 
         void CloseUnlessFocused()
         {
@@ -148,19 +149,52 @@ namespace SwarlexBattery
             }), System.Windows.Threading.DispatcherPriority.Background);
         }
 
-        void ToggleSide()
+        // the window beside the menu shows Preferences ("prefs") or the languages ("lang"); the same row closes it
+        string sideKind;
+
+        void ToggleSide(string kind)
         {
-            if (sideOpen) { CloseSide(); Refresh(); return; }
-            sideOpen = true;
+            if (sideOpen && sideKind == kind) { CloseSide(); Refresh(); return; }
+            bool was = sideOpen;
+            sideOpen = true; sideKind = kind;
+            side.Width = kind == "lang" ? 220 : 330;
             // as tall as the screen allows: a scroll bar only when even that is too short
             var scr = Forms.Screen.FromPoint(anchor);
             var area = Win.AreaOutsideTaskbar(scr.Bounds, scr.WorkingArea);
             sideScroll.MaxHeight = Math.Max(300, area.Height / Win.DpiScale(anchor) - 40);
-            sideScroll.Content = BuildPrefs();
+            sideScroll.Content = SideContent();
             if (!side.IsVisible) { side.Left = -20000; side.Top = -20000; side.Show(); }
             side.UpdateLayout();
             PlaceSide(Size.Empty);
+            if (!was) OpenAnimation(side);
             Refresh();
+        }
+
+        StackPanel SideContent() { return sideKind == "lang" ? BuildLanguages() : BuildPrefs(); }
+
+        // each language in its own language; picking one closes the menu (every text changes)
+        StackPanel BuildLanguages()
+        {
+            var root = new StackPanel();
+            foreach (var l in Strings.Languages)
+            {
+                var code = l[0];
+                root.Children.Add(MenuRow(null, l[1], () => { Close(); host.SetLanguage(code); }, Strings.Lang == code));
+            }
+            return root;
+        }
+
+        // "Opening animation" (Preferences, on by default): the window's content fades in and slides into place
+        void OpenAnimation(Window w)
+        {
+            var el = w.Content as FrameworkElement;
+            if (el == null) return;
+            el.BeginAnimation(UIElement.OpacityProperty, null); el.Opacity = 1; el.RenderTransform = null;
+            if (!Config.Bool("openAnimation", true)) return;
+            var tt = new TranslateTransform(0, above ? 12 : -12); el.RenderTransform = tt;
+            var dur = TimeSpan.FromMilliseconds(180); var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+            el.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, dur) { EasingFunction = ease });
+            tt.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(tt.Y, 0, dur) { EasingFunction = ease });
         }
 
         // beside the menu: on its left when there is room (the menu sits at the right, by the clock), else on its
@@ -234,6 +268,7 @@ namespace SwarlexBattery
             if (!win.IsVisible) { win.Left = -20000; win.Top = -20000; win.Show(); }
             win.UpdateLayout();
             Place();
+            OpenAnimation(win);
             Win.ForceForeground(hwnd);
             win.Activate();
         }
@@ -290,7 +325,7 @@ namespace SwarlexBattery
         public void Refresh()
         {
             if (Open == "panel") RenderPanel();
-            else if (Open == "menu") { scroll.Content = BuildMenu(); if (sideOpen) sideScroll.Content = BuildPrefs(); }
+            else if (Open == "menu") { scroll.Content = BuildMenu(); if (sideOpen) sideScroll.Content = SideContent(); }
         }
 
         TextBlock Text(string t, Brush brush = null, double size = 13, bool semi = false)
@@ -338,7 +373,10 @@ namespace SwarlexBattery
                     var box = new StackPanel { Background = Brushes.Transparent };   // a background, so a right click anywhere on the row is seen
                     var g = new Grid { Margin = new Thickness(0, 3, 0, 3) };
                     foreach (var w in new[] { GridLength.Auto, new GridLength(1, GridUnitType.Star), GridLength.Auto }) g.ColumnDefinitions.Add(new ColumnDefinition { Width = w });
-                    var ic = Glyph(it.Icon, StateBrush(it.State), 14); ic.Margin = new Thickness(0, 1, 9, 0); g.Children.Add(ic);
+                    // the pictogram and the number stay plain; only a low (red) or sleeping (grey) device colours them,
+                    // "Coloured icon" colours the bar alone
+                    var plain = it.State == "ok" || it.State == "warn" ? fg : StateBrush(it.State);
+                    var ic = Glyph(it.Icon, plain, 14); ic.Margin = new Thickness(0, 1, 9, 0); g.Children.Add(ic);
                     var sp = new StackPanel(); Grid.SetColumn(sp, 1);
                     if (renaming != null && renaming == it.Id)
                     {
@@ -361,7 +399,7 @@ namespace SwarlexBattery
                     else sp.Children.Add(Text(it.Label));
                     if (!string.IsNullOrEmpty(it.Sub)) sp.Children.Add(Text(it.Sub, muted, 11));
                     g.Children.Add(sp);
-                    var v = Text(it.Value, StateBrush(it.State), 12); v.TextWrapping = TextWrapping.NoWrap; v.Margin = new Thickness(10, 1, 0, 0); Grid.SetColumn(v, 2); g.Children.Add(v);
+                    var v = Text(it.Value, plain, 12); v.TextWrapping = TextWrapping.NoWrap; v.Margin = new Thickness(10, 1, 0, 0); Grid.SetColumn(v, 2); g.Children.Add(v);
                     box.Children.Add(g);
                     if (it.Pct < 0) g.Margin = new Thickness(0, 3, 0, 9);   // no level known: no bar
                     else box.Children.Add(new ProgressBar { Minimum = 0, Maximum = 1, Value = it.Pct, Height = 4, Margin = new Thickness(0, 0, 0, 6),
@@ -456,7 +494,8 @@ namespace SwarlexBattery
             root.Children.Add(MenuRow("E72C", Strings.T("refresh"), () => { Close(); host.PollSoon(); }));
             root.Children.Add(Separator());
             // Preferences open in their own window beside the menu
-            root.Children.Add(MenuRow("E713", Strings.T("prefs"), ToggleSide, false, null, sideOpen, "E76C"));
+            root.Children.Add(MenuRow("E774", Strings.T("language"), () => ToggleSide("lang"), false, null, sideOpen && sideKind == "lang", "E76C"));
+            root.Children.Add(MenuRow("E713", Strings.T("prefs"), () => ToggleSide("prefs"), false, null, sideOpen && sideKind == "prefs", "E76C"));
             // devices hidden from the panel: shown again from here
             var hidden = Config.Map("plugins.gadgets.hidden");
             if (hidden.Count > 0)
@@ -535,19 +574,13 @@ namespace SwarlexBattery
             root.Children.Add(toggle(Strings.T("pinIcon"), "alwaysShowInTray", true, "pinIconNote", false));
             root.Children.Add(toggle(Strings.T("iconPercent"), "iconPercent", false, "iconPercentNote", false));
             root.Children.Add(toggle(Strings.T("colorIcon"), "monochrome", true, "colorIconNote", true));
+            root.Children.Add(toggle(Strings.T("chargeAnim"), "chargeAnimation", true, "chargeAnimNote", false));
+            root.Children.Add(toggle(Strings.T("openAnim"), "openAnimation", true, "openAnimNote", false));
             // the theme: automatic -> light -> dark
             var mode = Config.Str("theme.mode", "auto").ToLowerInvariant();
             string next = mode == "light" ? "dark" : mode == "dark" ? "auto" : "light";
             root.Children.Add(MenuRow(null, Strings.T("themeOpt", Strings.T(mode == "light" ? "themeLight" : mode == "dark" ? "themeDark" : "themeAuto")),
                 () => { host.SetTheme(next); ApplyTheme(); Refresh(); }, false, mode == "light" || mode == "dark" ? null : Strings.T("themeAutoSub")));
-            // "Language" opens the list of languages right below it (each in its own language)
-            root.Children.Add(MenuRow(null, Strings.T("language"), () => { langOpen = !langOpen; redo(); }, false, null, false, langOpen ? "E70E" : "E70D"));
-            if (langOpen)
-                foreach (var l in Strings.Languages)
-                {
-                    var code = l[0];
-                    root.Children.Add(MenuRow(null, "      " + l[1], () => { Close(); host.SetLanguage(code); }, Strings.Lang == code));
-                }
             root.Children.Add(Separator());
             root.Children.Add(toggle(Strings.T("statusFileOpt"), "statusFile", false, "statusFileNote", false));
             root.Children.Add(MenuRow(null, Strings.T("startWithWindows"), () => { host.ToggleAutostart(); redo(); }, host.Autostart));

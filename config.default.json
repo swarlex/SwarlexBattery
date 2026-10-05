@@ -41,5 +41,7 @@
   },
   "statusFile": false,
   "iconPercent": false,
-  "lowSound": false
+  "lowSound": false,
+  "chargeAnimation": true,
+  "openAnimation": true
 }
