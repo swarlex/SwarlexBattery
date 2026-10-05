@@ -3,21 +3,14 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/swarlex/SwarlexBattery/releases/latest"><img src="https://img.shields.io/github/v/release/swarlex/SwarlexBattery?style=flat-square&label=release&color=3fd16a&cacheSeconds=300" alt="Latest release"></a>
-  <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=flat-square" alt="Windows 10 | 11">
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/swarlex/SwarlexBattery?style=flat-square" alt="License: GPL-3.0"></a>
+  <a href="https://github.com/swarlex/SwarlexBattery/releases/latest/download/SwarlexBattery-Setup.exe"><img src="https://img.shields.io/badge/Download-SwarlexBattery--Setup.exe-3fd16a?style=for-the-badge&logo=windows&logoColor=white" alt="Download SwarlexBattery-Setup.exe" height="36"></a>
 </p>
 
-<p align="center">
-  <a href="https://github.com/swarlex/SwarlexBattery/releases/latest/download/SwarlexBattery-Setup.exe"><b>⬇ Download SwarlexBattery-Setup.exe</b></a>
+<p align="center"><sub>
+  Windows 10 / 11 &nbsp;·&nbsp; installs per user, no administrator rights &nbsp;·&nbsp; updates itself
   <br>
-  <sub>Installs per user · no administrator rights · updates itself</sub>
-</p>
-
-<p align="center">
-  <a href="#install">Install</a> · <a href="#supported-devices">Supported devices</a> ·
-  <a href="docs/CHANGELOG.md">Changelog</a> · <a href="#license">License</a>
-</p>
+  <a href="https://github.com/swarlex/SwarlexBattery/releases/latest">Latest release</a> &nbsp;·&nbsp; <a href="#supported-devices">Supported devices</a> &nbsp;·&nbsp; <a href="docs/CHANGELOG.md">Changelog</a>
+</sub></p>
 
 ---
 
