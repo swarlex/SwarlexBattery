@@ -98,5 +98,9 @@
   "colorIconNote": "seviyeye göre yeşil, turuncu ya da kırmızı",
   "statusFileNote": "Rainmeter, Stream Deck gibi programlar için",
   "autoUpdateNote": "6 saatte bir GitHub'a bakar",
-  "betaNote": "yeni sürümleri herkesten önce dener"
+  "betaNote": "yeni sürümleri herkesten önce dener",
+  "chargeAnim": "Şarj animasyonu",
+  "chargeAnimNote": "cihaz şarj olurken halka dolar",
+  "openAnim": "Açılış animasyonu",
+  "openAnimNote": "panel ve menü kayarak açılır"
 }

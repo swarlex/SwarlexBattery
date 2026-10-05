@@ -2,6 +2,18 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.9.8
+### Added
+- **Charging animation** (Preferences, on by default): the ring of a charging device fills from its level to
+  full, again and again. The frames are cached, and the timer runs only while something charges.
+- **Opening animation** (Preferences, on by default): the panel, the menu and the window beside it fade in and
+  slide into place.
+
+### Changed
+- **Language** has its own window beside the menu, like Preferences, and sits above *Preferences* in the menu.
+- With *Coloured icon* on, only the bars in the panel are coloured; the pictograms and the numbers stay plain
+  (a low device is still red).
+
 ## 1.9.7
 ### Changed
 - With *Coloured icon* on, the panel follows the tray icon: the pictograms, levels and bars are green while the
