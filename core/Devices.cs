@@ -130,7 +130,9 @@ namespace SwarlexBattery
                 string name = Clean(first.Product);
                 bool headset = System.Text.RegularExpressions.Regex.IsMatch(name, "(?i)blackshark|kraken|barracuda|nari|headset");
                 bool keyboard = System.Text.RegularExpressions.Regex.IsMatch(name, "(?i)blackwidow|huntsman|ornata|cynosa|deathstalker|keyboard|pro type");
-                var r = new Reading { Id = "razer-" + pid.ToString("X4"), Name = name, Kind = headset ? "headphones" : keyboard ? "keyboard" : "mouse", Source = "razer" };
+                // one id per model (not per product id): the mouse on its cable and its receiver are one device
+                string model = System.Text.RegularExpressions.Regex.Replace(name.ToLowerInvariant(), "[^a-z0-9]+", "-").Trim('-');
+                var r = new Reading { Id = "razer-" + (model != "" ? model : pid.ToString("X4")), Name = name, Kind = headset ? "headphones" : keyboard ? "keyboard" : "mouse", Source = "razer" };
                 var vend = g.FirstOrDefault(d => (d.UsagePage == 0xFF14 || d.UsagePage == 0xFF00) && d.OutLen >= 64);
                 int[] v = null;
                 if (pid == 0x053A)
@@ -345,6 +347,28 @@ namespace SwarlexBattery
         static SafeFileHandle OpenQuery(string path) { return CreateFile(path, 0, SHARE_RW, IntPtr.Zero, OPEN_EXISTING, 0, IntPtr.Zero); }
         static bool SetFeature(SafeFileHandle h, byte[] f) { return HidD_SetFeature(h, f, f.Length); }
         static byte[] GetFeature(SafeFileHandle h, byte id, int len) { var b = new byte[len]; b[0] = id; return HidD_GetFeature(h, b, len) ? b : null; }
+
+        // An output report, or - when the collection refuses that write ("Incorrect function") - the same bytes as a
+        // feature report; then input reports until accept() takes one.
+        static byte[] AskOrFeature(SafeFileHandle h, byte[] frame, HidInfo c, int timeoutMs, Func<byte[], bool> accept)
+        {
+            Drain(h, c.InLen);
+            var f = new byte[Math.Max(frame.Length, c.OutLen)]; Array.Copy(frame, f, frame.Length);
+            if (c.OutLen == 0 || !Write(h, f))
+            {
+                if (c.FeatLen == 0) return null;
+                var ff = new byte[Math.Max(frame.Length, c.FeatLen)]; Array.Copy(frame, ff, frame.Length);
+                if (!HidD_SetFeature(h, ff, ff.Length)) { Trace.Add("write and feature both refused"); return null; }
+                Trace.Add("request sent as a feature report");
+            }
+            var end = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+            while (DateTime.UtcNow < end)
+            {
+                var r = Read(h, c.InLen, Math.Max(1, (int)(end - DateTime.UtcNow).TotalMilliseconds));
+                if (r != null && accept(r)) return r;
+            }
+            return null;
+        }
 
         // ---------------------------------------------------------------- WLmouse / LAMZU / G-Wolves (one firmware family)
         // incconutwo/mouse-battery-tray, Sheroune/lamzu-battery-monitory, G-Wolves' web driver: feature report 0,
@@ -623,15 +647,17 @@ namespace SwarlexBattery
                     if (h.IsInvalid) continue;
                     var f = new byte[c.OutLen]; var pkt = new byte[] { 0x06, 0x07, 0x80, 0x05, 0x5A, 0x03, 0x00, 0xD6, 0x0C }; Array.Copy(pkt, f, pkt.Length);
                     if (!Write(h, f)) continue;
-                    int level = -1;
+                    int level = -1; bool stuck = true;
                     for (int i = 0; i < 3 && level < 0; i++)
                     {
                         Thread.Sleep(60);
                         var x = new byte[c.InLen]; x[0] = 0x07;
-                        if (!HidD_GetInputReport(h, x, x.Length)) continue;
+                        if (!HidD_GetInputReport(h, x, x.Length)) { stuck = false; continue; }
+                        if (x.Skip(3).Any(v => v != 0)) stuck = false;
                         for (int k = 0; k + 4 < x.Length; k++) if (x[k] == 0xD6 && x[k + 1] == 0x0C && x[k + 2] == 0 && x[k + 3] == 0 && x[k + 4] <= 100) { level = x[k + 4]; break; }
                     }
                     if (level > 0) { r.Level = level; r.Charging = cable; r.Receiver = !cable; break; }   // 0 right after power-on is "not measured yet"
+                    if (level < 0 && stuck) Trace.Add("audeze: the dongle answers with empty echoes only - unplug it and plug it back in");
                 }
             }
             if (r != null) outp.Add(r);
@@ -666,9 +692,9 @@ namespace SwarlexBattery
                 var off = frame(0x07, 0x02, 0xE1); off[5] = 0x0E;
                 Func<byte, int> query = cmd =>
                 {
-                    for (int a = 0; a < 4; a++)
+                    for (int a = 0; a < 2; a++)
                     {
-                        var x = Ask(h, frame(8, 0x03, cmd), outLen, inLen, 900, q => q.Length > 16 && q[3] == 0x50 && q[4] == 0x49 && q[13] == cmd && (q[14] == 1 || q[14] == 2) && q[15] > 0);
+                        var x = Ask(h, frame(8, 0x03, cmd), outLen, inLen, 500, q => q.Length > 16 && q[3] == 0x50 && q[4] == 0x49 && q[13] == cmd && (q[14] == 1 || q[14] == 2) && q[15] > 0);
                         if (x != null) return x[16];
                     }
                     return -1;
@@ -1164,11 +1190,11 @@ namespace SwarlexBattery
                     using (var h = Open(c.Path))
                     {
                         if (h.IsInvalid) continue;
-                        var x = Ask(h, new byte[] { 0x66, 0x89 }, c.OutLen, c.InLen, 1000, q => q.Length > 4 && q[0] == 0x66 && (q[1] == 0x89 || q[1] == 0x0D));
+                        var x = AskOrFeature(h, new byte[] { 0x66, 0x89 }, c, 1000, q => q.Length > 4 && q[0] == 0x66 && (q[1] == 0x89 || q[1] == 0x0D));
                         if (x != null && (x[2] | x[3]) != 0 && x[4] <= 100)
                         {
                             r.Level = x[4];
-                            var y = Ask(h, new byte[] { 0x66, 0x8A }, c.OutLen, c.InLen, 1000, q => q.Length > 2 && q[0] == 0x66 && (q[1] == 0x8A || q[1] == 0x0C));
+                            var y = AskOrFeature(h, new byte[] { 0x66, 0x8A }, c, 1000, q => q.Length > 2 && q[0] == 0x66 && (q[1] == 0x8A || q[1] == 0x0C));
                             r.Charging = y != null && (y[2] == 1 || y[2] == 2);
                         }
                     }

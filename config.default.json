@@ -33,7 +33,9 @@
       "externalPath": "",
       "hid": true,
       "combine": true,
-      "interval": 30
+      "interval": 30,
+      "timeLeft": true
     }
-  }
+  },
+  "statusFile": false
 }

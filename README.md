@@ -116,6 +116,8 @@ The right-click menu has *Start with Windows*, *Language* and *Check for updates
 | `"monochrome": false` | coloured icons |
 | `"quietWhileGaming": false` | notify during fullscreen apps too |
 | `"update": { "check": false }` | no automatic update check |
+| `"statusFile": true` | write every level to `%APPDATA%\SwarlexBattery\status.json` for Rainmeter, Stream Deck or scripts |
+| `"plugins": { "gadgets": { "timeLeft": false } }` | no "time left" estimate |
 
 Other programs can add devices through `%APPDATA%\SwarlexBattery\gadgets\external.json`:
 `[{"id": "speaker", "name": "Speaker", "kind": "speaker", "pct": 64, "charging": false}]`
