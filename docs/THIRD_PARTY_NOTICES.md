@@ -24,4 +24,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 Protocol documentation used (no code copied): HeadsetControl, Solaar, OpenRazer,
-python-pulsar-mouse-tool, Device-Battery-Info, darmoshark-m3-configurator and Darmoshark's web driver.
+python-pulsar-mouse-tool, Device-Battery-Info, darmoshark-m3-configurator, Darmoshark's web driver,
+G-Helper (ASUS mice), keychron-battery-dkms, mchose-linux, ajazz-control-center (AM Infinity), JBL_Baterry_Monitor,
+mouse-battery-tray and lamzu-battery-monitory (WLmouse / LAMZU), and the web drivers of G-Wolves and Lofree,
+as collected in HaloBattery's providers.

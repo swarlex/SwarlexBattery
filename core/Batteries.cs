@@ -134,7 +134,7 @@ namespace SwarlexBattery
             switch (vid)
             {
                 case 0x1532: return "razer"; case 0x046D: return "logitech"; case 0x1038: return "steelseries";
-                case 0x03F0: return "hyperx"; case 0x1B1C: return "corsair"; case 0x248A: case 0x1915: return "darmoshark"; case 0x054C: return "playstation"; case 0x057E: return "nintendo"; case 0x2DC8: return "8bitdo"; default: return "atk";
+                case 0x03F0: return "hyperx"; case 0x1B1C: return "corsair"; case 0x248A: case 0x1915: return "darmoshark"; case 0x054C: return "playstation"; case 0x057E: return "nintendo"; case 0x2DC8: return "8bitdo"; case 0x36A7: case 0x373E: case 0x33E4: return "w83"; case 0x3434: return "keychron"; case 0x0B05: return "asus"; case 0x5253: case 0x3837: case 0xA8A5: return "mchose"; case 0x3151: return "aminfinity"; case 0x388D: return "lofree"; case 0x0ECB: return "jbl"; case 0x3329: return "audeze"; default: return "atk";
             }
         }
 
