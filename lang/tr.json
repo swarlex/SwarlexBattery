@@ -52,5 +52,6 @@
   "noDevicesTip": "Piller - cihaz bulunamadı",
   "diagnostics": "Tanılama...",
   "timeLeftH": "yaklaşık {0} sa kaldı",
-  "timeLeftM": "yaklaşık {0} dk kaldı"
+  "timeLeftM": "yaklaşık {0} dk kaldı",
+  "iconPercent": "İkonda yüzde göster"
 }

@@ -167,6 +167,13 @@ namespace SwarlexBattery
             }
         }
 
+        // "Percentage in the icon" (off by default): the ring shows the level as a number instead of the pictogram
+        public void ToggleIconPercent()
+        {
+            try { Config.SetUser("iconPercent", !Config.Bool("iconPercent", false)); } catch (Exception e) { Log.Write("iconPercent save: " + e.Message); }
+            if (Current != null) tray.Sync(Current.Icons);
+        }
+
         // "Language": toggles en <-> tr, saves it in config.json and re-polls in the new language
         public void SwitchLanguage()
         {

@@ -200,6 +200,7 @@ namespace SwarlexBatterySetup
             using (var run = Registry.CurrentUser.OpenSubKey(RunKey, true))
                 if (run != null && run.GetValue(AppName) != null) run.DeleteValue(AppName, false);
             Registry.CurrentUser.DeleteSubKeyTree(UninstallKey, false);
+            Registry.CurrentUser.DeleteSubKeyTree(@"Software\Classes\AppUserModelId\Swarlex.SwarlexBattery", false);   // Windows notification registration
             foreach (var f in new[] { exe, exe + ".old", exe + ".new", Path.Combine(dir, "LICENSE.txt"), Path.Combine(dir, "Uninstall.exe") }) TryDelete(f);
             try { if (Directory.Exists(dir) && Directory.GetFileSystemEntries(dir).Length == 0) Directory.Delete(dir); } catch { }
             if (deleteSettings)

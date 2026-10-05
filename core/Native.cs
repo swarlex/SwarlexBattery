@@ -63,6 +63,63 @@ namespace SwarlexBattery
             SetProcessWorkingSetSize(GetCurrentProcess(), new IntPtr(-1), new IntPtr(-1));
         }
 
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string cls, string title);
+        [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
+        [StructLayout(LayoutKind.Sequential)] struct POINT { public int X, Y; }
+        [DllImport("user32.dll")] static extern IntPtr MonitorFromPoint(POINT p, uint flags);
+        [DllImport("shcore.dll")] static extern int GetDpiForMonitor(IntPtr mon, int type, out uint dpiX, out uint dpiY);
+
+        // The work area of one monitor, with the taskbar that sits on that monitor kept out (the primary one,
+        // Shell_TrayWnd, or a secondary one). An auto-hiding taskbar leaves the work area whole; its rectangle
+        // still says how thick it is and on which edge it appears.
+        public static System.Drawing.Rectangle AreaOutsideTaskbar(System.Drawing.Rectangle bounds, System.Drawing.Rectangle work)
+        {
+            var bars = new List<IntPtr>();
+            IntPtr h = FindWindowEx(IntPtr.Zero, IntPtr.Zero, "Shell_TrayWnd", null); if (h != IntPtr.Zero) bars.Add(h);
+            for (h = IntPtr.Zero; (h = FindWindowEx(IntPtr.Zero, h, "Shell_SecondaryTrayWnd", null)) != IntPtr.Zero; ) bars.Add(h);
+            int left = work.Left, top = work.Top, right = work.Right, bottom = work.Bottom;
+            foreach (var bar in bars)
+            {
+                RECT r; if (!GetWindowRect(bar, out r)) continue;
+                int cx = (r.Left + r.Right) / 2, cy = (r.Top + r.Bottom) / 2;
+                if (cx < bounds.Left - 50 || cx > bounds.Right + 50 || cy < bounds.Top - 50 || cy > bounds.Bottom + 50) continue;   // another monitor's
+                int wdt = r.Right - r.Left, hgt = r.Bottom - r.Top;
+                if (wdt >= hgt)
+                {
+                    if (cy < (bounds.Top + bounds.Bottom) / 2) top = Math.Max(top, bounds.Top + hgt);
+                    else bottom = Math.Min(bottom, bounds.Bottom - hgt);
+                }
+                else
+                {
+                    if (cx < (bounds.Left + bounds.Right) / 2) left = Math.Max(left, bounds.Left + wdt);
+                    else right = Math.Min(right, bounds.Right - wdt);
+                }
+            }
+            if (right - left < 100 || bottom - top < 100) return work;
+            return System.Drawing.Rectangle.FromLTRB(left, top, right, bottom);
+        }
+
+        // display scale of the monitor under a point (1.0 = 96 dpi)
+        public static double DpiScale(System.Drawing.Point p)
+        {
+            try
+            {
+                uint x, y; var m = MonitorFromPoint(new POINT { X = p.X, Y = p.Y }, 2);
+                if (GetDpiForMonitor(m, 0, out x, out y) == 0 && x > 0) return x / 96.0;
+            }
+            catch { }
+            return 1.0;
+        }
+
+        public static bool WindowSize(IntPtr h, out int w, out int hgt)
+        {
+            RECT r; bool ok = GetWindowRect(h, out r);
+            w = r.Right - r.Left; hgt = r.Bottom - r.Top; return ok && w > 0 && hgt > 0;
+        }
+
+        // move without resizing, reordering or activating
+        public static void MoveTo(IntPtr h, int x, int y) { SetWindowPos(h, IntPtr.Zero, x, y, 0, 0, 0x0001 | 0x0004 | 0x0010); }
+
         [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr h, int attr, ref int val, int size);
         // Windows 11 look for the flyout: rounded corners, the system border and shadow, dark frame.
         // (DWM draws them itself, so there is exactly one frame; ignored on Windows 10.)

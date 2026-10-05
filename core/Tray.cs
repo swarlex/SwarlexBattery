@@ -47,7 +47,8 @@ namespace SwarlexBattery
             var rings = spec.Rings ?? (spec.Ring.HasValue ? new[] { spec.Ring.Value } : new double[0]);
             bool hasRing = rings.Length > 0;
             var inv = CultureInfo.InvariantCulture;
-            string key = spec.Icon + "|" + string.Join(";", rings.Select(r => r.ToString("0.00", inv))) + "|" + spec.State + "|" + spec.Charging + "|" + spec.Dim + "|" + LightTaskbar;
+            bool number = hasRing && !spec.Charging && spec.Percent >= 0 && Config.Bool("iconPercent", false);
+            string key = spec.Icon + "|" + string.Join(";", rings.Select(r => r.ToString("0.00", inv))) + "|" + spec.State + "|" + spec.Charging + "|" + spec.Dim + "|" + LightTaskbar + "|" + (number ? spec.Percent : -1);
             Icon cached; if (Cache.TryGetValue(key, out cached)) return cached;
 
             // drawn 4x larger, then scaled down: smooth ring and a glyph that is bold enough at 16-24 px
@@ -93,7 +94,8 @@ namespace SwarlexBattery
                     else gs = B * 0.9f;
 
                     // glyph as a path, filled and outlined: line-style Fluent glyphs read as solid in the tray
-                    if (IsPad(spec.Icon) && !(spec.Charging && hasRing)) DrawGamepad(g, B, hasRing, glyphColor, spec.Icon);
+                    if (number) DrawNumber(g, B, spec.Percent, glyphColor);
+                    else if (IsPad(spec.Icon) && !(spec.Charging && hasRing)) DrawGamepad(g, B, hasRing, glyphColor, spec.Icon);
                     else using (var path = new GraphicsPath())
                     {
                         if (spec.Charging && hasRing)
@@ -198,6 +200,22 @@ namespace SwarlexBattery
             }
             g.CompositingMode = mode;
         }
+        // "Percentage in the icon": the level as a number inside the ring, sized so "100" fits too
+        static void DrawNumber(Graphics g, float B, int pct, Color c)
+        {
+            string text = Math.Max(0, Math.Min(100, pct)).ToString(CultureInfo.InvariantCulture);
+            float em = B * (text.Length >= 3 ? 0.36f : 0.47f);
+            using (var fam = new FontFamily("Segoe UI"))
+            using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
+            using (var path = new GraphicsPath())
+            using (var brush = new SolidBrush(c))
+            using (var pen = new Pen(c, B * 0.012f) { LineJoin = LineJoin.Round })
+            {
+                path.AddString(text, fam, (int)FontStyle.Bold, em, new RectangleF(0, B * 0.01f, B, B), sf);
+                g.FillPath(brush, path); g.DrawPath(pen, path);
+            }
+        }
+
         static void RoundRect(GraphicsPath p, RectangleF r, float rad)
         {
             rad = Math.Min(rad, Math.Min(r.Width, r.Height) / 2); float d = 2 * rad;
@@ -212,6 +230,62 @@ namespace SwarlexBattery
         {
             var keep = new HashSet<Icon>(inUse ?? new Icon[0]);
             foreach (var k in Cache.Keys.ToList()) if (!keep.Contains(Cache[k])) { Cache[k].Dispose(); Cache.Remove(k); }
+        }
+    }
+
+    // Windows 10/11 notifications (notification centre). An app without a package registers its AppUserModelID
+    // under HKCU\Software\Classes\AppUserModelId with a name and an icon. When Windows has notifications turned
+    // off for it, or the API is missing, Show() says false and the tray balloon is used instead.
+    static class Toasts
+    {
+        const string Aumid = "Swarlex.SwarlexBattery";
+        [System.Runtime.InteropServices.DllImport("shell32.dll")]
+        static extern int SetCurrentProcessExplicitAppUserModelID([System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPWStr)] string id);
+        static global::Windows.UI.Notifications.ToastNotifier notifier;
+        static bool failed;
+
+        // for the diagnostics report: what Windows says about notifications for this app
+        public static string Setting()
+        {
+            try { return Init() ? notifier.Setting.ToString() : "unavailable"; }
+            catch (Exception e) { return "unavailable (" + e.Message + ")"; }
+        }
+
+        // registers the app with Windows once (name and icon) and gets its notifier
+        static bool Init()
+        {
+            if (failed) return false;
+            if (notifier != null) return true;
+            try
+            {
+                {
+                    string icon = Path.Combine(Program.CacheDir, "icon.png");
+                    if (!File.Exists(icon))
+                        using (var s = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("icon.png"))
+                        using (var f = File.Create(icon)) s.CopyTo(f);
+                    using (var k = Registry.CurrentUser.CreateSubKey(@"Software\Classes\AppUserModelId\" + Aumid))
+                    { k.SetValue("DisplayName", "SwarlexBattery"); k.SetValue("IconUri", icon); }
+                    SetCurrentProcessExplicitAppUserModelID(Aumid);
+                    notifier = global::Windows.UI.Notifications.ToastNotificationManager.CreateToastNotifier(Aumid);
+                }
+                return true;
+            }
+            catch (Exception e) { failed = true; Log.Once("notification: " + e.Message); return false; }
+        }
+
+        public static bool Show(string title, string body)
+        {
+            if (!Init()) return false;
+            try
+            {
+                if (notifier.Setting != global::Windows.UI.Notifications.NotificationSetting.Enabled) return false;
+                var x = new global::Windows.Data.Xml.Dom.XmlDocument();
+                x.LoadXml("<toast><visual><binding template=\"ToastGeneric\"><text>" + System.Security.SecurityElement.Escape(title ?? "") +
+                          "</text><text>" + System.Security.SecurityElement.Escape(body ?? "") + "</text></binding></visual></toast>");
+                notifier.Show(new global::Windows.UI.Notifications.ToastNotification(x));
+                return true;
+            }
+            catch (Exception e) { failed = true; Log.Once("notification: " + e.Message); return false; }
         }
     }
 
@@ -254,6 +328,7 @@ namespace SwarlexBattery
 
         public void Balloon(string title, string body, ToolTipIcon kind)
         {
+            if (Toasts.Show(title, body)) return;      // a Windows 10/11 notification; the balloon only as a fallback
             var ni = icons.Values.FirstOrDefault(n => n.Visible);
             if (ni != null) ni.ShowBalloonTip(5000, title, string.IsNullOrEmpty(body) ? " " : body, kind);
         }

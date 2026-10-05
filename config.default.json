@@ -37,5 +37,6 @@
       "timeLeft": true
     }
   },
-  "statusFile": false
+  "statusFile": false,
+  "iconPercent": false
 }
