@@ -26,7 +26,7 @@ namespace SwarlexBattery
         static readonly object ScanLock = new object();
         public static HidInfo[] LastList = new HidInfo[0];   // collections seen by the last scan (for the log)
         static int listChanges = -1; static DateTime listAt;
-        static readonly int[] Vendors = { 0x1532, 0x373B, 0x3554, 0x3770, 0x046D, 0x1038, 0x03F0, 0x1B1C, 0x248A, 0x1915 };
+        static readonly int[] Vendors = { 0x1532, 0x373B, 0x3554, 0x3770, 0x046D, 0x1038, 0x03F0, 0x1B1C, 0x248A, 0x1915, 0x054C, 0x057E, 0x2DC8 };
         public static string[] Others = new string[0];       // unsupported vendors' vendor collections (for the log)
 
         // One pass over every supported device. Safe to call from several threads (serialised).
@@ -67,6 +67,9 @@ namespace SwarlexBattery
                             case 0x1B1C: ReadCorsair(grp.ToList(), outp); break;
                             case 0x248A: ReadDarmoshark(grp.ToList(), outp); break;
                             case 0x1915: ReadDarmoshark4K(grp.ToList(), outp); break;
+                            case 0x054C: ReadPlayStation(grp.ToList(), outp); break;
+                            case 0x057E: ReadNintendo(grp.ToList(), outp); break;
+                            case 0x2DC8: ReadEightBitDo(grp.ToList(), outp); break;
                         }
                     }
                     catch (Exception e) { Trace.Add(string.Format("{0:X4}: {1}", grp.Key, e.Message)); }
@@ -315,6 +318,144 @@ namespace SwarlexBattery
                 else Trace.Add("dms4k in: " + Hex(x, 16));
             }
             outp.Add(r);
+        }
+
+        // ================================================================ game controllers
+        // HaloBattery providers/playstation.py, nintendo.py, eightbitdo.py (MIT), after the Linux
+        // hid-playstation driver, DS4Windows and SDL's HIDAPI drivers. Xbox pads come through XInput
+        // (Native.cs) and, on Bluetooth, through the level Windows itself reports (Batteries.cs).
+        static bool IsBluetoothPath(string p)
+        {
+            p = (p ?? "").ToLowerInvariant();
+            return p.Contains("{00001124-0000-1000-8000-00805f9b34fb}") || p.Contains("vid&");
+        }
+
+        static HidInfo PadCollection(IEnumerable<HidInfo> g)
+        {
+            return g.FirstOrDefault(d => d.UsagePage == 0x0001 && (d.Usage == 0x0005 || d.Usage == 0x0004)) ?? g.FirstOrDefault(d => d.InLen > 0);
+        }
+
+        // ---------------------------------------------------------------- PlayStation (Sony 054C)
+        // Listen only. Over USB the controller streams input report 0x01 with the battery inside.
+        // Over Bluetooth the battery is only in the full report (0x11 DualShock 4, 0x31 DualSense); this
+        // app never switches a controller to it (that breaks DirectInput games until the controller is
+        // turned off), so the level is there only while Steam or a game has switched it on.
+        // DualShock 4 byte: low nibble 0..10 (11 = full on the cable), bit 4 = cable.
+        // DualSense byte: low nibble 0..10, high nibble 1 = charging, 2 = full on the cable.
+        // 0..10 are 10 % steps: shown as the middle of the step, like hid-playstation, marked approximate.
+        static readonly Dictionary<int, string> SonyPads = new Dictionary<int, string> {
+            { 0x05C4, "Sony DualShock 4" }, { 0x09CC, "Sony DualShock 4" }, { 0x05C5, "Sony DualShock 4" },
+            { 0x0BA0, "Sony DualShock 4" }, { 0x0CE6, "Sony DualSense" }, { 0x0DF2, "Sony DualSense Edge" } };
+
+        static void ReadPlayStation(List<HidInfo> devs, List<Reading> outp)
+        {
+            foreach (var g in devs.Where(d => SonyPads.ContainsKey(d.Pid)).GroupBy(d => d.Pid + "|" + d.Instance))
+            {
+                var c = PadCollection(g); if (c == null) continue;
+                int pid = c.Pid; bool ds = pid == 0x0CE6 || pid == 0x0DF2, bt = IsBluetoothPath(c.Path);
+                byte rid = (byte)(bt ? (ds ? 0x31 : 0x11) : 0x01);
+                int off = ds ? (bt ? 54 : 53) : (bt ? 32 : 30);
+                var r = new Reading { Id = "ps-" + pid.ToString("X4") + "-" + c.Instance, Name = SonyPads[pid], Kind = "gamepad", Source = "playstation", Approx = true };
+                if (c.InLen <= off) { Trace.Add("ps: report too short for the battery byte (" + c.InLen + ")"); outp.Add(r); continue; }
+                using (var h = Open(c.Path))
+                {
+                    if (h.IsInvalid) { Trace.Add("ps open failed " + System.Runtime.InteropServices.Marshal.GetLastWin32Error() + " (another app may hold the controller)"); outp.Add(r); continue; }
+                    var end = DateTime.UtcNow.AddMilliseconds(600);
+                    while (DateTime.UtcNow < end)
+                    {
+                        var x = Read(h, c.InLen, 100);
+                        if (x == null) continue;
+                        if (x[0] != rid)
+                        {
+                            if (bt && x[0] == 0x01) { Trace.Add("ps: Bluetooth basic report, no battery in it (the level shows while Steam or a game uses the controller)"); break; }
+                            continue;
+                        }
+                        // the USB wireless adapter streams reports with no controller paired: bit 2 of byte 31 (hid-playstation)
+                        if (pid == 0x0BA0 && (x[31] & 0x04) != 0) { Trace.Add("ps: adapter without a controller"); break; }
+                        int b = x[off], raw = b & 0x0F;
+                        bool cable = ds ? ((b >> 4) == 1 || (b >> 4) == 2) : (b & 0x10) != 0;
+                        if (!ds && raw == 11) r.Level = 100;
+                        else if (raw <= 10) r.Level = Math.Min(100, raw * 10 + 5);
+                        else { Trace.Add("ps battery byte " + b.ToString("X2") + ": not a level"); break; }
+                        r.Charging = cable;
+                        break;
+                    }
+                }
+                outp.Add(r);
+            }
+        }
+
+        // ---------------------------------------------------------------- Nintendo Switch (057E), Bluetooth
+        // Reports 0x21 / 0x30 / 0x31: byte 2 bits 7..5 = level 0..8 in steps of 2, bit 4 = charging.
+        // First it only listens (Steam may have switched the controller to its full report). Otherwise it
+        // sends one read-only subcommand, 0x02 "request device info", in output report 0x01 with the
+        // neutral rumble data SDL uses (00 01 40 40), so the controller does not vibrate. Not on USB: the
+        // USB protocol needs a handshake that changes the controller's state (and it charges there).
+        static readonly Dictionary<int, string> SwitchPads = new Dictionary<int, string> {
+            { 0x2006, "Joy-Con (L)" }, { 0x2007, "Joy-Con (R)" }, { 0x2009, "Switch Pro Controller" } };
+        static int switchCounter;
+
+        static void ReadNintendo(List<HidInfo> devs, List<Reading> outp)
+        {
+            foreach (var g in devs.Where(d => SwitchPads.ContainsKey(d.Pid) && IsBluetoothPath(d.Path)).GroupBy(d => d.Pid + "|" + d.Instance))
+            {
+                var c = PadCollection(g); if (c == null || c.OutLen < 11) continue;
+                var r = new Reading { Id = "switch-" + c.Pid.ToString("X4") + "-" + c.Instance, Name = SwitchPads[c.Pid], Kind = "gamepad", Source = "nintendo", Approx = true };
+                using (var h = Open(c.Path))
+                {
+                    if (h.IsInvalid) { Trace.Add("switch open failed " + System.Runtime.InteropServices.Marshal.GetLastWin32Error()); outp.Add(r); continue; }
+                    Func<byte[], bool> hasBattery = q => q.Length > 2 && (q[0] == 0x21 || q[0] == 0x30 || q[0] == 0x31);
+                    byte[] x = null;
+                    var listen = DateTime.UtcNow.AddMilliseconds(120);
+                    while (x == null && DateTime.UtcNow < listen) { var q = Read(h, c.InLen, 30); if (q != null && hasBattery(q)) x = q; }
+                    if (x == null)
+                    {
+                        var f = new byte[] { 0x01, (byte)(switchCounter++ & 0x0F), 0x00, 0x01, 0x40, 0x40, 0x00, 0x01, 0x40, 0x40, 0x02 };
+                        x = Ask(h, f, c.OutLen, c.InLen, 600, hasBattery);
+                    }
+                    if (x == null) Trace.Add("switch: no report with the battery");
+                    else
+                    {
+                        int level = (x[2] & 0xE0) >> 4;
+                        if (level <= 8) { r.Level = level * 100 / 8; r.Charging = (x[2] & 0x10) != 0; }
+                        else Trace.Add("switch battery byte " + x[2].ToString("X2") + ": not a level");
+                    }
+                }
+                outp.Add(r);
+            }
+        }
+
+        // ---------------------------------------------------------------- 8BitDo in D-input mode (2DC8)
+        // Listen only: the level is in the "enhanced" report (0x01 over Bluetooth, 0x04 over USB) that
+        // Steam / SDL switch on; byte 14 = level % (bits 0-6) and charging (bit 7). Switching it on
+        // ourselves breaks DirectInput games, so without Steam the controller shows no level. In XInput
+        // mode these controllers are read as Xbox pads.
+        static readonly Dictionary<int, string> EightBitDoPads = new Dictionary<int, string> {
+            { 0x6000, "8BitDo SF30 Pro" }, { 0x6100, "8BitDo SF30 Pro" }, { 0x6001, "8BitDo SN30 Pro" }, { 0x6101, "8BitDo SN30 Pro" },
+            { 0x6003, "8BitDo Pro 2" }, { 0x6006, "8BitDo Pro 2" }, { 0x6009, "8BitDo Pro 3" } };
+
+        static void ReadEightBitDo(List<HidInfo> devs, List<Reading> outp)
+        {
+            foreach (var g in devs.Where(d => EightBitDoPads.ContainsKey(d.Pid)).GroupBy(d => d.Pid + "|" + d.Instance))
+            {
+                var c = PadCollection(g); if (c == null || c.InLen <= 14) continue;
+                bool bt = IsBluetoothPath(c.Path); byte rid = (byte)(bt ? 0x01 : 0x04);
+                var r = new Reading { Id = "8bitdo-" + c.Pid.ToString("X4") + "-" + c.Instance, Name = EightBitDoPads[c.Pid], Kind = "gamepad", Source = "8bitdo" };
+                using (var h = Open(c.Path))
+                {
+                    if (h.IsInvalid) { outp.Add(r); continue; }
+                    var end = DateTime.UtcNow.AddMilliseconds(400);
+                    for (int n = 0; n < 16 && DateTime.UtcNow < end; )
+                    {
+                        var x = Read(h, c.InLen, 50); if (x == null) continue; n++;
+                        // a zero is the padding of the ordinary report, not an empty battery
+                        int lvl = x[14] & 0x7F;
+                        if (x[0] == rid && lvl >= 1 && lvl <= 100) { r.Level = lvl; r.Charging = (x[14] & 0x80) != 0; break; }
+                    }
+                    if (r.Level < 0) Trace.Add("8bitdo: no enhanced report (the level shows while Steam or a game uses the controller)");
+                }
+                outp.Add(r);
+            }
         }
 
         // ================================================================ Logitech HID++ 2.0

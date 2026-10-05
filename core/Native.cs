@@ -124,7 +124,7 @@ namespace SwarlexBattery
 
         // "index|type|percent" for each connected pad with a battery. XInput only reports four
         // levels (empty / low / medium / full), so the percent is approximate.
-        // Battery type 0 means "disconnected" and 1 "wired": neither has a level to show.
+        // Battery type 0 means "disconnected", 1 "wired" and 0xFF "unknown": none has a level to show.
         public static string[] List()
         {
             var r = new List<string>();
@@ -134,7 +134,7 @@ namespace SwarlexBattery
                 {
                     STATE s; if (XInputGetState(i, out s) != 0) continue;
                     BATTERY b; if (XInputGetBatteryInformation(i, 0, out b) != 0) continue;
-                    if (b.Type == 0 || b.Type == 1) continue;
+                    if (b.Type == 0 || b.Type == 1 || b.Type == 0xFF || b.Level > 3) continue;
                     string type = b.Type == 2 ? "alkaline" : b.Type == 3 ? "nimh" : "unknown";
                     int pct = b.Level == 0 ? 5 : b.Level == 1 ? 30 : b.Level == 2 ? 65 : 100;
                     r.Add(i + "|" + type + "|" + pct);

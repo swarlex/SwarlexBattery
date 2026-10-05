@@ -26,9 +26,9 @@ software running in the background. One small icon: the left half of the ring is
 right half the headset. Left click for details, right click for the menu.
 
 <p align="center">
-  <img src="docs/images/flyout.png" width="380" alt="Flyout with battery levels">
+  <img src="docs/images/flyout.png" width="320" alt="Flyout with battery levels">
   &nbsp;&nbsp;
-  <img src="docs/images/menu.png" width="300" alt="Right-click menu">
+  <img src="docs/images/menu.png" width="270" alt="Right-click menu">
 </p>
 
 <p align="center">
@@ -74,7 +74,8 @@ and keeps your settings; uninstall from **Settings > Apps**.
 | **ATK / VXE / Pulsar** | MAD series and mice with the same protocol |
 | **AULA** | F75 on its 2.4 GHz receiver |
 | **Darmoshark** | M3 4K on the 4K receiver; M3, M3S, N3 |
-| **Others** | Bluetooth devices whose battery Windows shows, Xbox controllers, laptop battery |
+| **Controllers** | PS5 DualSense / Edge, PS4 DualShock 4, Xbox (USB, wireless adapter, Bluetooth), Switch Pro / Joy-Con, 8BitDo, and other pads in Xbox (XInput) mode |
+| **Others** | Bluetooth devices whose battery Windows shows, laptop battery |
 
 Tested on real hardware: Razer BlackShark V2 HyperSpeed, VXE MAD 8K and Darmoshark M3 4K; the other readers follow
 published protocols. **Not working for you?** Right-click the tray icon > *Diagnostics…* and attach the file to a
@@ -89,6 +90,9 @@ published protocols. **Not working for you?** Right-click the tray icon > *Diagn
 - **AULA F75** on its cable and the **Darmoshark 4K** while charging report no level: the last reading
   is shown as charging, marked `~`.
 - Coarse levels (4-step headsets, Logitech voltage readings) are marked *approximate* (`~`).
+- **PlayStation and 8BitDo controllers on Bluetooth** show their level only while Steam or a game uses
+  them: switching them to the report with the battery ourselves would stop some games from reading the
+  controller until it is turned off. On USB they always show it. Xbox pads report four steps (`~`).
 - A device that stops answering keeps its last value for 45 s, is then shown dimmed as *asleep*, and
   disappears after 24 hours.
 </details>
