@@ -337,6 +337,10 @@ namespace SwarlexBatteryTests
             // right after a new step the fitted rate alone counts
             double m2 = BatteryReader.HoursLeft(Pts(MadHistory.Substring(0, MadHistory.IndexOf(" 15200,55"))), 14878, 55);
             Check(m2 > 2.5 && m2 < m, "a longer stay on a step means a slower drain now");
+            // the headset left on 72 % for 5 more hours of use: slower, but not without limit
+            double idle = BatteryReader.HoursLeft(Pts(HeadsetHistory), 11705 + 5 * 3600, 72);
+            Console.WriteLine("  estimate: headset 72 % after 5 idle hours -> " + idle.ToString("0.0", CultureInfo.InvariantCulture) + " h");
+            Check(idle > h && idle < 3 * h, "a long stay on one level makes the estimate longer, at most about 3 times");
             Equal(-1.0, BatteryReader.HoursLeft(Pts("0,80 600,80 1200,80 2400,80 4000,80"), 4000, 80), "no drop: no estimate");
             Equal(-1.0, BatteryReader.HoursLeft(Pts("0,80 700,79 900,78"), 900, 78), "too short: no estimate");
             Equal(-1.0, BatteryReader.HoursLeft(Pts("0,100 900,100 3000,100"), 3000, 100), "full: no estimate");
