@@ -2,6 +2,26 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.8.0
+Windows 10 / 11 notifications instead of tray balloons, the level as a number in the icon if you want
+it, and the flyout now opens in the right place with a second monitor.
+
+### Added
+- **Percentage in the icon** (right-click > *Percentage in the icon*, off by default): the ring shows the
+  level as a number instead of the pictogram, sized so that "100" fits too and coloured like the ring when
+  the battery is low. With two devices on one icon it shows the lower level - the one to charge first.
+  Charging still shows the bolt, and devices that only report rough steps keep their pictogram.
+- **Windows notifications**: low-battery alerts are real Windows 10 / 11 notifications with the app's name
+  and icon, and they stay in the notification centre. When Windows has notifications turned off for the
+  app, or on an older Windows, the tray balloon is used as before.
+- *Diagnostics…* now says whether Windows allows notifications for the app - the first thing to check
+  when an alert never shows up.
+
+### Fixed
+- **The flyout and the menu could open in the wrong place with more than one monitor**: they were placed
+  on the primary monitor's coordinates. They are now placed in physical pixels on the monitor of the
+  clicked icon, next to that monitor's own taskbar (an auto-hiding one included), at that monitor's scale.
+
 ## 1.7.0
 Battery levels now come with an estimate of the time left, notifications wait until your game is over,
 and other apps can read every level from a status file. Plus four fixes found by comparing notes with

@@ -52,5 +52,6 @@
   "noDevicesTip": "Batteries - no device found",
   "diagnostics": "Diagnostics...",
   "timeLeftH": "about {0} h left",
-  "timeLeftM": "about {0} min left"
+  "timeLeftM": "about {0} min left",
+  "iconPercent": "Percentage in the icon"
 }

@@ -73,9 +73,12 @@ if (-not (Test-Path -LiteralPath $ico)) {
 $resArgs = @(
     "/resource:`"$(Join-Path $here 'config.default.json')`",config.default.json",
     "/resource:`"$(Join-Path $here 'lang\en.json')`",lang.en.json",
-    "/resource:`"$(Join-Path $here 'lang\tr.json')`",lang.tr.json")
+    "/resource:`"$(Join-Path $here 'lang\tr.json')`",lang.tr.json",
+    "/resource:`"$(Join-Path $here 'core\swarlexbattery-icon.png')`",icon.png")
 $sources = foreach ($f in 'App', 'Host', 'Batteries', 'Tray', 'Flyout', 'Updater', 'Native', 'Hid', 'Devices') { Join-Path $here "core\$f.cs" }
 $wpf = Join-Path ([Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory()) 'WPF'
+$fwdir = [Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory().TrimEnd('\')
+$winmd = Join-Path $env:WINDIR 'System32\WinMetadata'
 
 # csc's temp files break on very long paths: build in a short temp dir, then copy.
 $work = Join-Path ([IO.Path]::GetTempPath()) 'swarlexbattery-build'
@@ -94,7 +97,10 @@ $tmpExe = Join-Path $work 'SwarlexBattery.exe'
 $exe = Join-Path $dist 'SwarlexBattery.exe'
 $cscArgs = @('/nologo', '/target:winexe', '/optimize+', '/platform:anycpu', '/codepage:65001', "/out:$tmpExe", "/win32icon:$work\swarlexbattery.ico", "/win32manifest:$work\app.manifest",
     '/reference:System.Windows.Forms.dll', '/reference:System.Drawing.dll', '/reference:System.Core.dll', '/reference:System.Web.Extensions.dll', '/reference:System.Xaml.dll',
-    "/reference:$wpf\PresentationFramework.dll", "/reference:$wpf\PresentationCore.dll", "/reference:$wpf\WindowsBase.dll") +
+    "/reference:$wpf\PresentationFramework.dll", "/reference:$wpf\PresentationCore.dll", "/reference:$wpf\WindowsBase.dll",
+    # Windows notifications (WinRT): the metadata that ships with Windows, and the .NET bridge to it
+    "/reference:$winmd\Windows.UI.winmd", "/reference:$winmd\Windows.Data.winmd", "/reference:$winmd\Windows.Foundation.winmd",
+    "/reference:$fwdir\System.Runtime.WindowsRuntime.dll", "/reference:$fwdir\System.Runtime.dll") +
     @($resArgs) + @($sources) + @($asmInfo)
 & $csc @cscArgs | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "csc failed ($LASTEXITCODE)" }
