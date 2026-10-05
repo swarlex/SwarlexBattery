@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SwarlexBattery</title>
+<meta name="description" content="Battery levels of wireless mice, keyboards, headsets and controllers in the Windows tray. Free and open source.">
+<meta property="og:title" content="SwarlexBattery">
+<meta property="og:description" content="Battery levels of wireless mice, keyboards, headsets and controllers in the Windows tray.">
+<meta property="og:image" content="https://swarlex.github.io/SwarlexBattery/social-preview.png">
+<meta property="og:url" content="https://swarlex.github.io/SwarlexBattery/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="icon.png">
+<style>
+  :root {
+    --bg: #0d0f12; --bg2: #14171c; --card: #181c22; --line: #262b33;
+    --fg: #eef1f5; --muted: #9aa3ae; --accent: #3fd16a; --accent-fg: #06210f;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #f7f8fa; --bg2: #ffffff; --card: #ffffff; --line: #e3e6eb; --fg: #15191e; --muted: #5b6470; --accent: #1f9d48; --accent-fg: #ffffff; }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif; }
+  a { color: inherit; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; }
+  nav .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; text-decoration: none; }
+  nav .brand img { width: 28px; height: 28px; }
+  nav .links a { color: var(--muted); text-decoration: none; margin-left: 22px; font-size: 15px; }
+  nav .links a:hover { color: var(--fg); }
+
+  .hero { text-align: center; padding: 56px 0 40px; }
+  .hero img.logo { width: 96px; height: 96px; filter: drop-shadow(0 8px 24px rgba(63, 209, 106, .25)); }
+  .hero h1 { font-size: clamp(34px, 6vw, 54px); line-height: 1.1; margin: 22px 0 14px; letter-spacing: -.02em; }
+  .hero p.lead { font-size: 19px; color: var(--muted); max-width: 640px; margin: 0 auto 30px; }
+  .btn { display: inline-flex; align-items: center; gap: 10px; padding: 14px 26px; border-radius: 10px; font-weight: 600; text-decoration: none; transition: transform .15s, box-shadow .15s; }
+  .btn.primary { background: var(--accent); color: var(--accent-fg); box-shadow: 0 6px 22px rgba(63, 209, 106, .28); }
+  .btn.primary:hover { transform: translateY(-1px); box-shadow: 0 10px 28px rgba(63, 209, 106, .36); }
+  .btn.ghost { border: 1px solid var(--line); color: var(--fg); margin-left: 8px; }
+  .btn.ghost:hover { background: var(--bg2); }
+  .meta { margin-top: 16px; font-size: 14px; color: var(--muted); }
+  .meta span + span::before { content: "·"; margin: 0 8px; }
+
+  .shots { display: flex; justify-content: center; align-items: flex-start; gap: 24px; flex-wrap: wrap; margin: 30px 0 18px; }
+  .shots img { border-radius: 10px; box-shadow: 0 18px 50px rgba(0, 0, 0, .35); max-width: 100%; }
+  .tray { text-align: center; margin: 10px 0 0; }
+  .tray img { max-width: 100%; border-radius: 10px; border: 1px solid var(--line); }
+  .caption { text-align: center; color: var(--muted); font-size: 14px; margin-top: 10px; }
+
+  section { padding: 56px 0; }
+  h2 { font-size: 28px; margin: 0 0 22px; letter-spacing: -.01em; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; }
+  .card h3 { margin: 0 0 6px; font-size: 17px; }
+  .card p { margin: 0; color: var(--muted); font-size: 15px; }
+
+  .brands { display: flex; flex-wrap: wrap; gap: 10px; }
+  .brands span { background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; font-size: 15px; }
+  .note { color: var(--muted); font-size: 15px; margin-top: 18px; }
+
+  ol.steps { padding-left: 22px; } ol.steps li { margin: 6px 0; }
+  code { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; font-size: 14px; }
+
+  footer { border-top: 1px solid var(--line); padding: 28px 0 40px; color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  footer a { color: var(--muted); }
+
+  @media (max-width: 600px) {
+    nav .links a { margin-left: 14px; }
+    .btn.ghost { margin: 10px 0 0; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <a class="brand" href="#"><img src="icon.png" alt="">SwarlexBattery</a>
+    <div class="links"><a href="#features">Features</a><a href="#devices">Devices</a><a href="https://github.com/swarlex/SwarlexBattery">GitHub</a></div>
+  </nav>
+
+  <header class="hero">
+    <img class="logo" src="icon.png" alt="SwarlexBattery icon">
+    <h1>Your wireless batteries,<br>next to the clock.</h1>
+    <p class="lead">Mouse, keyboard, headset and controller battery levels in the Windows tray, without vendor software running in the background.</p>
+    <a class="btn primary" id="dl" href="https://github.com/swarlex/SwarlexBattery/releases/latest/download/SwarlexBattery-Setup.exe">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-5-5m5 5l5-5M5 21h14"/></svg>
+      Download for Windows</a>
+    <a class="btn ghost" href="https://github.com/swarlex/SwarlexBattery/releases/latest">All downloads</a>
+    <div class="meta"><span id="ver">Latest release</span><span>Windows 10 / 11</span><span>Free and open source</span></div>
+
+    <div class="shots">
+      <img src="flyout.png" width="320" alt="Flyout with battery levels">
+      <img src="menu.png" width="270" alt="Right-click menu">
+    </div>
+  </header>
+
+  <div class="tray">
+    <img src="tray-states4.png" width="800" alt="Tray icon states: normal, charging, low, asleep, headset only and controllers, on dark and light taskbars">
+    <div class="caption">One small icon: the left half of the ring is the mouse, the right half the headset.</div>
+  </div>
+
+  <section id="features">
+    <h2>Why SwarlexBattery</h2>
+    <div class="grid">
+      <div class="card"><h3>Honest numbers</h3><p>A level is shown only when the device itself answered. Rough readings are marked as approximate.</p></div>
+      <div class="card"><h3>Small and quiet</h3><p>One small program, about 10 MB of memory. No services, no vendor apps, no account.</p></div>
+      <div class="card"><h3>Low battery alerts</h3><p>Windows notifications when a battery runs low, held back until your full-screen game is over.</p></div>
+      <div class="card"><h3>Time left</h3><p>An estimate of the hours left, learned from how fast each device drains.</p></div>
+      <div class="card"><h3>Updates itself</h3><p>New versions come from GitHub with one click, each checked against its SHA-256.</p></div>
+      <div class="card"><h3>Your language, your theme</h3><p>English, Türkçe, Deutsch, Español and Italiano. Light or dark, like your taskbar.</p></div>
+    </div>
+  </section>
+
+  <section id="devices">
+    <h2>Supported devices</h2>
+    <div class="brands">
+      <span>Razer</span><span>Logitech</span><span>Astro</span><span>SteelSeries</span><span>HyperX</span><span>Corsair</span>
+      <span>ATK / VXE / Pulsar</span><span>ASUS ROG</span><span>WLmouse</span><span>LAMZU</span><span>G-Wolves</span><span>MCHOSE</span>
+      <span>AM Infinity</span><span>Audeze</span><span>JBL</span><span>AULA</span><span>Keychron</span><span>Lofree</span><span>Darmoshark</span>
+      <span>PlayStation 5 / 4</span><span>Xbox</span><span>Nintendo Switch</span><span>8BitDo</span><span>Bluetooth devices</span><span>Laptop battery</span>
+    </div>
+    <p class="note">The exact models are listed on <a href="https://github.com/swarlex/SwarlexBattery#supported-devices">GitHub</a>.
+      Device missing? Right-click the icon &gt; <i>Diagnostics…</i> and attach the file to a
+      <a href="https://github.com/swarlex/SwarlexBattery/issues/new?template=device_request.yml">device report</a>.</p>
+  </section>
+
+  <section id="install">
+    <h2>Install</h2>
+    <ol class="steps">
+      <li>Download <a href="https://github.com/swarlex/SwarlexBattery/releases/latest/download/SwarlexBattery-Setup.exe"><b>SwarlexBattery-Setup.exe</b></a> and run it.</li>
+      <li>It installs for your user only. No administrator rights are needed.</li>
+      <li>The icon appears next to the clock: left click for details, right click for the menu.</li>
+    </ol>
+    <p class="note">Prefer no installer? <code>SwarlexBattery.exe</code> from the
+      <a href="https://github.com/swarlex/SwarlexBattery/releases/latest">release page</a> runs as it is.
+      Windows SmartScreen may warn the first time because the files are new; every release is built from the public
+      source by GitHub Actions (<a href="https://github.com/swarlex/SwarlexBattery#code-signing-policy">code signing policy</a>).</p>
+  </section>
+</div>
+
+<footer>
+  <div class="wrap">
+    <span>SwarlexBattery · <a href="https://github.com/swarlex/SwarlexBattery/blob/main/LICENSE">GPL-3.0</a></span>
+    <span>
+      <a href="https://github.com/swarlex/SwarlexBattery/blob/main/docs/CHANGELOG.md">Changelog</a> ·
+      <a href="https://github.com/swarlex/SwarlexBattery/blob/main/docs/PRIVACY.md">Privacy</a> ·
+      <a href="https://github.com/swarlex/SwarlexBattery#code-signing-policy">Code signing policy</a> ·
+      <a href="https://github.com/swarlex/SwarlexBattery">Source</a>
+    </span>
+  </div>
+</footer>
+
+<script>
+  // the version on the page comes from the latest stable release (pre-releases are not "latest")
+  fetch("https://api.github.com/repos/swarlex/SwarlexBattery/releases/latest")
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (j) { if (j && j.tag_name) document.getElementById("ver").textContent = "Version " + j.tag_name.replace(/^v/, ""); })
+    .catch(function () {});
+</script>
+</body>
+</html>
