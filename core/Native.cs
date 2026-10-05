@@ -117,6 +117,18 @@ namespace SwarlexBattery
             return 1.0;
         }
 
+        public static System.Drawing.Rectangle WindowRect(IntPtr h)
+        {
+            RECT r; GetWindowRect(h, out r);
+            return System.Drawing.Rectangle.FromLTRB(r.Left, r.Top, r.Right, r.Bottom);
+        }
+
+        [DllImport("user32.dll")] static extern int GetWindowLong(IntPtr h, int index);
+        [DllImport("user32.dll")] static extern int SetWindowLong(IntPtr h, int index, int value);
+
+        // kept off Alt+Tab and the taskbar (WS_EX_TOOLWINDOW): the Preferences window beside the menu
+        public static void ToolWindow(IntPtr h) { SetWindowLong(h, -20, GetWindowLong(h, -20) | 0x00000080); }
+
         public static bool WindowSize(IntPtr h, out int w, out int hgt)
         {
             RECT r; bool ok = GetWindowRect(h, out r);

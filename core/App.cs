@@ -189,6 +189,47 @@ namespace SwarlexBattery
             return Strings.Has(sys) ? sys : "en";
         }
 
+        // changes one value at a dotted path ("plugins.gadgets.interval") in the user's config.json and in the
+        // settings in use, and keeps everything else; null removes it
+        public static void SetPath(string path, object value) { SetParts(path.Split('.'), value); }
+
+        // one entry of a map: the key is taken as it is (a device id may contain dots)
+        public static void SetMapEntry(string mapPath, string key, string value)
+        {
+            var parts = mapPath.Split('.').ToList(); parts.Add(key);
+            SetParts(parts.ToArray(), value);
+        }
+
+        static void SetParts(string[] parts, object value)
+        {
+            Dictionary<string, object> user = null;
+            try { if (File.Exists(UserFile)) user = Json.Deserialize<Dictionary<string, object>>(File.ReadAllText(UserFile)); } catch { }
+            if (user == null) user = new Dictionary<string, object>();
+            Put(user, parts, value); Put(Data, parts, value);
+            File.WriteAllText(UserFile, Json.Serialize(user), new UTF8Encoding(false));
+        }
+
+        static void Put(Dictionary<string, object> d, string[] parts, object value)
+        {
+            for (int i = 0; i < parts.Length - 1; i++)
+            {
+                object o; var next = d.TryGetValue(parts[i], out o) ? o as Dictionary<string, object> : null;
+                // a copy: the settings in use may share a dictionary with the embedded defaults
+                next = next == null ? new Dictionary<string, object>() : new Dictionary<string, object>(next);
+                d[parts[i]] = next; d = next;
+            }
+            if (value == null) d.Remove(parts[parts.Length - 1]); else d[parts[parts.Length - 1]] = value;
+        }
+
+        // a string -> string map at a path (e.g. plugins.gadgets.names); empty when there is none
+        public static Dictionary<string, string> Map(string path)
+        {
+            var d = Get(path) as Dictionary<string, object>;
+            var o = new Dictionary<string, string>();
+            if (d != null) foreach (var kv in d) if (kv.Value is string) o[kv.Key] = (string)kv.Value;
+            return o;
+        }
+
         // changes one top-level value in the user's config.json and keeps everything else
         public static void SetUser(string key, object value)
         {

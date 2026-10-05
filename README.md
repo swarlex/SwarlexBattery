@@ -23,17 +23,20 @@
 
 The battery of your wireless **mouse, keyboard and headset** next to the clock, without vendor
 software running in the background. One small icon: the left half of the ring is the mouse, the
-right half the headset. Left click for details, right click for the menu.
+right half the headset. Left click for details, right click for the menu and *Preferences*; right-click a
+device in the panel to rename it, give it another icon or hide it.
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: light)" srcset="docs/images/flyout-light.png">
-    <img src="docs/images/flyout-dark.png" width="320" alt="Flyout with battery levels and the time left">
+    <source media="(prefers-color-scheme: light)" srcset="docs/images/panel-light.png">
+    <img src="docs/images/panel-dark.png" width="320" alt="The panel with battery levels and the time left">
   </picture>
-  &nbsp;&nbsp;
+</p>
+
+<p align="center">
   <picture>
-    <source media="(prefers-color-scheme: light)" srcset="docs/images/menu-light.png">
-    <img src="docs/images/menu-dark.png" width="270" alt="Right-click menu">
+    <source media="(prefers-color-scheme: light)" srcset="docs/images/menu-prefs-light.png">
+    <img src="docs/images/menu-prefs-dark.png" width="578" alt="The right-click menu with Preferences beside it">
   </picture>
 </p>
 
@@ -112,9 +115,11 @@ published protocols. **Not working for you?** Right-click the tray icon > *Diagn
 <details>
 <summary>Settings</summary>
 
-The right-click menu has *Start with Windows*, *Language*, *Percentage in the icon*, *Get beta versions* and
-*Check for updates*. More in
-`%APPDATA%\SwarlexBattery\config.json`:
+Right-click > *Preferences* has the poll interval and the low battery level (- / +), *Estimated time left*,
+*Quiet while gaming*, *Sound with low battery alerts*, *Windows Bluetooth devices*, *Percentage in the icon*,
+the theme, the language, the status file, *Start with Windows* and the update settings. Right-click a device
+in the panel to rename it, choose its icon or hide it; hidden devices come back from the menu's *Hidden
+devices*. All of it is kept in `%APPDATA%\SwarlexBattery\config.json`, which also takes:
 
 | Setting | Effect |
 |---|---|
