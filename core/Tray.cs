@@ -17,7 +17,7 @@ namespace SwarlexBattery
 {
     static class TrayRenderer
     {
-        public static readonly int Size = Math.Max(16, SystemInformation.SmallIconSize.Width);
+        public static int Size = Math.Max(16, SystemInformation.SmallIconSize.Width);   // not readonly: the README image is rendered larger
         public static readonly string GlyphFont = new InstalledFontCollection().Families.Any(f => f.Name == "Segoe Fluent Icons") ? "Segoe Fluent Icons" : "Segoe MDL2 Assets";
         public static bool LightTaskbar = IsLightTaskbar();
         static readonly Dictionary<string, Icon> Cache = new Dictionary<string, Icon>();
@@ -93,7 +93,8 @@ namespace SwarlexBattery
                     else gs = B * 0.9f;
 
                     // glyph as a path, filled and outlined: line-style Fluent glyphs read as solid in the tray
-                    using (var path = new GraphicsPath())
+                    if (spec.Icon == "E7FC" && !(spec.Charging && hasRing)) DrawGamepad(g, B, hasRing, glyphColor);
+                    else using (var path = new GraphicsPath())
                     {
                         if (spec.Charging && hasRing)
                         {
@@ -137,6 +138,43 @@ namespace SwarlexBattery
                     return icon;
                 }
             }
+        }
+
+        // The controller, drawn as a shape: the Fluent gamepad glyph is too wide for the ring, and the outline
+        // that makes glyphs solid at 16 px fills its buttons in. A body with two grips, with a D-pad and two
+        // buttons cut out of it, keeps its proportions at every size.
+        static void DrawGamepad(Graphics g, float B, bool ring, Color c)
+        {
+            float w = ring ? B * 0.64f : B * 0.94f, h = w * 0.66f;
+            float x = (B - w) / 2, y = (B - h) / 2 + h * 0.04f;
+            using (var body = new GraphicsPath(FillMode.Winding))
+            {
+                RoundRect(body, new RectangleF(x + w * 0.04f, y, w * 0.92f, h * 0.64f), h * 0.32f);   // top bar
+                RoundRect(body, new RectangleF(x, y + h * 0.18f, w * 0.40f, h * 0.82f), w * 0.20f);    // left grip
+                RoundRect(body, new RectangleF(x + w * 0.60f, y + h * 0.18f, w * 0.40f, h * 0.82f), w * 0.20f); // right grip
+                using (var brush = new SolidBrush(c)) g.FillPath(brush, body);
+            }
+            // cut-outs: transparent, so they read on any taskbar colour
+            var mode = g.CompositingMode; g.CompositingMode = CompositingMode.SourceCopy;
+            using (var clear = new SolidBrush(Color.Transparent))
+            {
+                float cx = x + w * 0.26f, cy = y + h * 0.36f, arm = w * 0.13f, t = w * 0.095f;
+                g.FillRectangle(clear, cx - arm, cy - t / 2, 2 * arm, t);
+                g.FillRectangle(clear, cx - t / 2, cy - arm, t, 2 * arm);
+                float r = w * 0.075f;
+                g.FillEllipse(clear, x + w * 0.67f - r, y + h * 0.24f - r, 2 * r, 2 * r);
+                g.FillEllipse(clear, x + w * 0.80f - r, y + h * 0.47f - r, 2 * r, 2 * r);
+            }
+            g.CompositingMode = mode;
+        }
+
+        static void RoundRect(GraphicsPath p, RectangleF r, float rad)
+        {
+            rad = Math.Min(rad, Math.Min(r.Width, r.Height) / 2); float d = 2 * rad;
+            p.StartFigure();
+            p.AddArc(r.X, r.Y, d, d, 180, 90); p.AddArc(r.Right - d, r.Y, d, d, 270, 90);
+            p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90); p.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
+            p.CloseFigure();
         }
 
         // icons still assigned to a NotifyIcon are not disposed (the tray keeps showing them)
