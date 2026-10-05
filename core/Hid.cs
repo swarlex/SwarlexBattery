@@ -282,13 +282,20 @@ namespace SwarlexBattery
                     var r = Read(h, inLen, 100);
                     if (r == null) continue;
                     Trace.Add("mtk in: " + Hex(r, 16));
-                    if (r.Length < 63 || r[0] != 0x02 || r[10] != cmd || r[11] != 0x01) continue;
-                    byte x = 0; for (int i = 1; i <= 61; i++) x ^= r[i];
-                    if (x != r[62]) { Trace.Add("mtk checksum mismatch"); continue; }
-                    return r[13];
+                    int v = MtkParse(r, cmd);
+                    if (v == -2) Trace.Add("mtk checksum mismatch");
+                    if (v >= 0) return v;
                 }
             }
             return -1;
+        }
+
+        // A reply to command cmd -> its value byte; -1 = another report (skip it), -2 = damaged (checksum)
+        public static int MtkParse(byte[] r, byte cmd)
+        {
+            if (r == null || r.Length < 63 || r[0] != 0x02 || r[10] != cmd || r[11] != 0x01) return -1;
+            byte x = 0; for (int i = 1; i <= 61; i++) x ^= r[i];
+            return x != r[62] ? -2 : r[13];
         }
 
         // -> { level 0..100, charging 0/1 } or null (headset off / not linked)
@@ -316,10 +323,7 @@ namespace SwarlexBattery
             using (var h = Open(path))
             {
                 if (h.IsInvalid) { Trace.Add("open failed " + Marshal.GetLastWin32Error()); return null; }
-                var f = new byte[Math.Max(17, outLen)];
-                f[0] = 0x08; f[1] = 0x04;
-                int sum = 0; for (int i = 0; i < 16; i++) sum += f[i];
-                f[16] = (byte)((0x55 - sum) & 0xFF);
+                var f = AtkFrame(outLen);
                 Drain(h, Math.Max(17, inLen));
                 if (!Write(h, f)) { Trace.Add("write failed " + Marshal.GetLastWin32Error()); return null; }
                 for (int attempt = 0; attempt < 4; attempt++)
@@ -327,16 +331,37 @@ namespace SwarlexBattery
                     var x = Read(h, Math.Max(17, inLen), 250);
                     if (x == null) break;
                     Trace.Add("atk in: " + Hex(x, 20));
-                    if (x.Length < 17 || x[0] != 0x08 || x[1] != 0x04) continue;   // pushed events (0x0a) are skipped
-                    int s = 0; for (int i = 0; i < 16; i++) s += x[i];
-                    if (x[16] != (byte)((0x55 - s) & 0xFF) || x[6] > 100) continue;
-                    int mv = (x[8] << 8) | x[9];
-                    if (x[6] == 0 && mv < 3000) { Trace.Add("atk: level 0 without a battery voltage (mouse off)"); return null; }
-                    if (mv != 0 && (mv < 2800 || mv > 4600)) { Trace.Add("atk: implausible voltage " + mv); return null; }
-                    return new[] { (int)x[6], (int)x[7], mv };
+                    int[] v; string why;
+                    int res = AtkParse(x, out v, out why);
+                    if (res > 0) return v;
+                    if (res < 0) { Trace.Add("atk: " + why); return null; }
                 }
                 return null;
             }
+        }
+
+        public static byte[] AtkFrame(int outLen)
+        {
+            var f = new byte[Math.Max(17, outLen)];
+            f[0] = 0x08; f[1] = 0x04;
+            int sum = 0; for (int i = 0; i < 16; i++) sum += f[i];
+            f[16] = (byte)((0x55 - sum) & 0xFF);
+            return f;
+        }
+
+        // 1: a level reply -> v = { level, on the cable 0/1, millivolts }; 0: not the reply (pushed events, a damaged
+        // frame - skip it); -1: a reply that must not be shown (why says which)
+        public static int AtkParse(byte[] x, out int[] v, out string why)
+        {
+            v = null; why = null;
+            if (x == null || x.Length < 17 || x[0] != 0x08 || x[1] != 0x04) return 0;   // pushed events (0x0a) are skipped
+            int s = 0; for (int i = 0; i < 16; i++) s += x[i];
+            if (x[16] != (byte)((0x55 - s) & 0xFF) || x[6] > 100) return 0;
+            int mv = (x[8] << 8) | x[9];
+            if (x[6] == 0 && mv < 3000) { why = "level 0 without a battery voltage (mouse off)"; return -1; }
+            if (mv != 0 && (mv < 2800 || mv > 4600)) { why = "implausible voltage " + mv; return -1; }
+            v = new[] { (int)x[6], (int)x[7], mv };
+            return 1;
         }
     }
 }

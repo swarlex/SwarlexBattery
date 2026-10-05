@@ -64,7 +64,7 @@ and keeps your settings; uninstall from **Settings > Apps**.
 
 - **Portable:** `SwarlexBattery.exe` from the release runs without installing; enable *Start with
   Windows* from its menu.
-- **Silent install:** `SwarlexBattery-Setup.exe /silent [/dir:<folder>] [/noautostart] [/lang:en|tr]`
+- **Silent install:** `SwarlexBattery-Setup.exe /silent [/dir:<folder>] [/noautostart] [/lang:en|tr|de|es|it]`
 - **Silent uninstall:** `"%LOCALAPPDATA%\Programs\SwarlexBattery\Uninstall.exe" /uninstall /silent`
 </details>
 
@@ -140,7 +140,9 @@ Windows 10 / 11 is all you need: the build uses the C# compiler that ships with 
 powershell -ExecutionPolicy Bypass -File .\build.ps1
 ```
 
-`core/` holds the app (`Devices.cs` / `Hid.cs` are the device protocols), `lang/` the texts.
+`core/` holds the app (`Devices.cs` / `Hid.cs` are the device protocols), `lang/` the texts and `tests/` the
+tests. `build.ps1` runs them on every build (protocol replies captured on real devices, what the panel shows,
+every language); a failing test stops the build.
 Maintainers release with `.\tools\release.ps1 -Notes "..."` (GitHub CLI).
 </details>
 

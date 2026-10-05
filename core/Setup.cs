@@ -2,7 +2,7 @@
 // SwarlexBattery-Setup.exe: per-user install wizard (no administrator rights) and uninstaller.
 // The app exe and LICENSE are embedded as resources ("app.exe", "LICENSE").
 //   SwarlexBattery-Setup.exe                     wizard
-//   SwarlexBattery-Setup.exe /silent [/dir:<folder>] [/noautostart] [/lang:en|tr]   install without UI
+//   SwarlexBattery-Setup.exe /silent [/dir:<folder>] [/noautostart] [/lang:en|tr|de|es|it]   install without UI
 //   Uninstall.exe /uninstall [/silent]           (copied into the install folder; listed in Settings > Apps)
 using System;
 using System.Collections.Generic;
@@ -18,50 +18,78 @@ namespace SwarlexBatterySetup
 {
     static class S
     {
-        public static bool Tr = Thread.CurrentThread.CurrentUICulture.TwoLetterISOLanguageName == "tr";
+        // the wizard's languages, in the order of each text below (the same languages as the app)
+        public static readonly string[] Codes = { "en", "tr", "de", "es", "it" };
+        public static readonly string[] Names = { "English", "Türkçe", "Deutsch", "Español", "Italiano" };
+        public static int Lang = Math.Max(0, Array.IndexOf(Codes, Thread.CurrentThread.CurrentUICulture.TwoLetterISOLanguageName));
+        public static string Code { get { return Codes[Lang]; } }
         static readonly Dictionary<string, string[]> T = new Dictionary<string, string[]> {
-            // key                en                                                      tr
-            { "title",        new[] { "SwarlexBattery Setup", "SwarlexBattery Kurulumu" } },
-            { "welcomeH",     new[] { "Welcome", "Hoş geldin" } },
-            { "welcomeS",     new[] { "This wizard installs SwarlexBattery {0}.", "Bu sihirbaz SwarlexBattery {0} sürümünü kurar." } },
+            // key                en / tr / de / es / it
+            { "title",        new[] { "SwarlexBattery Setup", "SwarlexBattery Kurulumu", "SwarlexBattery-Setup", "Instalación de SwarlexBattery", "Installazione di SwarlexBattery" } },
+            { "welcomeH",     new[] { "Welcome", "Hoş geldin", "Willkommen", "Bienvenido", "Benvenuto" } },
+            { "welcomeS",     new[] { "This wizard installs SwarlexBattery {0}.", "Bu sihirbaz SwarlexBattery {0} sürümünü kurar.", "Dieser Assistent installiert SwarlexBattery {0}.",
+                                      "Este asistente instala SwarlexBattery {0}.", "Questa procedura installa SwarlexBattery {0}." } },
             { "welcome",      new[] { "SwarlexBattery shows the battery of your wireless mouse, keyboard and headset in the system tray, next to the clock.\r\n\r\nIt is installed for your user only and does not need administrator rights.",
-                                      "SwarlexBattery, kablosuz mouse, klavye ve kulaklığının pilini sistem tepsisinde, saatin yanında gösterir.\r\n\r\nSadece senin kullanıcın için kurulur ve yönetici izni gerektirmez." } },
-            { "upgrade",      new[] { "SwarlexBattery {0} is already installed. It will be upgraded; your settings are kept.", "SwarlexBattery {0} zaten kurulu. Yükseltilecek; ayarların korunur." } },
-            { "language",     new[] { "Language:", "Dil:" } },
-            { "licenseH",     new[] { "License", "Lisans" } },
-            { "licenseS",     new[] { "SwarlexBattery is free software under the GNU GPL v3.", "GNU GPL v3 lisanslı özgür yazılım. Lisansın geçerli resmî metni İngilizcedir." } },
-            { "accept",       new[] { "I accept the license", "Lisansı kabul ediyorum" } },
-            { "optionsH",     new[] { "Options", "Seçenekler" } },
-            { "optionsS",     new[] { "Choose where to install and what to set up.", "Nereye kurulacağını ve nelerin ayarlanacağını seç." } },
-            { "folder",       new[] { "Install folder:", "Kurulum klasörü:" } },
-            { "browse",       new[] { "Browse...", "Gözat..." } },
-            { "startMenu",    new[] { "Start menu shortcut", "Başlat menüsü kısayolu" } },
-            { "desktop",      new[] { "Desktop shortcut", "Masaüstü kısayolu" } },
-            { "autostart",    new[] { "Start with Windows", "Windows ile başlat" } },
-            { "launch",       new[] { "Start SwarlexBattery when setup finishes", "Kurulum bitince SwarlexBattery'yi başlat" } },
-            { "installingH",  new[] { "Installing", "Kuruluyor" } },
-            { "installingS",  new[] { "Please wait...", "Lütfen bekle..." } },
-            { "doneH",        new[] { "Done", "Tamamlandı" } },
-            { "doneS",        new[] { "SwarlexBattery is installed.", "SwarlexBattery kuruldu." } },
+                                      "SwarlexBattery, kablosuz mouse, klavye ve kulaklığının pilini sistem tepsisinde, saatin yanında gösterir.\r\n\r\nSadece senin kullanıcın için kurulur ve yönetici izni gerektirmez.",
+                                      "SwarlexBattery zeigt den Akkustand deiner kabellosen Maus, Tastatur und deines Headsets im Infobereich neben der Uhr.\r\n\r\nEs wird nur für deinen Benutzer installiert und braucht keine Administratorrechte.",
+                                      "SwarlexBattery muestra la batería de tu ratón, teclado y auriculares inalámbricos en la bandeja del sistema, junto al reloj.\r\n\r\nSe instala solo para tu usuario y no necesita permisos de administrador.",
+                                      "SwarlexBattery mostra la batteria di mouse, tastiera e cuffie wireless nell'area di notifica, accanto all'orologio.\r\n\r\nViene installato solo per il tuo utente e non richiede diritti di amministratore." } },
+            { "upgrade",      new[] { "SwarlexBattery {0} is already installed. It will be upgraded; your settings are kept.", "SwarlexBattery {0} zaten kurulu. Yükseltilecek; ayarların korunur.",
+                                      "SwarlexBattery {0} ist bereits installiert. Es wird aktualisiert; deine Einstellungen bleiben erhalten.",
+                                      "SwarlexBattery {0} ya está instalado. Se actualizará; tu configuración se conserva.",
+                                      "SwarlexBattery {0} è già installato. Verrà aggiornato; le tue impostazioni restano." } },
+            { "language",     new[] { "Language:", "Dil:", "Sprache:", "Idioma:", "Lingua:" } },
+            { "licenseH",     new[] { "License", "Lisans", "Lizenz", "Licencia", "Licenza" } },
+            { "licenseS",     new[] { "SwarlexBattery is free software under the GNU GPL v3.", "GNU GPL v3 lisanslı özgür yazılım. Lisansın geçerli resmî metni İngilizcedir.",
+                                      "Freie Software unter der GNU GPL v3. Rechtsgültig ist der englische Lizenztext.",
+                                      "Software libre bajo la GNU GPL v3. El texto oficial de la licencia es el inglés.",
+                                      "Software libero con licenza GNU GPL v3. Il testo ufficiale della licenza è quello inglese." } },
+            { "accept",       new[] { "I accept the license", "Lisansı kabul ediyorum", "Ich akzeptiere die Lizenz", "Acepto la licencia", "Accetto la licenza" } },
+            { "optionsH",     new[] { "Options", "Seçenekler", "Optionen", "Opciones", "Opzioni" } },
+            { "optionsS",     new[] { "Choose where to install and what to set up.", "Nereye kurulacağını ve nelerin ayarlanacağını seç.", "Wähle den Installationsort und was eingerichtet wird.",
+                                      "Elige dónde instalar y qué configurar.", "Scegli dove installare e cosa configurare." } },
+            { "folder",       new[] { "Install folder:", "Kurulum klasörü:", "Installationsordner:", "Carpeta de instalación:", "Cartella di installazione:" } },
+            { "browse",       new[] { "Browse...", "Gözat...", "Durchsuchen...", "Examinar...", "Sfoglia..." } },
+            { "startMenu",    new[] { "Start menu shortcut", "Başlat menüsü kısayolu", "Verknüpfung im Startmenü", "Acceso directo en el menú Inicio", "Collegamento nel menu Start" } },
+            { "desktop",      new[] { "Desktop shortcut", "Masaüstü kısayolu", "Verknüpfung auf dem Desktop", "Acceso directo en el escritorio", "Collegamento sul desktop" } },
+            { "autostart",    new[] { "Start with Windows", "Windows ile başlat", "Mit Windows starten", "Iniciar con Windows", "Avvia con Windows" } },
+            { "launch",       new[] { "Start SwarlexBattery when setup finishes", "Kurulum bitince SwarlexBattery'yi başlat", "SwarlexBattery nach der Installation starten",
+                                      "Iniciar SwarlexBattery al terminar", "Avvia SwarlexBattery al termine" } },
+            { "installingH",  new[] { "Installing", "Kuruluyor", "Installation", "Instalando", "Installazione" } },
+            { "installingS",  new[] { "Please wait...", "Lütfen bekle...", "Bitte warten...", "Espera, por favor...", "Attendere..." } },
+            { "doneH",        new[] { "Done", "Tamamlandı", "Fertig", "Listo", "Fatto" } },
+            { "doneS",        new[] { "SwarlexBattery is installed.", "SwarlexBattery kuruldu.", "SwarlexBattery ist installiert.", "SwarlexBattery está instalado.", "SwarlexBattery è installato." } },
             { "done",         new[] { "The battery icon appears next to the clock. Left click shows the details, right click opens the menu.\r\n\r\nUpdates are offered in the right-click menu. You can uninstall it from Settings > Apps.",
-                                      "Pil ikonu saatin yanında görünür. Sol tık detayları, sağ tık menüyü açar.\r\n\r\nGüncellemeler sağ tık menüsünde çıkar. Ayarlar > Uygulamalar'dan kaldırabilirsin." } },
-            { "back",         new[] { "< Back", "< Geri" } },
-            { "next",         new[] { "Next >", "İleri >" } },
-            { "install",      new[] { "Install", "Kur" } },
-            { "finish",       new[] { "Finish", "Bitir" } },
-            { "cancel",       new[] { "Cancel", "İptal" } },
-            { "cancelQ",      new[] { "Cancel the setup?", "Kurulum iptal edilsin mi?" } },
-            { "stStop",       new[] { "Closing the running SwarlexBattery...", "Çalışan SwarlexBattery kapatılıyor..." } },
-            { "stCopy",       new[] { "Copying files...", "Dosyalar kopyalanıyor..." } },
-            { "stShortcuts",  new[] { "Creating shortcuts...", "Kısayollar oluşturuluyor..." } },
-            { "stRegister",   new[] { "Registering in Settings > Apps...", "Ayarlar > Uygulamalar'a kaydediliyor..." } },
-            { "failed",       new[] { "Setup failed:\r\n{0}", "Kurulum başarısız:\r\n{0}" } },
-            { "unQ",          new[] { "Uninstall SwarlexBattery?", "SwarlexBattery kaldırılsın mı?" } },
-            { "unSettings",   new[] { "Also delete your SwarlexBattery settings and logs?", "SwarlexBattery ayarların ve günlüklerin de silinsin mi?" } },
-            { "unDone",       new[] { "SwarlexBattery was uninstalled.", "SwarlexBattery kaldırıldı." } },
-            { "unTitle",      new[] { "Uninstall SwarlexBattery", "SwarlexBattery'yi kaldır" } },
+                                      "Pil ikonu saatin yanında görünür. Sol tık detayları, sağ tık menüyü açar.\r\n\r\nGüncellemeler sağ tık menüsünde çıkar. Ayarlar > Uygulamalar'dan kaldırabilirsin.",
+                                      "Das Akkusymbol erscheint neben der Uhr. Linksklick zeigt die Details, Rechtsklick öffnet das Menü.\r\n\r\nUpdates werden im Rechtsklick-Menü angeboten. Deinstallieren kannst du es unter Einstellungen > Apps.",
+                                      "El icono de la batería aparece junto al reloj. Clic izquierdo muestra los detalles, clic derecho abre el menú.\r\n\r\nLas actualizaciones se ofrecen en el menú del clic derecho. Puedes desinstalarlo en Configuración > Aplicaciones.",
+                                      "L'icona della batteria compare accanto all'orologio. Clic sinistro mostra i dettagli, clic destro apre il menu.\r\n\r\nGli aggiornamenti vengono offerti nel menu del clic destro. Puoi disinstallarlo da Impostazioni > App." } },
+            { "back",         new[] { "< Back", "< Geri", "< Zurück", "< Atrás", "< Indietro" } },
+            { "next",         new[] { "Next >", "İleri >", "Weiter >", "Siguiente >", "Avanti >" } },
+            { "install",      new[] { "Install", "Kur", "Installieren", "Instalar", "Installa" } },
+            { "finish",       new[] { "Finish", "Bitir", "Fertigstellen", "Finalizar", "Fine" } },
+            { "cancel",       new[] { "Cancel", "İptal", "Abbrechen", "Cancelar", "Annulla" } },
+            { "cancelQ",      new[] { "Cancel the setup?", "Kurulum iptal edilsin mi?", "Installation abbrechen?", "¿Cancelar la instalación?", "Annullare l'installazione?" } },
+            { "stStop",       new[] { "Closing the running SwarlexBattery...", "Çalışan SwarlexBattery kapatılıyor...", "Laufendes SwarlexBattery wird beendet...",
+                                      "Cerrando SwarlexBattery en ejecución...", "Chiusura di SwarlexBattery in esecuzione..." } },
+            { "stCopy",       new[] { "Copying files...", "Dosyalar kopyalanıyor...", "Dateien werden kopiert...", "Copiando archivos...", "Copia dei file..." } },
+            { "stShortcuts",  new[] { "Creating shortcuts...", "Kısayollar oluşturuluyor...", "Verknüpfungen werden erstellt...", "Creando accesos directos...", "Creazione dei collegamenti..." } },
+            { "stRegister",   new[] { "Registering in Settings > Apps...", "Ayarlar > Uygulamalar'a kaydediliyor...", "Eintrag unter Einstellungen > Apps...",
+                                      "Registrando en Configuración > Aplicaciones...", "Registrazione in Impostazioni > App..." } },
+            { "failed",       new[] { "Setup failed:\r\n{0}", "Kurulum başarısız:\r\n{0}", "Installation fehlgeschlagen:\r\n{0}", "La instalación falló:\r\n{0}", "Installazione non riuscita:\r\n{0}" } },
+            { "unQ",          new[] { "Uninstall SwarlexBattery?", "SwarlexBattery kaldırılsın mı?", "SwarlexBattery deinstallieren?", "¿Desinstalar SwarlexBattery?", "Disinstallare SwarlexBattery?" } },
+            { "unSettings",   new[] { "Also delete your SwarlexBattery settings and logs?", "SwarlexBattery ayarların ve günlüklerin de silinsin mi?",
+                                      "Auch die Einstellungen und Protokolle von SwarlexBattery löschen?", "¿Eliminar también la configuración y los registros de SwarlexBattery?",
+                                      "Eliminare anche le impostazioni e i log di SwarlexBattery?" } },
+            { "unDone",       new[] { "SwarlexBattery was uninstalled.", "SwarlexBattery kaldırıldı.", "SwarlexBattery wurde deinstalliert.", "SwarlexBattery se ha desinstalado.", "SwarlexBattery è stato disinstallato." } },
+            { "unTitle",      new[] { "Uninstall SwarlexBattery", "SwarlexBattery'yi kaldır", "SwarlexBattery deinstallieren", "Desinstalar SwarlexBattery", "Disinstalla SwarlexBattery" } },
         };
-        public static string Get(string k, params object[] a) { string[] v; if (!T.TryGetValue(k, out v)) return k; var f = Tr ? v[1] : v[0]; return a.Length > 0 ? string.Format(f, a) : f; }
+        public static string Get(string k, params object[] a)
+        {
+            string[] v; if (!T.TryGetValue(k, out v)) return k;
+            var f = Lang < v.Length ? v[Lang] : v[0];
+            return a.Length > 0 ? string.Format(f, a) : f;
+        }
     }
 
     static class Installer
@@ -147,10 +175,7 @@ namespace SwarlexBatterySetup
                 else if (run.GetValue(AppName) != null) run.DeleteValue(AppName, false);
             }
 
-            // the language picked in the wizard is the app's language too; the wizard itself is English or Turkish,
-            // so English on a German, Spanish or Italian Windows means the app's own language for it
-            string sys = Thread.CurrentThread.CurrentUICulture.TwoLetterISOLanguageName;
-            SetAppLanguage(S.Tr ? "tr" : (sys == "de" || sys == "es" || sys == "it") ? sys : "en");
+            SetAppLanguage(S.Code);   // the language picked in the wizard is the app's language too
 
             progress(S.Get("stRegister"), 85);
             using (var k = Registry.CurrentUser.CreateSubKey(UninstallKey))
@@ -266,8 +291,8 @@ namespace SwarlexBatterySetup
             upgradeText.SetBounds(0, 116, 550, 44); upgradeText.ForeColor = Color.FromArgb(0, 95, 184);
             langLabel.SetBounds(0, 186, 80, 24); langLabel.TextAlign = ContentAlignment.MiddleLeft;
             lang.SetBounds(84, 186, 160, 24); lang.DropDownStyle = ComboBoxStyle.DropDownList;
-            lang.Items.AddRange(new object[] { "English", "Türkçe" }); lang.SelectedIndex = S.Tr ? 1 : 0;
-            lang.SelectedIndexChanged += (s, e) => { S.Tr = lang.SelectedIndex == 1; ApplyTexts(); };
+            lang.Items.AddRange(S.Names); lang.SelectedIndex = S.Lang;
+            lang.SelectedIndexChanged += (s, e) => { S.Lang = Math.Max(0, lang.SelectedIndex); ApplyTexts(); };
             p0.Controls.AddRange(new Control[] { welcomeText, upgradeText, langLabel, lang });
 
             // 1 license
@@ -385,7 +410,7 @@ namespace SwarlexBatterySetup
             foreach (var x in args)
             {
                 if (x.StartsWith("/dir:", StringComparison.OrdinalIgnoreCase)) dirArg = x.Substring(5);
-                else if (x.StartsWith("/lang:", StringComparison.OrdinalIgnoreCase)) S.Tr = x.Substring(6).Equals("tr", StringComparison.OrdinalIgnoreCase);
+                else if (x.StartsWith("/lang:", StringComparison.OrdinalIgnoreCase)) S.Lang = Math.Max(0, Array.IndexOf(S.Codes, x.Substring(6).ToLowerInvariant()));
                 else a.Add(x);
             }
             bool silent = a.Contains("/silent") || a.Contains("/S");

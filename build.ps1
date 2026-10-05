@@ -103,6 +103,16 @@ $cscArgs = @('/nologo', '/target:winexe', '/optimize+', '/platform:anycpu', '/co
     @($resArgs) + @($sources) + @($asmInfo)
 & $csc @cscArgs | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "csc failed ($LASTEXITCODE)" }
+
+# ---- tests (tests\Tests.cs): compiled with the same sources and the setup's, run here; a failure stops the build
+$tmpTests = Join-Path $work 'Tests.exe'
+$testArgs = @('/target:exe', "/out:$tmpTests", '/main:SwarlexBatteryTests.Program') +
+    @($cscArgs | Where-Object { $_ -notmatch '^/(target|out|win32icon|win32manifest):' }) +
+    @((Join-Path $here 'core\Setup.cs'), (Join-Path $here 'tests\Tests.cs'))
+& $csc @testArgs | Out-Host
+if ($LASTEXITCODE -ne 0) { throw "csc (tests) failed ($LASTEXITCODE)" }
+& $tmpTests | Out-Host
+if ($LASTEXITCODE -ne 0) { throw "tests failed" }
 # a copy started from dist\ keeps the exe locked: a running exe can be renamed, so move it aside
 if (Test-Path -LiteralPath $exe) {
     try { [IO.File]::Open($exe, 'Open', 'ReadWrite', 'None').Dispose() }
