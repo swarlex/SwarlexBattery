@@ -134,7 +134,7 @@ namespace SwarlexBattery
             switch (vid)
             {
                 case 0x1532: return "razer"; case 0x046D: return "logitech"; case 0x1038: return "steelseries";
-                case 0x03F0: return "hyperx"; case 0x1B1C: return "corsair"; case 0x248A: case 0x1915: return "darmoshark"; default: return "atk";
+                case 0x03F0: return "hyperx"; case 0x1B1C: return "corsair"; case 0x248A: case 0x1915: return "darmoshark"; case 0x054C: return "playstation"; case 0x057E: return "nintendo"; case 0x2DC8: return "8bitdo"; default: return "atk";
             }
         }
 
@@ -153,11 +153,19 @@ namespace SwarlexBattery
             list.AddRange(slow);
             if (Config.Bool(S("hid"), true)) ReadHid(list);
             if (Config.Bool(S("xinput"), true))
-                foreach (var s in Gamepad.List())
-                {
-                    var p = s.Split('|');
-                    Add(list, new Gadget { Id = "xinput-" + p[0], Name = Strings.T("controller", int.Parse(p[0]) + 1), Kind = "gamepad", Pct = int.Parse(p[2]), Online = true, Approx = true });
-                }
+            {
+                // An Xbox pad on Bluetooth is also an XInput pad: XInput only knows four coarse levels,
+                // Windows' Bluetooth level is the real one. While as many Bluetooth controllers are
+                // connected as XInput reports, the XInput entries are those same pads and are left out.
+                var pads = Gamepad.List();
+                int btPads = list.Count(g => g.Id.StartsWith("bt-") && g.Kind == "gamepad" && g.Online);
+                if (pads.Length > btPads)
+                    foreach (var s in pads)
+                    {
+                        var p = s.Split('|');
+                        Add(list, new Gadget { Id = "xinput-" + p[0], Name = Strings.T("controller", int.Parse(p[0]) + 1), Kind = "gamepad", Pct = int.Parse(p[2]), Online = true, Approx = true });
+                    }
+            }
             ReadExternal(list);
             return list;
         }

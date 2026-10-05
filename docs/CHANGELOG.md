@@ -2,6 +2,15 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.5.3
+- Game controllers: PS5 DualSense / DualSense Edge and PS4 DualShock 4 (USB, and Bluetooth while Steam or
+  a game uses them), Nintendo Switch Pro Controller and Joy-Con (Bluetooth), 8BitDo in D-input mode.
+  Protocols from HaloBattery (MIT), after the Linux hid-playstation driver and SDL. Listen only, except one
+  read-only "device info" request to Switch controllers.
+- An Xbox pad on Bluetooth is no longer shown twice (as a Bluetooth device and as an XInput pad).
+- XInput pads that report an unknown battery type no longer show a made-up level.
+- README: new screenshots of the flyout, the menu and the tray icons.
+
 ## 1.5.2
 - New menu item **Diagnostics…**: writes `%APPDATA%\SwarlexBattery\diagnostics.txt` and opens it - what
   is shown, a fresh read of the supported devices, the last protocol steps, Bluetooth levels, all HID
