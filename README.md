@@ -39,7 +39,7 @@ right half the headset. Left click for details, right click for the menu.
 - **Light:** one small C# program, about 10 MB of memory, no services, no vendor software.
 - **Low battery notifications**, quiet while a fullscreen game is running.
 - **Updates itself** from this page when you click *Update* (SHA-256 checked).
-- **English and Turkish**, free and open source (GPL-3.0).
+- **Light and dark** like your taskbar; **English, Turkish, German, Spanish and Italian**; free and open source (GPL-3.0).
 
 ## Install
 
@@ -104,12 +104,14 @@ published protocols. **Not working for you?** Right-click the tray icon > *Diagn
 <details>
 <summary>Settings</summary>
 
-The right-click menu has *Start with Windows*, *Language* and *Check for updates*. More in
+The right-click menu has *Start with Windows*, *Language*, *Percentage in the icon*, *Get beta versions* and
+*Check for updates*. More in
 `%APPDATA%\SwarlexBattery\config.json`:
 
 | Setting | Effect |
 |---|---|
-| `"language": "en"` / `"tr"` / `"auto"` | interface language |
+| `"language": "auto"` / `"en"` / `"tr"` / `"de"` / `"es"` / `"it"` | interface language |
+| `"theme": { "mode": "dark" }` | always dark (`"light"`: always light; `"auto"`: like the taskbar) |
 | `"plugins": { "gadgets": { "combine": false } }` | one tray icon per device |
 | `"plugins": { "gadgets": { "lowThreshold": 20 } }` | low battery notification threshold (%) |
 | `"plugins": { "gadgets": { "interval": 60 } }` | seconds between battery reads (default 30; 5 while the panel is open) |
