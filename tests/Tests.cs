@@ -43,7 +43,7 @@ namespace SwarlexBatteryTests
         {
             // the defaults only: the user's own config.json is never read
             Program_.Init();
-            foreach (var test in new Action[] { Texts, SetupTexts, Atk, RazerMtk, SteelSeries, Logitech, Names, Versions, LowBattery, NoLevelNote, TrayIcon, TimeLeft })
+            foreach (var test in new Action[] { Texts, SetupTexts, Atk, RazerMtk, SteelSeries, NovaElite, CloudIIIS, Centurion, GWolves, Logitech, Names, Versions, LowBattery, NoLevelNote, TrayIcon, TimeLeft })
             {
                 try { test(); }
                 catch (Exception e) { failed++; Console.WriteLine("FAIL: " + test.Method.Name + " threw " + (e.InnerException ?? e).Message); }
@@ -147,6 +147,75 @@ namespace SwarlexBatteryTests
             Check((bool)Private(typeof(Hid), "Ss7Plus", Hex("B0 02 03 00"), o) && o.Level == 75 && o.Approx && !o.Charging, "Arctis 7+: step 3 = ~75 %");
             o = new Reading();
             Check((bool)Private(typeof(Hid), "SsNova5", Hex("B0 03 00 55 01"), o) && o.Level == 85 && o.Charging, "Arctis Nova 5: 85 %, charging");
+        }
+
+        static void NovaElite()
+        {
+            // the direct reply a real station sent while SteelSeries GG showed 31 % (HaloBattery #138); power 08 = on
+            var st = new[] { -1, 0, -1 };
+            var reply = new byte[64]; Array.Copy(Hex("01 B0 00 00 01 00 1F 64"), reply, 8); reply[14] = 0x08; reply[15] = 0x08;
+            Check(Hid.EliteParse(reply, st), "Nova Elite: direct reply recognised");
+            Equal(31, Hid.EliteLevel(st), "Nova Elite: 31 %");
+            Equal(0, st[1], "Nova Elite: on battery");
+            st = new[] { -1, 0, -1 };
+            Hid.EliteParse(Hex("07 B7 50 64 02 00"), st); Hid.EliteParse(Hex("07 B5 00 00 08 00"), st);
+            Check(Hid.EliteLevel(st) == 80 && st[1] == 1, "Nova Elite: 07 b7 frame, 80 %, charging");
+            st = new[] { -1, 0, -1 };
+            Hid.EliteParse(Hex("07 B7 50 64 08 00"), st); Hid.EliteParse(Hex("07 B5 00 00 01 00"), st);
+            Equal(-1, Hid.EliteLevel(st), "Nova Elite: headset offline gives no level");
+            st = new[] { -1, 0, -1 };
+            var zero = (byte[])reply.Clone(); zero[6] = 0;
+            Hid.EliteParse(zero, st);
+            Equal(-1, Hid.EliteLevel(st), "Nova Elite: a switched-off headset's 0 % is not shown");
+            Check(!Hid.EliteParse(Hex("07 C0 00 00 00"), new[] { -1, 0, -1 }), "Nova Elite: settings frames ignored");
+        }
+
+        static void CloudIIIS()
+        {
+            Equal("0C-02-03-01-00-06", BitConverter.ToString(Hid.Cloud3SRequest(0x06)), "Cloud III S: battery request");
+            var v = Hid.Cloud3SParse(Hex("0C 02 03 01 00 06 59 00"));
+            Check(v != null && v[0] == 0x06 && v[1] == 89, "Cloud III S: 89 % (the level NGENUITY showed)");
+            v = Hid.Cloud3SParse(Hex("0C 02 03 01 00 48 01 00"));
+            Check(v != null && v[0] == 0x48 && v[1] == 1, "Cloud III S: charging");
+            Check(Hid.Cloud3SParse(Hex("0C 02 03 01 00 06 FF 00")) == null, "Cloud III S: ff = no value");
+            v = Hid.Cloud3SParse(Hex("0D 00 00 00 01 2A 00"));
+            Check(v != null && v[0] == 0x06 && v[1] == 42, "Cloud III S: pushed battery notification");
+        }
+
+        static void Centurion()
+        {
+            var f = Hid.CentFrame(new byte[] { 0x00, 0x01, 0x00, 0x01 });
+            Check(f.Length == 64 && f[0] == 0x51 && f[1] == 5 && f[2] == 0 && f[3] == 0x00 && f[4] == 0x01 && f[6] == 0x01, "Centurion: frame 51 <len> <flags> <payload>");
+            var p = Hid.CentPayload(f);
+            Check(p != null && p.Length == 4 && p[1] == 0x01, "Centurion: payload back from a frame");
+            Check(Hid.CentPayload(Hex("50 05 00 01 02")) == null, "Centurion: other report ids ignored");
+            var b = Hid.CentBattery(new byte[] { 0x47, 0x00, 0x02 });
+            Check(b != null && b[0] == 71 && b[1] == 1, "Centurion: 71 %, charging over USB");
+            b = Hid.CentBattery(new byte[] { 0x47, 0x00, 0x00 });
+            Check(b != null && b[1] == 0, "Centurion: discharging");
+            Check(Hid.CentBattery(new byte[] { 0xC8 }) == null, "Centurion: above 100 refused");
+            var legacy = Hex("51 0B 00 00 00 00 00 00 04 00 3C 00 02");
+            var l = Hid.CentLegacy(legacy);
+            Check(l != null && l[0] == 60 && l[1] == 1, "Centurion legacy reply: 60 %, charging");
+        }
+
+        static void GWolves()
+        {
+            var v = Hid.W83Parse(Hex("00 A1 00 02 02 00 83 01 4B 00"));
+            Check(v != null && v[0] == 75 && v[1] == 1, "w83: 75 %, charging");
+            Check(Hid.W83Parse(Hex("00 A0 00 02 02 00 83 01 4B 00")) == null, "w83: mouse not active");
+            v = Hid.W83OldParse(Hex("00 A1 02 8F 00 00 3C"));
+            Check(v != null && v[0] == 60 && v[1] == 0, "w83 old: 60 % with the report id byte");
+            v = Hid.W83OldParse(Hex("A1 02 8F 00 01 50"));
+            Check(v != null && v[0] == 80 && v[1] == 1, "w83 old: 80 % without it");
+            Check(Hid.W83OldParse(Hex("00 A1 02 8F 00 00 C8")) == null, "w83 old: above 100 refused");
+            var models = (System.Collections.IDictionary)typeof(Hid).GetField("GWolvesModels", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
+            Equal(48, models.Count, "G-Wolves: every model pid of the web driver's list");
+            Func<int, string> desc = pid => { var m = models[pid]; var t = m.GetType(); return t.GetField("Name").GetValue(m) + "|" + ((int)t.GetField("Receiver").GetValue(m)).ToString("X4") + "|" + t.GetField("Old").GetValue(m) + "|" + t.GetField("Wired").GetValue(m); };
+            Equal("G-Wolves HSK Pro ACE|5803|True|False", desc(0x5803), "G-Wolves: HSK Pro ACE receiver");
+            Equal("G-Wolves HSK Pro ACE|5803|True|True", desc(0x5804), "G-Wolves: HSK Pro ACE cable");
+            Equal("G-Wolves HTM Plus|3817|False|True", desc(0x3808), "G-Wolves: HTM Plus cable, new exchange");
+            Equal("G-Wolves HSK Pro|5817|True|False", desc(0x5807), "G-Wolves: HSK Pro second receiver");
         }
 
         static void Logitech()

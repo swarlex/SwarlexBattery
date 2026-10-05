@@ -63,7 +63,8 @@ and keeps your settings; uninstall from **Settings > Apps**.
 <summary>Portable version, silent install</summary>
 
 - **Portable:** `SwarlexBattery.exe` from the release runs without installing; enable *Start with
-  Windows* from its menu.
+  Windows* from its menu. Put an empty `portable.txt` next to it and the settings, log and battery history
+  are kept in a `data` folder beside the exe instead of `%APPDATA%` (e.g. on a USB stick).
 - **Silent install:** `SwarlexBattery-Setup.exe /silent [/dir:<folder>] [/noautostart] [/lang:en|tr|de|es|it]`
 - **Silent uninstall:** `"%LOCALAPPDATA%\Programs\SwarlexBattery\Uninstall.exe" /uninstall /silent`
 </details>
@@ -73,13 +74,13 @@ and keeps your settings; uninstall from **Settings > Apps**.
 | Brand | Devices |
 |---|---|
 | **Razer** | BlackShark V2 HyperSpeed / V2 Pro, Barracuda Pro, wireless Razer mice and keyboards |
-| **Logitech / Astro** | Mice and keyboards on Lightspeed, Unifying and Bolt receivers; G533 / 535 / 633 / 635 / 733 / 933 / 935, G PRO X (2) headsets; Astro A50 Gen 5 |
-| **SteelSeries** | Arctis Nova 7 / 7X / 7P / 5 / 3, Arctis 7+, Arctis Nova Pro Wireless, GameBuds, Arctis 1 / 7 / 7P / 7X / 9 / Pro Wireless (2019); Aerox 3 / 5 / 9, Rival 3 Wireless |
-| **HyperX** | Cloud II Wireless, Cloud III Wireless, Cloud Alpha 2 |
+| **Logitech / Astro** | Mice and keyboards on Lightspeed, Unifying and Bolt receivers; G533 / 535 / 633 / 635 / 733 / 933 / 935, G PRO X (2) headsets, G PRO X 2 LIGHTSPEED (Centurion); Astro A50 Gen 5 |
+| **SteelSeries** | Arctis Nova 7 / 7X / 7P / 5 / 3, Arctis 7+, Arctis Nova Pro Wireless, Arctis Nova Elite, GameBuds, Arctis 1 / 7 / 7P / 7X / 9 / Pro Wireless (2019); Aerox 3 / 5 / 9, Rival 3 Wireless |
+| **HyperX** | Cloud II Wireless, Cloud III Wireless, Cloud III S Wireless, Cloud Alpha 2 |
 | **Corsair** | Void v2 Wireless, Virtuoso Max, HS80 Max |
 | **ATK / VXE / Pulsar** | MAD series and mice with the same protocol |
 | **ASUS** | ROG Gladius III, Chakram (X), Keris, Harpe Ace, Spatha X, Pugio II, Strix Impact II Wireless; TUF M4 Wireless and more |
-| **WLmouse / LAMZU / G-Wolves** | Beast X (Max / Mini Pro), Maya X, HTS Plus, Lycan, HTXU, Fenrir, HTX Mini, WARG |
+| **WLmouse / LAMZU / G-Wolves** | Beast X (Max / Mini Pro), Maya X; G-Wolves on the shared 8K receiver (HTS Plus, Lycan, HTXU, Fenrir, HTX Mini, WARG) and the models with a receiver of their own (HSK Pro / Plus / Lite / ACE, HTS, HTX, HTR, HT-S2, Fenrir, VUK, HTM Plus) |
 | **MCHOSE / AM Infinity** | M7 / L7 / A7 family, G7; AM Infinity 8K |
 | **Audeze / JBL** | Maxwell (and Maxwell 2), Quantum 910 Wireless |
 | **Keyboards** | AULA F75 (2.4 GHz), Keychron (Ultra-Link 8K, M5 mouse), Lofree Hyzen; Razer and Logitech wireless keyboards |

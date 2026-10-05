@@ -2,6 +2,24 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.10.5
+New devices from HaloBattery 1.14.0, and a portable mode.
+
+### Added
+- **SteelSeries Arctis Nova Elite** (base station 1038:2244): level and charging of the headset, without
+  SteelSeries GG. A switched-off headset, which the station reports as 0 %, shows no level.
+- **HyperX Cloud III S Wireless** (03F0:02CC and 03F0:06BE): level and charging, without NGENUITY.
+- **Logitech G PRO X 2 LIGHTSPEED** (046D:0AF7) on its receiver, which speaks Logitech's Centurion protocol
+  instead of HID++: level and charging, without G HUB.
+- **G-Wolves models with a receiver of their own** (HSK Pro / Plus / Lite and their ACE versions, HTS, HTX, HTR,
+  HT-S2, Fenrir, VUK, HTM Plus), from the model list of G-Wolves' web driver, on the receiver or the cable.
+- **Portable mode**: an empty `portable.txt` next to `SwarlexBattery.exe` keeps the settings, log and battery
+  history in a `data` folder beside it. A folder that cannot be written falls back to `%APPDATA%`.
+
+All of these send read-only requests. The Arctis Nova Elite, Cloud III S and G PRO X 2 protocols are
+confirmed on real hardware in HaloBattery; the G-Wolves models are not confirmed anywhere yet. None of them
+is tested with SwarlexBattery yet: a diagnostics report from an owner is welcome.
+
 ## 1.10.4
 The installer speaks German, Spanish and Italian too, and every build is now checked by automatic tests.
 

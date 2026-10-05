@@ -181,6 +181,7 @@ namespace SwarlexBattery
             sb.AppendLine("SwarlexBattery v" + Program.AppVersion + "  |  " + Environment.OSVersion.VersionString + "  |  " + DateTime.Now.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture));
             sb.AppendLine();
             sb.AppendLine("Windows notifications for this app: " + Toasts.Setting());
+            sb.AppendLine("Settings and log: " + (Program.Portable ? "portable (the data folder next to the exe)" : "%APPDATA% / %LOCALAPPDATA%"));
             sb.AppendLine();
             sb.AppendLine("=== Shown now ===");
             if (snap == null || snap.Items.Count == 0) sb.AppendLine("(nothing)");
