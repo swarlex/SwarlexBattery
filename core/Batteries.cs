@@ -137,7 +137,9 @@ namespace SwarlexBattery
             steps.Sort();
             double step = Math.Max(1, steps[steps.Count / 2]);
             double since = Math.Max(0, use - last[0]);
-            if (since > 0) rate = Math.Min(rate, step / since);
+            // slower now, but at most 3 times slower than the fitted rate: a device left idle for hours would
+            // otherwise get an ever longer estimate
+            if (since > 0) rate = Math.Max(rate / 3, Math.Min(rate, step / since));
             double hours = (Math.Min(pct, last[1]) / rate - since) / 3600;
             return hours > 0 && hours < 500 ? hours : -1;
         }
@@ -517,6 +519,8 @@ namespace SwarlexBattery
             foreach (var g in shown)
             {
                 string state = !g.Online ? "off" : (g.Pct <= lowFor(g) && !g.Charging) ? "error" : "";
+                // "Coloured icon": the panel follows the tray icon - green while fine, orange near the low level
+                if (state == "" && !Config.Bool("monochrome", true)) state = !g.Charging && g.Pct <= lowFor(g) + 10 ? "warn" : "ok";
                 // a full device on its cable is "full", not "charging"; coarse levels say so
                 string sub = g.Charging && g.Pct >= 100 ? Strings.T("full") : g.Charging ? Strings.T("charging") : !string.IsNullOrEmpty(g.Detail) ? g.Detail : !g.Online ? Strings.T("notConnected") : "";
                 if (g.Approx) sub = string.Join(" - ", new[] { sub, Strings.T("approx") }.Where(x => x != ""));
