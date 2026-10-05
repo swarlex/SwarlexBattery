@@ -2,6 +2,28 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.9.9
+### Added
+- **Corsair Dark Core RGB Pro SE** on its dongle (1B7F), with ckb-next's protocol as HaloBattery reads it: a
+  coarse level (0 / 15 / 30 / 50 / 100 %, marked approximate). Not tested on hardware yet.
+- Changing the theme in Preferences fades the open windows into the new colours instead of flipping them at
+  once.
+
+### Changed
+- A device's **icon** and **low battery level** are picked in a window beside the panel, so the panel no longer
+  grows to twice its height.
+- **JBL Quantum 910**: the receiver is read all the time in the background (as HaloBattery 1.14 does): a level
+  the headset sends between two polls is no longer missed, and a poll never waits for it.
+
+### Fixed
+- Opening *Language* while *Preferences* were open showed the window at its old size and place for a moment.
+
+### Checked
+- The battery maths of every brand compared with HaloBattery 1.14: Logitech (HID++ 1004 / 1000 / 1001 / 1F20 and
+  the voltage curve), Razer, SteelSeries, HyperX, Corsair, PlayStation, Nintendo and the rest match.
+  PlayStation pads report in tenths; SwarlexBattery shows the middle of each tenth (as Linux's own
+  hid-playstation driver does) rather than its bottom.
+
 ## 1.9.8
 ### Added
 - **Charging animation** (Preferences, on by default): the ring of a charging device fills from its level to
