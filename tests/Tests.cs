@@ -1,0 +1,240 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Tests that need no device: protocol parsers fed with frames captured on real hardware, what the panel and the
+// tray show, and the texts of every language. build.ps1 compiles them with the app's sources and runs them;
+// a failing test fails the build (and so a release). They never read or write the user's settings.
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Text.RegularExpressions;
+using System.Web.Script.Serialization;
+using SwarlexBattery;
+
+namespace SwarlexBatteryTests
+{
+    static class Program
+    {
+        static int passed, failed;
+
+        static void Check(bool ok, string what)
+        {
+            if (ok) passed++;
+            else { failed++; Console.WriteLine("FAIL: " + what); }
+        }
+
+        static void Equal<T>(T expected, T actual, string what)
+        {
+            Check(EqualityComparer<T>.Default.Equals(expected, actual), what + " (expected " + expected + ", got " + actual + ")");
+        }
+
+        static byte[] Hex(string s) { return s.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Select(x => Convert.ToByte(x, 16)).ToArray(); }
+
+        // private helpers of the app, called as they are
+        static object Private(Type t, string name, params object[] args)
+        {
+            var m = t.GetMethod(name, BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static);
+            if (m == null) throw new Exception("no method " + t.Name + "." + name);
+            return m.Invoke(null, args);
+        }
+
+        static int Main()
+        {
+            // the defaults only: the user's own config.json is never read
+            Program_.Init();
+            foreach (var test in new Action[] { Texts, SetupTexts, Atk, RazerMtk, SteelSeries, Logitech, Names, Versions, LowBattery, NoLevelNote, TrayIcon, TimeLeft })
+            {
+                try { test(); }
+                catch (Exception e) { failed++; Console.WriteLine("FAIL: " + test.Method.Name + " threw " + (e.InnerException ?? e).Message); }
+            }
+            Console.WriteLine("tests: " + passed + " passed, " + failed + " failed");
+            return failed == 0 ? 0 : 1;
+        }
+
+        // ------------------------------------------------------------ texts
+        static readonly Regex Placeholder = new Regex(@"\{\d+\}");
+        static string Holes(string s) { return string.Join(",", Placeholder.Matches(s).Cast<Match>().Select(m => m.Value).OrderBy(x => x)); }
+
+        static void Texts()
+        {
+            var js = new JavaScriptSerializer();
+            Func<string, Dictionary<string, object>> load = code =>
+            {
+                var t = Resources.Text("lang." + code + ".json");
+                Check(t != null, "lang/" + code + ".json is embedded");
+                return t == null ? new Dictionary<string, object>() : js.Deserialize<Dictionary<string, object>>(t);
+            };
+            var en = load("en");
+            Check(en.Count > 40, "en.json has the app's texts");
+            foreach (var l in Strings.Languages)
+            {
+                var code = l[0]; var d = load(code);
+                foreach (var k in en.Keys)
+                {
+                    Check(d.ContainsKey(k), code + ".json has \"" + k + "\"");
+                    if (!d.ContainsKey(k)) continue;
+                    var s = d[k] as string;
+                    Check(!string.IsNullOrWhiteSpace(s), code + ".json \"" + k + "\" is not empty");
+                    if (s != null) Equal(Holes((string)en[k]), Holes(s), code + ".json \"" + k + "\" placeholders");
+                }
+                foreach (var k in d.Keys) Check(en.ContainsKey(k), code + ".json \"" + k + "\" is also in en.json");
+            }
+            // the menu's language list and the embedded files are the same set
+            var files = Assembly.GetExecutingAssembly().GetManifestResourceNames().Where(n => n.StartsWith("lang.")).Select(n => n.Substring(5, n.Length - 10)).OrderBy(x => x);
+            Equal(string.Join(",", Strings.Languages.Select(l => l[0]).OrderBy(x => x)), string.Join(",", files), "every lang/*.json is in the language list");
+            Check(Strings.Has("tr") && !Strings.Has("xx"), "Strings.Has");
+        }
+
+        static void SetupTexts()
+        {
+            var t = (Dictionary<string, string[]>)typeof(SwarlexBatterySetup.S).GetField("T", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
+            Equal(SwarlexBatterySetup.S.Codes.Length, SwarlexBatterySetup.S.Names.Length, "setup: a name for each language");
+            Equal(string.Join(",", Strings.Languages.Select(l => l[0])), string.Join(",", SwarlexBatterySetup.S.Codes), "setup and app have the same languages");
+            foreach (var kv in t)
+            {
+                Equal(SwarlexBatterySetup.S.Codes.Length, kv.Value.Length, "setup text \"" + kv.Key + "\" in every language");
+                foreach (var s in kv.Value)
+                {
+                    Check(!string.IsNullOrWhiteSpace(s), "setup text \"" + kv.Key + "\" is not empty");
+                    Equal(Holes(kv.Value[0]), Holes(s ?? ""), "setup text \"" + kv.Key + "\" placeholders");
+                }
+            }
+        }
+
+        // ------------------------------------------------------------ protocols
+        static void Atk()
+        {
+            int[] v; string why;
+            // VXE MAD 8K receiver (373B:1040), from a diagnostics report: 95 %, on battery, 4097 / 4092 mV
+            Equal(1, Hid.AtkParse(Hex("08 04 00 00 00 02 5F 00 10 01 00 00 00 00 00 00 D7"), out v, out why), "atk: real reply accepted");
+            Check(v != null && v[0] == 95 && v[1] == 0 && v[2] == 4097, "atk: 95 %, on battery, 4097 mV");
+            Equal(1, Hid.AtkParse(Hex("08 04 00 00 00 02 5F 00 0F FC 00 00 00 00 00 00 DD"), out v, out why), "atk: second real reply");
+            Check(v != null && v[0] == 95 && v[2] == 4092, "atk: 4092 mV");
+            Equal(0, Hid.AtkParse(Hex("08 04 00 00 00 02 5F 00 10 01 00 00 00 00 00 00 D8"), out v, out why), "atk: damaged frame skipped");
+            Equal(0, Hid.AtkParse(Hex("0A 04 00 00 00 02 5F 00 10 01 00 00 00 00 00 00 D5"), out v, out why), "atk: pushed event skipped");
+            Equal(0, Hid.AtkParse(Hex("08 04 00 00"), out v, out why), "atk: short frame skipped");
+            // the mouse switched off: level 0 and no voltage - nothing is shown, never "0 %"
+            var off = Hex("08 04 00 00 00 02 00 00 00 00 00 00 00 00 00 00 00"); off[16] = (byte)((0x55 - off.Take(16).Sum(b => b)) & 0xFF);
+            Equal(-1, Hid.AtkParse(off, out v, out why), "atk: mouse off gives no level");
+            var odd = Hex("08 04 00 00 00 02 32 00 01 00 00 00 00 00 00 00 00"); odd[16] = (byte)((0x55 - odd.Take(16).Sum(b => b)) & 0xFF);
+            Equal(-1, Hid.AtkParse(odd, out v, out why), "atk: implausible voltage gives no level");
+            var f = Hid.AtkFrame(17);
+            Check(f.Length == 17 && f[0] == 0x08 && f[1] == 0x04 && f[16] == (byte)((0x55 - 0x0C) & 0xFF), "atk: query frame and its checksum");
+        }
+
+        static void RazerMtk()
+        {
+            // BlackShark V2 HyperSpeed reply to 0x21 (battery): value in byte 13, XOR of bytes 1..61 in byte 62
+            var r = new byte[63];
+            var head = Hex("02 02 6D 00 00 00 05 00 80 80 21 01 01 4E 00 00");
+            Array.Copy(head, r, head.Length);
+            byte x = 0; for (int i = 1; i <= 61; i++) x ^= r[i]; r[62] = x;
+            Equal(0x4E, Hid.MtkParse(r, 0x21), "mtk: battery 78 %");
+            Equal(-1, Hid.MtkParse(r, 0x2A), "mtk: reply to another command skipped");
+            r[13] = 0x4F;
+            Equal(-2, Hid.MtkParse(r, 0x21), "mtk: damaged reply rejected");
+            Equal(-1, Hid.MtkParse(new byte[16], 0x21), "mtk: short report skipped");
+        }
+
+        static void SteelSeries()
+        {
+            var o = new Reading();
+            Check((bool)Private(typeof(Hid), "SsNova7", Hex("B0 03 64 01"), o) && o.Level == 100 && o.Charging, "Arctis Nova 7: 100 %, charging");
+            o = new Reading();
+            Check(!(bool)Private(typeof(Hid), "SsNova7", Hex("B0 03 50 00"), o), "Arctis Nova 7: status 0 = headset off, no level");
+            o = new Reading();
+            Check((bool)Private(typeof(Hid), "Ss7Plus", Hex("B0 02 03 00"), o) && o.Level == 75 && o.Approx && !o.Charging, "Arctis 7+: step 3 = ~75 %");
+            o = new Reading();
+            Check((bool)Private(typeof(Hid), "SsNova5", Hex("B0 03 00 55 01"), o) && o.Level == 85 && o.Charging, "Arctis Nova 5: 85 %, charging");
+        }
+
+        static void Logitech()
+        {
+            int prev = -1;
+            for (int mv = 3000; mv <= 4400; mv += 10)
+            {
+                int p = (int)Private(typeof(Hid), "LogiVoltPct", mv);
+                Check(p >= 0 && p <= 100, "Logitech voltage " + mv + " mV -> 0..100");
+                Check(p >= prev, "Logitech voltage curve never falls (" + mv + " mV)");
+                prev = p;
+            }
+        }
+
+        static void Names()
+        {
+            Equal("Razer BlackShark V2 HyperSpeed", (string)Private(typeof(Hid), "Clean", "Razer BlackShark V2 HS 2.4"), "name: HS 2.4");
+            Equal("MAD 8K", (string)Private(typeof(Hid), "Clean", "MAD 8K DONGLE"), "name: dongle");
+            Equal("G Pro", (string)Private(typeof(Hid), "Clean", "  G Pro   Wireless Receiver "), "name: receiver and spaces");
+        }
+
+        // ------------------------------------------------------------ updates
+        static void Versions()
+        {
+            Check(Updater.Norm("v1.10.2") > Updater.Norm("1.9.0"), "1.10.2 is newer than 1.9.0");
+            Equal(new Version(1, 2, 0), Updater.Norm("1.2"), "1.2 = 1.2.0");
+            Equal(new Version(1, 10, 3), Updater.Norm("V1.10.3.0"), "four parts");
+            Check(Updater.Norm("latest") == null && Updater.Norm(null) == null, "not a version");
+        }
+
+        // ------------------------------------------------------------ what is shown
+        static Gadget G(string id, string kind, int pct, bool charging = false, bool approx = false)
+        {
+            return new Gadget { Id = id, Name = id, Kind = kind, Pct = pct, Charging = charging, Approx = approx, Online = true };
+        }
+
+        static void LowBattery()
+        {
+            int low = (int)Config.Num("plugins.gadgets.lowThreshold", 15);
+            Equal(1, BatteryReader.Build(new List<Gadget> { G("m", "mouse", low) }).Notify.Count, "a notice at the threshold");
+            Equal(0, BatteryReader.Build(new List<Gadget> { G("m", "mouse", low + 1) }).Notify.Count, "no notice above it");
+            Equal(0, BatteryReader.Build(new List<Gadget> { G("m", "mouse", 5, true) }).Notify.Count, "no notice while charging");
+            Equal(0, BatteryReader.Build(new List<Gadget> { new Gadget { Id = "m", Name = "m", Kind = "mouse", Pct = 5, Online = false, Asleep = true } }).Notify.Count, "no notice for a sleeping device");
+        }
+
+        static void NoLevelNote()
+        {
+            var note = new Gadget { Id = "nolevel-046D0ACB", Name = "Logitech G435", Kind = "headphones", Pct = -1, Hint = "no level" };
+            var s = BatteryReader.Build(new List<Gadget> { G("m", "mouse", 80), note });
+            var item = s.Items.FirstOrDefault(i => i.Label == "Logitech G435");
+            Check(item != null && item.Value == "" && item.Pct < 0 && item.Sub == "no level", "a device without a level shows the reason, no number");
+            Check(s.Notify.Count == 0, "a device without a level never notifies");
+            Check(s.Icons.All(i => !(i.Tooltip ?? "").Contains("G435") && (i.Rings ?? new double[0]).All(r => r >= 0)), "a device without a level stays out of the tray icon");
+            var only = BatteryReader.Build(new List<Gadget> { note });
+            Check(only.Icons.Count == 1 && only.Icons[0].Dim, "only a note: the dim placeholder icon keeps the menu reachable");
+        }
+
+        static void TrayIcon()
+        {
+            var s = BatteryReader.Build(new List<Gadget> { G("m", "mouse", 60), G("h", "headphones", 30) });
+            Equal(1, s.Icons.Count, "one combined icon");
+            Equal(30, s.Icons[0].Percent, "the icon's number is the lower level");
+            Check(s.Icons[0].Rings.Length == 2 && Math.Abs(s.Icons[0].Rings[0] - 0.6) < 1e-9, "mouse on the left half");
+            var a = BatteryReader.Build(new List<Gadget> { G("m", "mouse", 60), G("x", "gamepad", 25, false, true) });
+            Equal(60, a.Icons[0].Percent, "a coarse level is not shown as a number");
+            Check(BatteryReader.Build(new List<Gadget> { G("k", "keyboard", 50), G("m", "mouse", 90) }).Icons[0].Tooltip.StartsWith(Strings.T("kindMouse")), "the mouse comes first");
+        }
+
+        static void TimeLeft()
+        {
+            Check(BatteryReader.TimeLeft(0.5).Contains("30"), "30 minutes");
+            Check(BatteryReader.TimeLeft(0.01).Contains("5"), "at least 5 minutes");
+            Check(BatteryReader.TimeLeft(12.4).Contains("12"), "whole hours from 10 h");
+        }
+    }
+
+    static class Program_
+    {
+        public static void Init()
+        {
+            CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+            System.Threading.Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;
+            var dir = Path.Combine(Path.GetTempPath(), "swarlexbattery-tests");
+            Directory.CreateDirectory(dir);
+            SwarlexBattery.Program.DataDir = dir; SwarlexBattery.Program.CacheDir = dir;
+            Log.Init(Path.Combine(dir, "test.log"));
+            Config.Data = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(Resources.Text("config.default.json"));
+            Strings.Load("en");
+        }
+    }
+}

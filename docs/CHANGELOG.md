@@ -2,6 +2,18 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.10.4
+The installer speaks German, Spanish and Italian too, and every build is now checked by automatic tests.
+
+### Added
+- **Setup in five languages**: English, Turkish, German, Spanish and Italian, picked from the Windows display
+  language or in the wizard; the choice is also the app's language. `/lang:de|es|it` for a silent install.
+- **Automatic tests** run on every build and on GitHub: battery replies captured on real devices (VXE MAD,
+  BlackShark V2 HyperSpeed, SteelSeries Arctis), the Logitech voltage curve, what the panel and the tray icon
+  show (low-battery notices, devices without a level never shown as a number), version comparison, and that
+  every text exists in every language with the same placeholders. A failing test stops the build, so a
+  broken release cannot be published.
+
 ## 1.10.3
 A device that cannot report its battery is now listed with the reason, instead of being missing.
 
