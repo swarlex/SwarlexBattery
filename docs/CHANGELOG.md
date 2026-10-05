@@ -2,6 +2,16 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.10.3
+A device that cannot report its battery is now listed with the reason, instead of being missing.
+
+### Added
+- **Logitech G435 on its LIGHTSPEED receiver** appears in the panel with a note: the receiver gives no
+  battery level (it would have to be put into its firmware-update mode, which cuts the sound), and the
+  level shows when the headset is connected by Bluetooth. No number is shown for it, and it never enters
+  the tray icon, notifications or the status file. The note goes away while the headset reports its level
+  over Bluetooth.
+
 ## 1.10.2
 The menu stays in place when the language list opens or closes.
 

@@ -54,5 +54,6 @@
   "timeLeftH": "circa {0} h rimanenti",
   "timeLeftM": "circa {0} min rimanenti",
   "iconPercent": "Percentuale nell'icona",
-  "beta": "Ricevi versioni beta"
+  "beta": "Ricevi versioni beta",
+  "noLevelReceiver": "il ricevitore non fornisce il livello della batteria; appare se collegato via Bluetooth"
 }

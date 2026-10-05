@@ -54,5 +54,6 @@
   "timeLeftH": "yaklaşık {0} sa kaldı",
   "timeLeftM": "yaklaşık {0} dk kaldı",
   "iconPercent": "İkonda yüzde göster",
-  "beta": "Beta sürümleri al"
+  "beta": "Beta sürümleri al",
+  "noLevelReceiver": "alıcısı pil seviyesini vermiyor; Bluetooth ile bağlanınca görünür"
 }
