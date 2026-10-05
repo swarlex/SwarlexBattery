@@ -2,6 +2,25 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.9.0
+A beta channel for those who want fixes first, and a round of Windows 10 / 11 compatibility fixes.
+From now on small fixes are published as pre-releases and collected into fewer, larger stable releases.
+
+### Added
+- **Get beta versions** (right-click menu, off by default): also offers pre-releases. Everyone else only
+  gets stable releases.
+
+### Fixed
+- *Diagnostics…* could open an empty or outdated report in Notepad (Windows 11 Notepad keeps a closed
+  file's old tab). Every report is now a new dated file (`diagnostics-YYYYMMDD-HHMMSS.txt`, the last
+  three are kept), written as UTF-8 with a BOM so the Windows 10 Notepad shows Turkish letters correctly.
+- The tray icon is redrawn at the right size when the display scale changes, without a restart.
+- Reading pauses while the PC is locked and runs right away after sleep, so levels are fresh on wake.
+- The dark window frame also works on Windows 10 versions before 20H1.
+- On Windows 10 the low-battery alert uses the tray notification Windows 10 already shows in the
+  notification centre; the Windows 11 notifier is used only on Windows 11.
+- The update check no longer receives a cached, older answer right after a release.
+
 ## 1.8.0
 Windows 10 / 11 notifications instead of tray balloons, the level as a number in the icon if you want
 it, and the flyout now opens in the right place with a second monitor.

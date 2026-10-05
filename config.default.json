@@ -6,7 +6,8 @@
   "update": {
     "repo": "swarlex/SwarlexBattery",
     "check": true,
-    "intervalHours": 6
+    "intervalHours": 6,
+    "beta": false
   },
   "panel": {
     "width": 320,

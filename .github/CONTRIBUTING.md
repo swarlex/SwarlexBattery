@@ -18,7 +18,7 @@ Before you start, look at the [open issues](../../issues): someone may already b
 
    <img src="../docs/images/menu-diagnostics.png" alt="The right-click menu with the Diagnostics item" width="300">
 
-5. The report opens in Notepad. It is `diagnostics.txt` in `%APPDATA%\SwarlexBattery` and starts like this:
+5. The report opens in Notepad. It is `diagnostics-<date>.txt` in `%APPDATA%\SwarlexBattery` and starts like this:
 
    ```
    === Shown now ===
@@ -40,7 +40,7 @@ Before you start, look at the [open issues](../../issues): someone may already b
 Then open a [device report](../../issues/new?template=device_request.yml) and:
 
 - write the device name and how it is connected (receiver, cable or Bluetooth);
-- drag `diagnostics.txt` into the form (type `%APPDATA%\SwarlexBattery` in the File Explorer address
+- drag the newest `diagnostics-….txt` into the form (type `%APPDATA%\SwarlexBattery` in the File Explorer address
   bar to find it). Attach the whole file, not a part of it;
 - if the maker's app shows a battery level, write that level next to the one SwarlexBattery shows.
 

@@ -99,6 +99,12 @@ namespace SwarlexBattery
             return System.Drawing.Rectangle.FromLTRB(left, top, right, bottom);
         }
 
+        // tray icon size for the primary monitor's current scale (it changes live when the user changes it)
+        public static int TrayIconSize() { return Math.Max(16, (int)Math.Round(16 * DpiScale(new System.Drawing.Point(0, 0)))); }
+
+        // Windows 11 is build 22000 and later (the app manifest makes Windows report its real version)
+        public static bool IsWindows11 { get { return Environment.OSVersion.Version.Major >= 10 && Environment.OSVersion.Version.Build >= 22000; } }
+
         // display scale of the monitor under a point (1.0 = 96 dpi)
         public static double DpiScale(System.Drawing.Point p)
         {
@@ -127,7 +133,8 @@ namespace SwarlexBattery
         {
             if (h == IntPtr.Zero) return;
             int round = 2;            DwmSetWindowAttribute(h, 33, ref round, 4);   // DWMWA_WINDOW_CORNER_PREFERENCE = round
-            int d = dark ? 1 : 0;     DwmSetWindowAttribute(h, 20, ref d, 4);       // DWMWA_USE_IMMERSIVE_DARK_MODE
+            int d = dark ? 1 : 0;
+            if (DwmSetWindowAttribute(h, 20, ref d, 4) != 0) DwmSetWindowAttribute(h, 19, ref d, 4);   // DWMWA_USE_IMMERSIVE_DARK_MODE (19 before Windows 10 20H1)
         }
     }
 

@@ -48,7 +48,7 @@ namespace SwarlexBattery
             bool hasRing = rings.Length > 0;
             var inv = CultureInfo.InvariantCulture;
             bool number = hasRing && !spec.Charging && spec.Percent >= 0 && Config.Bool("iconPercent", false);
-            string key = spec.Icon + "|" + string.Join(";", rings.Select(r => r.ToString("0.00", inv))) + "|" + spec.State + "|" + spec.Charging + "|" + spec.Dim + "|" + LightTaskbar + "|" + (number ? spec.Percent : -1);
+            string key = Size + "|" + spec.Icon + "|" + string.Join(";", rings.Select(r => r.ToString("0.00", inv))) + "|" + spec.State + "|" + spec.Charging + "|" + spec.Dim + "|" + LightTaskbar + "|" + (number ? spec.Percent : -1);
             Icon cached; if (Cache.TryGetValue(key, out cached)) return cached;
 
             // drawn 4x larger, then scaled down: smooth ring and a glyph that is bold enough at 16-24 px
@@ -256,6 +256,8 @@ namespace SwarlexBattery
         {
             if (failed) return false;
             if (notifier != null) return true;
+            // Windows 10 shows tray balloons as notifications itself; the registry-registered notifier is for 11
+            if (!Win.IsWindows11) { failed = true; return false; }
             try
             {
                 {
