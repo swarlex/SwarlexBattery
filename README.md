@@ -28,12 +28,12 @@ right half the headset. Left click for details, right click for the menu.
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: light)" srcset="docs/images/flyout-light.png">
-    <img src="docs/images/flyout.png" width="320" alt="Flyout with battery levels and the time left">
+    <img src="docs/images/flyout-dark.png" width="320" alt="Flyout with battery levels and the time left">
   </picture>
   &nbsp;&nbsp;
   <picture>
     <source media="(prefers-color-scheme: light)" srcset="docs/images/menu-light.png">
-    <img src="docs/images/menu.png" width="270" alt="Right-click menu">
+    <img src="docs/images/menu-dark.png" width="270" alt="Right-click menu">
   </picture>
 </p>
 
