@@ -116,7 +116,8 @@ published protocols. **Not working for you?** Right-click the tray icon > *Diagn
 <summary>Settings</summary>
 
 Right-click > *Preferences* has the poll interval and the low battery level (- / +), *Estimated time left*,
-*Quiet while gaming*, *Sound with low battery alerts*, *Windows Bluetooth devices*, *Percentage in the icon*,
+*Quiet while gaming*, *Sound with low battery alerts*, *Windows Bluetooth devices*, *Keep the icon next to the
+clock*, *Percentage in the icon*,
 the theme, the language, the status file, *Start with Windows* and the update settings. Right-click a device
 in the panel to rename it, choose its icon or hide it; hidden devices come back from the menu's *Hidden
 devices*. All of it is kept in `%APPDATA%\SwarlexBattery\config.json`, which also takes:
