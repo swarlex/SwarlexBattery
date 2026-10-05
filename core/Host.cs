@@ -59,7 +59,9 @@ namespace SwarlexBattery
                 else if (e.Reason == SessionSwitchReason.SessionUnlock) { locked = false; PollSoon(); }
             }));
             SystemEvents.PowerModeChanged += (s, e) => { if (e.Mode == PowerModes.Resume) ui.BeginInvoke(new Action(() => PollSoon())); };
-            timer = new DispatcherTimer(DispatcherPriority.Background, ui) { Interval = TimeSpan.FromMilliseconds(500) };
+            // once a second is enough for everything below (the closest deadline is a re-read 1.5 s after a plug-in),
+            // and every wake-up of an idle tray app costs a little battery on a laptop
+            timer = new DispatcherTimer(DispatcherPriority.Background, ui) { Interval = TimeSpan.FromSeconds(1) };
             timer.Tick += (s, e) => { try { Tick(); } catch (Exception ex) { Log.Once("tick: " + ex); } };
             timer.Start();
             Log.Write("SwarlexBattery v" + Program.AppVersion + " started (PID " + Process.GetCurrentProcess().Id + ", icon " + TrayRenderer.Size + " px, " + TrayRenderer.GlyphFont + ", language " + Strings.Lang + ")");
