@@ -2,6 +2,11 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.5.5
+- Each controller family gets its own tray icon outline (no brand logos): PS5 DualSense - two-tone wings
+  with a dark middle, PS4 DualShock 4 - touchpad bar and sticks side by side, Xbox (and pads in Xbox mode) -
+  oval body with offset sticks; other controllers keep the plain pad.
+
 ## 1.5.4
 - New controller tray icon: drawn as a shape (body, grips, D-pad and buttons) instead of the font glyph,
   which was too wide for the ring and turned into a blob at tray size.

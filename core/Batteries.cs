@@ -19,7 +19,7 @@ namespace SwarlexBattery
 {
     class Gadget
     {
-        public string Id, Name, Kind, Detail;
+        public string Id, Name, Kind, Detail, Glyph;   // Glyph: tray / panel icon when it is not the kind's default
         public int Pct;
         public bool Charging, Approx, Online, Asleep;
     }
@@ -138,8 +138,19 @@ namespace SwarlexBattery
             }
         }
 
+        // which controller outline a pad gets in the tray (see TrayRenderer.DrawGamepad)
+        static string PadGlyph(string id, string name)
+        {
+            var n = (name ?? "").ToLowerInvariant(); id = id ?? "";
+            if (id.StartsWith("ps-0CE6") || id.StartsWith("ps-0DF2") || n.Contains("dualsense")) return "PAD:DS5";
+            if (id.StartsWith("ps-") || n.Contains("dualshock") || n == "wireless controller") return "PAD:DS4";
+            if (id.StartsWith("xinput-") || n.Contains("xbox")) return "PAD:XBOX";
+            return "E7FC";
+        }
+
         void Add(List<Gadget> list, Gadget g)
         {
+            if (g.Glyph == null && g.Kind == "gamepad") g.Glyph = PadGlyph(g.Id, g.Name);
             var names = Config.Get(S("names")) as Dictionary<string, object>;
             object rn; if (names != null && g.Name != null && names.TryGetValue(g.Name, out rn) && rn is string) g.Name = (string)rn;
             list.Add(g);
@@ -333,7 +344,7 @@ namespace SwarlexBattery
                 // a full device on its cable is "full", not "charging"; coarse levels say so
                 string sub = g.Charging && g.Pct >= 100 ? Strings.T("full") : g.Charging ? Strings.T("charging") : !string.IsNullOrEmpty(g.Detail) ? g.Detail : !g.Online ? Strings.T("notConnected") : "";
                 if (g.Approx) sub = string.Join(" - ", new[] { sub, Strings.T("approx") }.Where(x => x != ""));
-                snap.Items.Add(new PanelItem { Icon = IconFor(g.Kind), Label = g.Name, Value = g.Pct + "%", Pct = g.Pct / 100.0, State = state, Sub = sub });
+                snap.Items.Add(new PanelItem { Icon = g.Glyph ?? IconFor(g.Kind), Label = g.Name, Value = g.Pct + "%", Pct = g.Pct / 100.0, State = state, Sub = sub });
                 if (low > 0 && g.Online && !g.Charging && g.Pct <= low)
                     snap.Notify.Add(new Notice { Key = "low-" + g.Id, Title = Strings.T("lowTitle", g.Name), Body = Strings.T("lowBody", g.Pct) });
             }
@@ -348,7 +359,7 @@ namespace SwarlexBattery
                     (g.Charging && g.Pct >= 100 ? Strings.T("shortFull") : g.Charging ? Strings.T("shortCharging") : !g.Online ? Strings.T("shortAsleep") : ""));
                 var lowest = pair.Where(g => g.Online && !g.Charging).OrderBy(g => g.Pct).FirstOrDefault();
                 snap.Icons.Add(new TraySpec {
-                    Id = "all", Icon = pair.Count == 1 ? IconFor(pair[0].Kind) : "E83F",
+                    Id = "all", Icon = pair.Count == 1 ? (pair[0].Glyph ?? IconFor(pair[0].Kind)) : "E83F",
                     Rings = pair.Select(g => g.Pct / 100.0).ToArray(),
                     State = lowest != null && lowest.Pct <= low ? "error" : lowest != null && lowest.Pct <= low + 10 ? "warn" : "ok",
                     Charging = pair.Any(g => g.Charging), Dim = !pair.Any(g => g.Online), Tooltip = string.Join("  |  ", parts) });
@@ -357,7 +368,7 @@ namespace SwarlexBattery
             {
                 foreach (var g in shown)
                     snap.Icons.Add(new TraySpec {
-                        Id = g.Id, Icon = IconFor(g.Kind), Ring = g.Pct / 100.0,
+                        Id = g.Id, Icon = g.Glyph ?? IconFor(g.Kind), Ring = g.Pct / 100.0,
                         State = g.Pct <= low && !g.Charging ? "error" : g.Pct <= low + 10 && !g.Charging ? "warn" : "ok",
                         Charging = g.Charging, Dim = !g.Online,
                         Tooltip = g.Name + ": " + (g.Approx ? "~" : "") + g.Pct + "%" + (g.Charging && g.Pct >= 100 ? Strings.T("tipFull") : g.Charging ? Strings.T("tipCharging") : g.Asleep ? Strings.T("tipAsleep") : !g.Online ? Strings.T("tipNotConnected") : "") });
