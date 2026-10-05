@@ -2,6 +2,18 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 1.9.6
+### Added
+- **A low battery level for each device**: right-click a device in the panel > *Low battery alert* - e.g. 15 %
+  for the mouse and 30 % for the headset. *General* follows the level in Preferences.
+- **Coloured icon** (Preferences, off by default: the icon stays white / black as before): green while the
+  level is fine, orange near the low battery level, red at it.
+- **A short note below each setting** in Preferences that says what it does.
+
+### Fixed
+- The Preferences window stayed open beside the panel when the panel was opened from the tray while it was
+  shown, and Esc did not close it.
+
 ## 1.9.5
 ### Fixed
 - The theme in Preferences read "like the taskbar", which said little: it is now *Theme: Automatic*, with

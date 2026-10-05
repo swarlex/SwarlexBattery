@@ -171,7 +171,7 @@ namespace SwarlexBattery
         {
             Save(path, !Config.Bool(path, def));
             if (path == "plugins.gadgets.bluetooth") reader.RefreshSlow();
-            if (path == "iconPercent" && Current != null) tray.Sync(Current.Icons);
+            if ((path == "iconPercent" || path == "monochrome") && Current != null) tray.Sync(Current.Icons);
             if (path == "alwaysShowInTray") try { TrayIcons.SetPromoted(Config.Bool(path, true)); } catch (Exception e) { Log.Write("promote: " + e.Message); }
             if (path == "update.check" || path == "update.beta") { Update = null; LastResult = ""; if (Config.Bool("update.check", true)) CheckUpdates(true); }
             PollSoon();
@@ -206,6 +206,15 @@ namespace SwarlexBattery
         {
             if (string.IsNullOrEmpty(id)) return;
             try { Config.SetMapEntry("plugins.gadgets.icons", id, kind); } catch (Exception e) { Log.Write("icon: " + e.Message); }
+            PollSoon();
+        }
+
+        // a device's own low battery level; null = the general one from Preferences
+        public void SetDeviceLow(string id, int? pct)
+        {
+            if (string.IsNullOrEmpty(id)) return;
+            try { Config.SetMapEntry("plugins.gadgets.lowLevels", id, pct.HasValue ? pct.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : null); }
+            catch (Exception e) { Log.Write("device low: " + e.Message); }
             PollSoon();
         }
 

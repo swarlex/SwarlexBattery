@@ -32,7 +32,7 @@ namespace SwarlexBattery
         // Preferences: a second window beside the menu that a click does not activate, so the menu stays open
         Window side; IntPtr sideHwnd; ScrollViewer sideScroll; bool sideOpen;
         bool hiddenOpen;                          // the menu's list of hidden devices is expanded
-        string actionsFor, renaming; bool iconsOpen;   // the panel: a device's options shown, its name being edited
+        string actionsFor, renaming; bool iconsOpen, lowsOpen;   // the panel: a device's options shown, its name being edited
 
         static Brush MakeBrush(string c) { var b = (Brush)new BrushConverter().ConvertFromString(c); b.Freeze(); return b; }
 
@@ -76,9 +76,9 @@ namespace SwarlexBattery
                 ShowInTaskbar = false, Topmost = true, ResizeMode = ResizeMode.NoResize, SizeToContent = SizeToContent.Height,
                 Width = Config.Num("panel.width", 320), FontFamily = new FontFamily("Segoe UI Variable Text, Segoe UI"), Title = "SwarlexBattery" };
             side = new Window {
-                WindowStyle = WindowStyle.None, AllowsTransparency = false, ShowActivated = false, Focusable = false,
+                WindowStyle = WindowStyle.None, AllowsTransparency = false, ShowActivated = false,
                 ShowInTaskbar = false, Topmost = true, ResizeMode = ResizeMode.NoResize, SizeToContent = SizeToContent.Height,
-                Width = 300, FontFamily = win.FontFamily, Title = "SwarlexBattery" };
+                Width = 330, FontFamily = win.FontFamily, Title = "SwarlexBattery" };
             sideScroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, MaxHeight = Config.Num("panel.maxHeight", 620), Focusable = false, FocusVisualStyle = null };
             side.Content = new Border { Padding = new Thickness(8), Child = sideScroll, Focusable = false };
             side.SourceInitialized += (s, e) => { sideHwnd = new WindowInteropHelper(side).Handle; Win.ToolWindow(sideHwnd); Win.FlyoutFrame(sideHwnd, light != true); };
@@ -191,7 +191,8 @@ namespace SwarlexBattery
             if (JustClosed("panel")) return;
             Open = "panel";
             ApplyTheme();
-            actionsFor = null; renaming = null; iconsOpen = false;
+            CloseSide();   // Preferences belong to the menu
+            actionsFor = null; renaming = null; iconsOpen = false; lowsOpen = false;
             RenderPanel();
             Show(Config.Num("panel.width", 320));
             host.PollSoon();   // fresh data while open
@@ -348,7 +349,7 @@ namespace SwarlexBattery
                     else box.Children.Add(new ProgressBar { Minimum = 0, Maximum = 1, Value = it.Pct, Height = 4, Margin = new Thickness(0, 0, 0, 6),
                                                             Foreground = string.IsNullOrEmpty(it.State) ? fg : StateBrush(it.State), Background = track, BorderThickness = new Thickness(0) });
                     if (it.Id != null)
-                        box.MouseRightButtonUp += (s, e) => { actionsFor = actionsFor == item.Id ? null : item.Id; iconsOpen = false; renaming = null; RenderPanel(true); e.Handled = true; };
+                        box.MouseRightButtonUp += (s, e) => { actionsFor = actionsFor == item.Id ? null : item.Id; iconsOpen = false; lowsOpen = false; renaming = null; RenderPanel(true); e.Handled = true; };
                     root.Children.Add(box);
                     if (actionsFor != null && actionsFor == it.Id) DeviceActions(root, it);
                 }
@@ -373,7 +374,7 @@ namespace SwarlexBattery
             if (it.OwnName != null && it.OwnName != it.Label)
                 box.Children.Add(MenuRow("E7A7", Strings.T("resetName"), () => host.Rename(it.Id, null)));
             box.Children.Add(MenuRow("E790", Strings.T("iconOpt", it.IconChoice == null ? Strings.T("iconAuto") : KindLabel(it.IconChoice)),
-                                     () => { iconsOpen = !iconsOpen; RenderPanel(true); }, false, null, false, iconsOpen ? "E70E" : "E70D"));
+                                     () => { iconsOpen = !iconsOpen; lowsOpen = false; RenderPanel(true); }, false, null, false, iconsOpen ? "E70E" : "E70D"));
             if (iconsOpen)
             {
                 box.Children.Add(MenuRow(null, Strings.T("iconAuto"), () => { iconsOpen = false; host.SetIcon(it.Id, null); }, it.IconChoice == null));
@@ -381,6 +382,23 @@ namespace SwarlexBattery
                 {
                     var kind = k;
                     box.Children.Add(MenuRow(BatteryReader.IconFor(kind), KindLabel(kind), () => { iconsOpen = false; host.SetIcon(it.Id, kind); }, it.IconChoice == kind));
+                }
+            }
+            // the device's own low battery level, or the general one
+            if (it.Pct >= 0)
+            {
+                string own; Config.Map("plugins.gadgets.lowLevels").TryGetValue(it.Id, out own);
+                int general = (int)Config.Num("plugins.gadgets.lowThreshold", 15);
+                string cur = own != null ? Strings.T("percent", own) : Strings.T("lowGeneral", Strings.T("percent", general));
+                box.Children.Add(MenuRow("EBA0", Strings.T("deviceLow", cur), () => { lowsOpen = !lowsOpen; RenderPanel(true); }, false, null, false, lowsOpen ? "E70E" : "E70D"));
+                if (lowsOpen)
+                {
+                    box.Children.Add(MenuRow(null, Strings.T("lowGeneral", Strings.T("percent", general)), () => { lowsOpen = false; host.SetDeviceLow(it.Id, null); }, own == null));
+                    foreach (var p in Host.LowLevels)
+                    {
+                        int pct = p;
+                        box.Children.Add(MenuRow(null, Strings.T("percent", pct), () => { lowsOpen = false; host.SetDeviceLow(it.Id, pct); }, own == pct.ToString()));
+                    }
                 }
             }
             box.Children.Add(MenuRow("ED1A", Strings.T("hide"), () => { actionsFor = null; host.Hide(it.Id, it.OwnName ?? it.Label); }));
@@ -459,12 +477,18 @@ namespace SwarlexBattery
             return b;
         }
 
-        // "label   -  value  +"
-        Grid Counter(string label, string value, Action minus, Action plus)
+        // A short note below each setting that needs one (the owner may not want them: false hides them all)
+        static readonly bool PrefNotes = true;
+        static string Note(string key) { return PrefNotes ? Strings.T(key) : null; }
+
+        // "label   -  value  +", with an optional note below the label
+        Grid Counter(string label, string value, Action minus, Action plus, string note = null)
         {
             var g = new Grid { Margin = new Thickness(10, 4, 4, 4) };
             foreach (var w in new[] { new GridLength(1, GridUnitType.Star), GridLength.Auto, new GridLength(58), GridLength.Auto }) g.ColumnDefinitions.Add(new ColumnDefinition { Width = w });
-            var l = Text(label, fg, 13); l.VerticalAlignment = VerticalAlignment.Center; g.Children.Add(l);
+            UIElement l = Text(label, fg, 13);
+            if (!string.IsNullOrEmpty(note)) { var two = new StackPanel(); two.Children.Add(l); two.Children.Add(Text(note, muted, 11)); l = two; }
+            ((FrameworkElement)l).VerticalAlignment = VerticalAlignment.Center; g.Children.Add(l);
             var m = Step("E738", minus); Grid.SetColumn(m, 1); g.Children.Add(m);
             var v = Text(value, fg, 13); v.TextAlignment = TextAlignment.Center; v.VerticalAlignment = VerticalAlignment.Center; Grid.SetColumn(v, 2); g.Children.Add(v);
             var p = Step("E710", plus); Grid.SetColumn(p, 3); g.Children.Add(p);
@@ -479,18 +503,21 @@ namespace SwarlexBattery
             var root = new StackPanel();
             Action redo = () => Refresh();
             root.Children.Add(Counter(Strings.T("interval"), IntervalText(BatteryReader.PollSeconds),
-                () => { host.Step("plugins.gadgets.interval", Host.Intervals, 30, -1); redo(); }, () => { host.Step("plugins.gadgets.interval", Host.Intervals, 30, 1); redo(); }));
+                () => { host.Step("plugins.gadgets.interval", Host.Intervals, 30, -1); redo(); }, () => { host.Step("plugins.gadgets.interval", Host.Intervals, 30, 1); redo(); }, Note("intervalNote")));
             root.Children.Add(Counter(Strings.T("lowAlert"), Strings.T("percent", (int)Config.Num("plugins.gadgets.lowThreshold", 15)),
-                () => { host.Step("plugins.gadgets.lowThreshold", Host.LowLevels, 15, -1); redo(); }, () => { host.Step("plugins.gadgets.lowThreshold", Host.LowLevels, 15, 1); redo(); }));
-            Func<string, string, bool, Border> toggle = (text, path, def) => MenuRow(null, text, () => { host.Toggle(path, def); redo(); }, Config.Bool(path, def));
-            root.Children.Add(toggle(Strings.T("timeLeftOpt"), "plugins.gadgets.timeLeft", true));
-            root.Children.Add(toggle(Strings.T("quietGaming"), "quietWhileGaming", true));
-            root.Children.Add(toggle(Strings.T("lowSound"), "lowSound", false));
+                () => { host.Step("plugins.gadgets.lowThreshold", Host.LowLevels, 15, -1); redo(); }, () => { host.Step("plugins.gadgets.lowThreshold", Host.LowLevels, 15, 1); redo(); }, Note("lowAlertNote")));
+            // a switch; "on" shows the check (inverted: the setting is the opposite of the text, e.g. monochrome)
+            Func<string, string, bool, string, bool, Border> toggle = (text, path, def, note, inverted) =>
+                MenuRow(null, text, () => { host.Toggle(path, def); redo(); }, Config.Bool(path, def) != inverted, Note(note));
+            root.Children.Add(toggle(Strings.T("timeLeftOpt"), "plugins.gadgets.timeLeft", true, "timeLeftNote", false));
+            root.Children.Add(toggle(Strings.T("quietGaming"), "quietWhileGaming", true, "quietGamingNote", false));
+            root.Children.Add(toggle(Strings.T("lowSound"), "lowSound", false, "lowSoundNote", false));
             root.Children.Add(Separator());
-            root.Children.Add(toggle(Strings.T("bluetoothOpt"), "plugins.gadgets.bluetooth", true));
-            root.Children.Add(toggle(Strings.T("pinIcon"), "alwaysShowInTray", true));
-            root.Children.Add(toggle(Strings.T("iconPercent"), "iconPercent", false));
-            // the theme: like the taskbar -> light -> dark
+            root.Children.Add(toggle(Strings.T("bluetoothOpt"), "plugins.gadgets.bluetooth", true, "bluetoothNote", false));
+            root.Children.Add(toggle(Strings.T("pinIcon"), "alwaysShowInTray", true, "pinIconNote", false));
+            root.Children.Add(toggle(Strings.T("iconPercent"), "iconPercent", false, "iconPercentNote", false));
+            root.Children.Add(toggle(Strings.T("colorIcon"), "monochrome", true, "colorIconNote", true));
+            // the theme: automatic -> light -> dark
             var mode = Config.Str("theme.mode", "auto").ToLowerInvariant();
             string next = mode == "light" ? "dark" : mode == "dark" ? "auto" : "light";
             root.Children.Add(MenuRow(null, Strings.T("themeOpt", Strings.T(mode == "light" ? "themeLight" : mode == "dark" ? "themeDark" : "themeAuto")),
@@ -504,12 +531,12 @@ namespace SwarlexBattery
                     root.Children.Add(MenuRow(null, "      " + l[1], () => { Close(); host.SetLanguage(code); }, Strings.Lang == code));
                 }
             root.Children.Add(Separator());
-            root.Children.Add(toggle(Strings.T("statusFileOpt"), "statusFile", false));
+            root.Children.Add(toggle(Strings.T("statusFileOpt"), "statusFile", false, "statusFileNote", false));
             root.Children.Add(MenuRow(null, Strings.T("startWithWindows"), () => { host.ToggleAutostart(); redo(); }, host.Autostart));
             if (Config.Str("update.repo", "") != "")
             {
-                root.Children.Add(toggle(Strings.T("autoUpdate"), "update.check", true));
-                root.Children.Add(toggle(Strings.T("beta"), "update.beta", false));
+                root.Children.Add(toggle(Strings.T("autoUpdate"), "update.check", true, "autoUpdateNote", false));
+                root.Children.Add(toggle(Strings.T("beta"), "update.beta", false, "betaNote", false));
             }
             return root;
         }

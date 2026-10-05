@@ -293,6 +293,11 @@ namespace SwarlexBatteryTests
                 var k = s.Items.First(i => i.Id == "k");
                 Check(k.Label == "Desk keyboard", "names set by hand in config.json by the device's own name still work");
                 Check(k.Icon == BatteryReader.IconFor("keyboard"), "an unknown icon choice is ignored");
+                // a device's own low battery level: the mouse at 60 % is low with its own 70 %, the keyboard at 50 % not
+                gadgets["lowLevels"] = new Dictionary<string, object> { { "m", "70" } };
+                var s2 = BatteryReader.Build(new List<Gadget> { G("m", "mouse", 60), G("k", "keyboard", 50) });
+                Check(s2.Notify.Count == 1 && s2.Notify[0].Key == "low-m", "a device's own low battery level");
+                Check(s2.Items.First(i => i.Id == "m").State == "error" && s2.Items.First(i => i.Id == "k").State == "", "the panel colours by each device's own level");
                 Equal("m", list[0].Name, "the reading itself keeps its own name (Reset name goes back to it)");
             }
             finally { gadgets.Clear(); foreach (var kv in keep) gadgets[kv.Key] = kv.Value; }

@@ -83,5 +83,20 @@
   "showAgain": "{0} einblenden",
   "deviceHint": "Rechtsklick auf ein Gerät zeigt seine Optionen",
   "pinIcon": "Symbol neben der Uhr halten",
-  "themeAutoSub": "folgt dem hellen oder dunklen Modus von Windows"
+  "themeAutoSub": "folgt dem hellen oder dunklen Modus von Windows",
+  "colorIcon": "Farbiges Symbol",
+  "deviceLow": "Warnung bei niedrigem Akku: {0}",
+  "lowGeneral": "allgemein ({0})",
+  "intervalNote": "wie oft die Akkus abgefragt werden",
+  "lowAlertNote": "eine Benachrichtigung bei diesem Stand",
+  "timeLeftNote": "danach, wie schnell sich jedes Gerät entlädt",
+  "quietGamingNote": "Benachrichtigungen warten bis zum Ende des Vollbildspiels",
+  "lowSoundNote": "auch hörbar, wenn ein Spiel die Benachrichtigung verdeckt",
+  "bluetoothNote": "die Stände, die Windows für Bluetooth-Geräte zeigt",
+  "pinIconNote": "aus: Windows kann es hinter den ^-Pfeil legen",
+  "iconPercentNote": "eine Zahl im Ring statt des Symbols",
+  "colorIconNote": "grün, orange oder rot je nach Stand",
+  "statusFileNote": "für Rainmeter, Stream Deck und andere Apps",
+  "autoUpdateNote": "sieht alle 6 Stunden auf GitHub nach",
+  "betaNote": "neue Versionen vor allen anderen"
 }
