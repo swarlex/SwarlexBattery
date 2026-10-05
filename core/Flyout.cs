@@ -233,6 +233,7 @@ namespace SwarlexBattery
                     g.Children.Add(sp);
                     var v = Text(it.Value, StateBrush(it.State), 12); v.TextWrapping = TextWrapping.NoWrap; v.Margin = new Thickness(10, 1, 0, 0); Grid.SetColumn(v, 2); g.Children.Add(v);
                     root.Children.Add(g);
+                    if (it.Pct < 0) { g.Margin = new Thickness(0, 3, 0, 9); continue; }   // no level known: no bar
                     root.Children.Add(new ProgressBar { Minimum = 0, Maximum = 1, Value = it.Pct, Height = 4, Margin = new Thickness(0, 0, 0, 6),
                                                         Foreground = string.IsNullOrEmpty(it.State) ? fg : StateBrush(it.State), Background = track, BorderThickness = new Thickness(0) });
                 }
