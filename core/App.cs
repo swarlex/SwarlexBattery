@@ -123,8 +123,23 @@ namespace SwarlexBattery
 
         public static void Write(string msg)
         {
-            lock (Sync) { try { File.AppendAllText(file, DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss'Z' ") + msg + Environment.NewLine, new UTF8Encoding(false)); } catch { } }
+            lock (Sync)
+            {
+                try
+                {
+                    File.AppendAllText(file, DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss'Z' ") + msg + Environment.NewLine, new UTF8Encoding(false));
+                    // the app runs for weeks: past 1 MB the newest quarter is kept (checked now and then, not on every line)
+                    if (++writes % 50 == 0 && new FileInfo(file).Length > 1024 * 1024)
+                    {
+                        var all = File.ReadAllText(file, Encoding.UTF8);
+                        int cut = all.IndexOf('\n', all.Length * 3 / 4);
+                        File.WriteAllText(file, cut < 0 ? "" : all.Substring(cut + 1), new UTF8Encoding(false));
+                    }
+                }
+                catch { }
+            }
         }
+        static int writes;
     }
 
     // config.default.json (embedded) merged with %APPDATA%\SwarlexBattery\config.json

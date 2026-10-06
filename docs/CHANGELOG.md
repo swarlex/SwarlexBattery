@@ -2,6 +2,16 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 2.0.3
+### Added
+- **Remind at 80 %** (Preferences, off by default): a charging device that reaches 80 % says so once, as
+  lithium batteries last longer when they are not kept full.
+
+### Changed
+- The charging animation rests while the screen is locked or a full-screen game is in front.
+- The log grows less: the long device lines are written once per state, not each time a mouse naps and
+  wakes, and a log past 1 MB is trimmed while the app runs, not only at start.
+
 ## 2.0.2
 ### Added
 - **Notify when charged** (Preferences, on by default): when a device that was charging reaches 100 %, a

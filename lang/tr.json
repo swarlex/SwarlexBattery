@@ -106,5 +106,9 @@
   "fullNotify": "Şarj dolunca bildir",
   "fullNotifyNote": "şarj olan cihaz %100'e ulaşınca",
   "fullTitle": "{0} şarj oldu",
-  "fullBody": "Şarjdan çıkarabilirsin."
+  "fullBody": "Şarjdan çıkarabilirsin.",
+  "limitNotify": "%80'de hatırlat",
+  "limitNotifyNote": "%80'de çıkarmak pilin ömrünü uzatır",
+  "limitTitle": "{0} %{1} oldu",
+  "limitBody": "Pilin ömrü için şimdi şarjdan çıkarabilirsin."
 }

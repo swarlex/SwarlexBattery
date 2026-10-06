@@ -329,9 +329,13 @@ namespace SwarlexBattery
         System.Windows.Threading.DispatcherTimer anim; int frame;
         const int Frames = 14;                  // 10 filling + a short hold on full
 
+        // nobody sees the tray (locked, a full-screen game in front): the animation waits, nine wake-ups a second for nothing
+        bool paused;
+        public void Pause(bool on) { if (on == paused) return; paused = on; UpdateAnimation(); }
+
         public void UpdateAnimation()
         {
-            bool want = Config.Bool("chargeAnimation", true) && specs.Values.Any(s => s.RingCharging != null && s.RingCharging.Any(c => c));
+            bool want = !paused && Config.Bool("chargeAnimation", true) && specs.Values.Any(s => s.RingCharging != null && s.RingCharging.Any(c => c));
             if (want && anim == null)
             {
                 anim = new System.Windows.Threading.DispatcherTimer(System.Windows.Threading.DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(110) };

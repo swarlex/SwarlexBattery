@@ -106,5 +106,9 @@
   "fullNotify": "Avisar al terminar la carga",
   "fullNotifyNote": "cuando un dispositivo en carga llega al 100 %",
   "fullTitle": "{0} está cargado",
-  "fullBody": "Ya puedes desconectarlo."
+  "fullBody": "Ya puedes desconectarlo.",
+  "limitNotify": "Recordar al 80 %",
+  "limitNotifyNote": "desconectar al 80 % alarga la vida de la batería",
+  "limitTitle": "{0} está al {1} %",
+  "limitBody": "Desconéctalo ahora para cuidar la batería."
 }
