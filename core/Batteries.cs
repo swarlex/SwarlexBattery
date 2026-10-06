@@ -370,16 +370,22 @@ namespace SwarlexBattery
             else AirPods.Watch(false);
         }
 
-        // the panel shows the lower earbud (the one that runs out first); the line under it each earbud and the case
+        // the panel shows the lower earbud in use (the one that runs out first; one charging in the case does not count
+        // while the other is out); the line under it each earbud, where it is, and the case while its lid is open
         public static Gadget AirPodsGadget(BluetoothBattery.Device dev, AirPods.Reading r)
         {
             if (r == null || (r.Left < 0 && r.Right < 0)) return null;   // both in the closed case: nothing to show
             var parts = new List<string>();
-            if (r.Left >= 0) parts.Add(Strings.T("podLeft", r.Left));
-            if (r.Right >= 0) parts.Add(Strings.T("podRight", r.Right));
+            Func<string, int, bool, bool, string> pod = (key, lvl, inCase, inEar) =>
+                Strings.T(key, lvl) + (inCase ? " " + Strings.T("podInCase") : inEar ? " " + Strings.T("podInEar") : "");
+            if (r.Left >= 0) parts.Add(pod("podLeft", r.Left, r.ChargingLeft, r.LeftInEar));
+            if (r.Right >= 0) parts.Add(pod("podRight", r.Right, r.ChargingRight, r.RightInEar));
             if (r.Case >= 0) parts.Add(Strings.T("podCase", r.Case));
-            int pct = r.Left < 0 ? r.Right : r.Right < 0 ? r.Left : Math.Min(r.Left, r.Right);
-            bool charging = (r.Left == pct && r.ChargingLeft) || (r.Right == pct && r.ChargingRight);
+            var out_ = new List<int>();
+            if (r.Left >= 0 && !r.ChargingLeft) out_.Add(r.Left);
+            if (r.Right >= 0 && !r.ChargingRight) out_.Add(r.Right);
+            bool charging = out_.Count == 0;   // both in the case, charging
+            int pct = charging ? Math.Min(r.Left < 0 ? 100 : r.Left, r.Right < 0 ? 100 : r.Right) : out_.Min();
             return new Gadget { Id = "bt-" + dev.Mac, Name = dev.Name, Kind = dev.Pid == 0x200A || dev.Pid == 0x201F ? "headphones" : "earbuds",
                                 Pct = pct, Charging = charging, Approx = true, Online = true, Detail = string.Join(" · ", parts) };
         }
@@ -566,6 +572,9 @@ namespace SwarlexBattery
                 if (state == "" && !Config.Bool("monochrome", true)) state = !g.Charging && g.Pct <= lowFor(g) + 10 ? "warn" : "ok";
                 // a full device on its cable is "full", not "charging"; coarse levels say so
                 string sub = g.Charging && g.Pct >= 100 ? Strings.T("full") : g.Charging ? Strings.T("charging") : !string.IsNullOrEmpty(g.Detail) ? g.Detail : !g.Online ? Strings.T("notConnected") : "";
+                // the details stay while it charges, instead of "charging" (AirPods in their case: each earbud "in case",
+                // and the case - not "on its cable")
+                if (g.Charging && g.Online && !string.IsNullOrEmpty(g.Detail)) sub = g.Detail;
                 if (g.Approx) sub = string.Join(" - ", new[] { sub, Strings.T("approx") }.Where(x => x != ""));
                 if (g.HoursLeft > 0 && g.Online && !g.Charging) sub = string.Join(" - ", new[] { sub, TimeLeft(g.HoursLeft) }.Where(x => x != ""));
                 snap.Items.Add(new PanelItem { Icon = g.Glyph ?? IconFor(g.Kind), Label = g.Name, Value = g.Pct + "%", Pct = g.Pct / 100.0, State = state, Sub = sub,

@@ -92,7 +92,7 @@
   "timeLeftNote": "cihazın ne kadar hızlı tükettiğine göre",
   "quietGamingNote": "bildirimler tam ekran oyun bitince gelir",
   "lowSoundNote": "oyun bildirimi gizlese bile duyulur",
-  "bluetoothNote": "Windows'un Bluetooth cihazlar için gösterdiği seviyeler",
+  "bluetoothNote": "Windows'un gösterdiği Bluetooth pil seviyeleri",
   "pinIconNote": "kapalıyken Windows ^ okunun altına alabilir",
   "iconPercentNote": "halkada simge yerine sayı",
   "colorIconNote": "seviyeye göre yeşil, turuncu ya da kırmızı",
@@ -113,5 +113,11 @@
   "limitBody": "Pilin ömrü için şimdi şarjdan çıkarabilirsin.",
   "podLeft": "sol %{0}",
   "podRight": "sağ %{0}",
-  "podCase": "kutu %{0}"
+  "podCase": "kutu %{0}",
+  "podInEar": "kulakta",
+  "podInCase": "kutuda",
+  "separateIcons": "Her cihaza ayrı ikon",
+  "separateIconsNote": "tepside her cihaza bir ikon",
+  "themeLightSub": "her zaman açık",
+  "themeDarkSub": "her zaman koyu"
 }

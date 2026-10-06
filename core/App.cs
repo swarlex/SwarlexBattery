@@ -220,8 +220,19 @@ namespace SwarlexBattery
             Dictionary<string, object> user = null;
             try { if (File.Exists(UserFile)) user = Json.Deserialize<Dictionary<string, object>>(File.ReadAllText(UserFile)); } catch { }
             if (user == null) user = new Dictionary<string, object>();
-            Put(user, parts, value); Put(Data, parts, value);
-            File.WriteAllText(UserFile, Json.Serialize(user), new UTF8Encoding(false));
+            Put(user, parts, value);
+            // the settings in use are changed on a copy and swapped in at once: a battery read on another thread
+            // keeps reading the old ones whole, never a dictionary that is being changed
+            var copy = new Dictionary<string, object>(Data); Put(copy, parts, value); Data = copy;
+            WriteUser(user);
+        }
+
+        // written beside it and swapped in: a crash or power loss in the middle leaves the old file, not half of one
+        static void WriteUser(Dictionary<string, object> user)
+        {
+            var tmp = UserFile + ".tmp";
+            File.WriteAllText(tmp, Json.Serialize(user), new UTF8Encoding(false));
+            if (File.Exists(UserFile)) File.Replace(tmp, UserFile, null); else File.Move(tmp, UserFile);
         }
 
         static void Put(Dictionary<string, object> d, string[] parts, object value)
@@ -252,8 +263,8 @@ namespace SwarlexBattery
             try { if (File.Exists(UserFile)) user = Json.Deserialize<Dictionary<string, object>>(File.ReadAllText(UserFile)); } catch { }
             if (user == null) user = new Dictionary<string, object>();
             user[key] = value;
-            File.WriteAllText(UserFile, Json.Serialize(user), new UTF8Encoding(false));
-            Data[key] = value;
+            WriteUser(user);
+            var copy = new Dictionary<string, object>(Data); copy[key] = value; Data = copy;
         }
     }
 

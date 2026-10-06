@@ -324,28 +324,57 @@ namespace SwarlexBatteryTests
 
         static void AirPodsAds()
         {
-            // captured from AirPods (2nd generation, 0x200F) in the ears, the case closed: left 90 %, right 100 %
+            // captured from AirPods (2nd generation, 0x200F) on a desk, the case closed: sent by the right earbud
+            // (status 0x01), right 90 %, left 100 % (layout as in AirPodsDesktop's AppleCP.h)
             var mine = AirPods.Parse(Hex("07 19 01 0F 20 01 A9 8F 03 00 04 9E 6A 56 B5 7A 1E 32 76 42 1F D3 C9 B1 59 07 1F"));
             Check(mine != null && mine.Model == 0x200F, "AirPods: the model from the advertisement");
-            Equal(90, mine.Left, "AirPods: left earbud (status 0x01: the low nibble)");
-            Equal(100, mine.Right, "AirPods: right earbud");
+            Equal(100, mine.Left, "AirPods: sent by the right earbud: the high nibble is the left one");
+            Equal(90, mine.Right, "AirPods: the low nibble is the sender");
             Equal(-1, mine.Case, "AirPods: the closed case reports no level");
-            Check(!mine.ChargingLeft && !mine.ChargingRight && !mine.ChargingCase, "AirPods: nothing charging");
-            // someone else's AirPods heard at the same time, far away: only the right earbud out, 80 %
+            Check(!mine.ChargingLeft && !mine.ChargingRight && !mine.ChargingCase && !mine.LeftInEar && !mine.RightInEar, "AirPods: nothing charging, not worn");
+            // someone else's AirPods heard at the same time, far away: sent by the left earbud, worn (status 0x22), 80 %
             var other = AirPods.Parse(Hex("07 19 01 0F 20 22 F8 8F 01 00 06 2B 62 79 C5 B2 1B AE 95 34 12 09 EF F3 37 8C 10"));
-            Check(other != null && other.Left == -1 && other.Right == 80, "AirPods: status 0x22: the high nibble is the left earbud");
-            Check(AirPods.Pick(new[] { Tuple.Create(other, -90.0), Tuple.Create(mine, -60.0) }, 0x200F) == mine, "AirPods: the strongest signal wins");
-            Check(AirPods.Pick(new[] { Tuple.Create(other, -90.0) }, 0x200F) == null, "AirPods: a far-away pair is not taken");
-            Check(AirPods.Pick(new[] { Tuple.Create(mine, -60.0) }, 0x2014) == null, "AirPods: another model is not taken");
-            var charging = AirPods.Parse(Hex("07 19 01 0F 20 01 A9 66 03 00"));
-            Check(charging.ChargingLeft && !charging.ChargingRight && charging.ChargingCase && charging.Case == 60, "AirPods: charging flags and the case level");
+            Check(other != null && other.Left == 80 && other.Right == -1 && other.LeftInEar, "AirPods: status 0x22: the left earbud, in an ear");
+            var worn = AirPods.Parse(Hex("07 19 01 0F 20 2B 99 8F 00"));
+            Check(worn.LeftInEar && worn.RightInEar && worn.LidOpen, "AirPods: both in ears (0x02 and 0x08)");
+            var charging = AirPods.Parse(Hex("07 19 01 0F 20 21 A9 56 08"));
+            Check(charging.ChargingLeft && !charging.ChargingRight && charging.ChargingCase && charging.Case == 60 && !charging.LidOpen && !charging.LeftInEar,
+                  "AirPods: the sender charging (0x10), the case charging (0x40) at 60 %, the lid closed");
             Check(AirPods.Parse(Hex("10 05 01 18 2C")) == null && AirPods.Parse(Hex("07 19 01 0F 20 01 FF FF")) == null, "AirPods: other Apple messages and empty levels are ignored");
 
+            Func<AirPods.Reading, double, int, ulong, AirPods.Heard> h = (r, rssi, n, a) => new AirPods.Heard { R = r, Rssi = rssi, Count = n, Address = a };
+            Check(AirPods.Pick(new[] { h(other, -90, 9, 1), h(mine, -60, 9, 2) }, 0x200F, 0).R == mine, "AirPods: the strongest signal wins");
+            Check(AirPods.Pick(new[] { h(other, -90, 9, 1) }, 0x200F, 0) == null, "AirPods: a far-away pair is not taken");
+            Check(AirPods.Pick(new[] { h(mine, -50, 2, 2) }, 0x200F, 0) == null, "AirPods: a pair heard twice (passing by) is not taken");
+            Check(AirPods.Pick(new[] { h(mine, -60, 9, 2) }, 0x2014, 0) == null, "AirPods: another model is not taken");
+            Check(AirPods.Pick(new[] { h(other, -55, 9, 1), h(mine, -60, 9, 2) }, 0x200F, 2).R == mine, "AirPods: the pair shown last stays while it is close to the strongest");
+            Check(AirPods.Pick(new[] { h(other, -45, 9, 1), h(mine, -70, 9, 2) }, 0x200F, 2).R == other, "AirPods: ... and gives way when it is much weaker");
+            var quiet = h(mine, -50, 9, 2); quiet.At = DateTime.UtcNow.AddSeconds(-30);
+            var now_ = h(other, -60, 9, 3); now_.At = DateTime.UtcNow;
+            Check(AirPods.Pick(new[] { quiet, now_ }, 0x200F, 2).R == other, "AirPods: an address that went quiet (an earbud taken out) gives way to the one sending now");
+
+            // captured: the right earbud charging in the open case (50 %), the left one worn; both send. The right one's
+            // packet does not tell that the left one is worn, the left one's does
+            var fromRight = AirPods.Parse(Hex("07 19 01 0F 20 53 9A 95 02 00 04"));
+            var fromLeft = AirPods.Parse(Hex("07 19 01 0F 20 33 A9 A5 01 00 04"));
+            Check(!fromRight.FromLeft && fromRight.Left == 90 && fromRight.Right == 100 && fromRight.ChargingRight && fromRight.Case == 50 && fromRight.LidOpen,
+                  "AirPods: the right earbud in the case: right 100 % charging, left 90 %, the case 50 %, the lid open");
+            Check(fromLeft.FromLeft && fromLeft.Left == 90 && fromLeft.Right == 100 && fromLeft.LeftInEar && fromLeft.ChargingRight, "AirPods: the left earbud: worn");
+            var hr = h(fromRight, -60, 9, 5); var hl = h(fromLeft, -55, 9, 6);
+            Check(AirPods.Partner(new[] { hr, hl }, hr) == hl && AirPods.Partner(new[] { hr, hl, h(other, -50, 9, 7) }, hl) == hr, "AirPods: the other earbud of the same pair is found by its levels");
+            foreach (var m in new[] { AirPods.Merge(fromRight, hl), AirPods.Merge(fromLeft, hr) })
+                Check(m.Left == 90 && m.LeftInEar && !m.ChargingLeft && m.Right == 100 && m.ChargingRight && !m.RightInEar && m.Case == 50,
+                      "AirPods: both packets together: left worn, right charging in the case, whichever was picked");
             var dev = new BluetoothBattery.Device { Mac = "AABBCCDDEEFF", Name = "My AirPods", Pid = 0x200F };
             var g = BatteryReader.AirPodsGadget(dev, mine);
-            Check(g.Pct == 90 && g.Approx && g.Kind == "earbuds" && g.Id == "bt-AABBCCDDEEFF", "AirPods: the panel shows the lower earbud, approximate");
+            Check(g.Pct == 90 && g.Approx && !g.Charging && g.Kind == "earbuds" && g.Id == "bt-AABBCCDDEEFF", "AirPods: the panel shows the lower earbud, approximate");
             Check(g.Detail.Contains("90") && g.Detail.Contains("100"), "AirPods: each earbud under it");
-            Check(BatteryReader.AirPodsGadget(dev, AirPods.Parse(Hex("07 19 01 0F 20 01 FF 85"))) == null, "AirPods: both in the case: not shown");
+            var one = BatteryReader.AirPodsGadget(dev, AirPods.Parse(Hex("07 19 01 0F 20 21 A5 1F 00")));
+            Check(one.Pct == 100 && !one.Charging && one.Detail.Contains(Strings.T("podInCase")), "AirPods: one earbud charging in the case: the panel shows the one in use");
+            var both = BatteryReader.AirPodsGadget(dev, AirPods.Parse(Hex("07 19 01 0F 20 25 A5 36 00")));
+            Check(both.Pct == 50 && both.Charging && both.Detail.Contains("60"), "AirPods: both charging in the open case: the lower one, charging, and the case");
+            Check(BatteryReader.AirPodsGadget(dev, AirPods.Parse(Hex("07 19 01 0F 20 01 FF 85"))) == null, "AirPods: no earbud reported: not shown");
+            Check(BatteryReader.AirPodsGadget(dev, worn).Detail.Contains(Strings.T("podInEar")), "AirPods: an earbud in an ear says so");
         }
 
         static void NoLevelNote()

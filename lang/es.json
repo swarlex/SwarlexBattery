@@ -90,9 +90,9 @@
   "intervalNote": "cada cuánto se leen las baterías",
   "lowAlertNote": "una notificación a este nivel",
   "timeLeftNote": "según lo rápido que se descarga cada dispositivo",
-  "quietGamingNote": "las notificaciones esperan a que termine el juego a pantalla completa",
+  "quietGamingNote": "los avisos esperan a que acabe el juego",
   "lowSoundNote": "se oye aunque un juego oculte la notificación",
-  "bluetoothNote": "los niveles que Windows muestra para los dispositivos Bluetooth",
+  "bluetoothNote": "los niveles que Windows muestra por Bluetooth",
   "pinIconNote": "desactivado: Windows puede ponerlo tras la flecha ^",
   "iconPercentNote": "un número en el anillo en lugar del pictograma",
   "colorIconNote": "verde, naranja o rojo según el nivel",
@@ -100,7 +100,7 @@
   "autoUpdateNote": "consulta GitHub cada 6 horas",
   "betaNote": "las versiones nuevas antes que nadie",
   "chargeAnim": "Animación de carga",
-  "chargeAnimNote": "el anillo se llena mientras un dispositivo se carga",
+  "chargeAnimNote": "el anillo se llena mientras se carga",
   "openAnim": "Animación de apertura",
   "openAnimNote": "el panel y el menú se deslizan al abrirse",
   "fullNotify": "Avisar al terminar la carga",
@@ -113,5 +113,11 @@
   "limitBody": "Desconéctalo ahora para cuidar la batería.",
   "podLeft": "I {0} %",
   "podRight": "D {0} %",
-  "podCase": "estuche {0} %"
+  "podCase": "estuche {0} %",
+  "podInEar": "puesto",
+  "podInCase": "en el estuche",
+  "separateIcons": "Un icono por dispositivo",
+  "separateIconsNote": "cada dispositivo con su icono",
+  "themeLightSub": "siempre claro",
+  "themeDarkSub": "siempre oscuro"
 }
