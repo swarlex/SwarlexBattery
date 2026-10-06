@@ -44,7 +44,7 @@ namespace SwarlexBattery
         readonly string lastFile = Path.Combine(Program.CacheDir, "state", "gadgets", "hid-last.json");
         Dictionary<string, Dictionary<string, object>> last = new Dictionary<string, Dictionary<string, object>>();
         List<Gadget> slow = new List<Gadget>(); DateTime slowAt = DateTime.MinValue;
-        string lastSeen;
+        string lastSeen; readonly HashSet<string> loggedStates = new HashSet<string>();
 
         // ------------------------------------------------------------ estimated time left
         // Per device, the level against the time it was awake and on battery since its last charge. Gaps
@@ -377,11 +377,15 @@ namespace SwarlexBattery
             {
                 lastSeen = seen;
                 Log.Write("HID devices: " + (order.Count == 0 ? "none" : string.Join("; ", order.Select(i => byId[i].ToString()))));
-                // devices of supported vendors that gave no reading at all: their collections tell which protocol fits
-                var quiet = Hid.LastList.Where(d => !byId.Values.Any(r => r.Level >= 0 && r.Source == SourceOf(d.Vid))).Select(d => d.ToString()).Distinct().ToList();
-                if (quiet.Count > 0) Log.Write("HID unread: " + string.Join("; ", quiet.Take(40)));
-                if (Hid.Others.Length > 0) Log.Write("HID other vendors: " + string.Join("; ", Hid.Others.Take(40)));
-                if (order.Any(i => byId[i].Level < 0) || quiet.Count > 0) lock (Hid.Trace) Log.Write("HID trace: " + string.Join(" | ", Hid.Trace.Skip(Math.Max(0, Hid.Trace.Count - 12))));
+                // the long lines below once per state and run: a mouse that naps and wakes flips between two states all day
+                if (loggedStates.Count < 50 && loggedStates.Add(seen))
+                {
+                    // devices of supported vendors that gave no reading at all: their collections tell which protocol fits
+                    var quiet = Hid.LastList.Where(d => !byId.Values.Any(r => r.Level >= 0 && r.Source == SourceOf(d.Vid))).Select(d => d.ToString()).Distinct().ToList();
+                    if (quiet.Count > 0) Log.Write("HID unread: " + string.Join("; ", quiet.Take(40)));
+                    if (Hid.Others.Length > 0) Log.Write("HID other vendors: " + string.Join("; ", Hid.Others.Take(40)));
+                    if (order.Any(i => byId[i].Level < 0) || quiet.Count > 0) lock (Hid.Trace) Log.Write("HID trace: " + string.Join(" | ", Hid.Trace.Skip(Math.Max(0, Hid.Trace.Count - 12))));
+                }
             }
 
             foreach (var id in order)
@@ -507,6 +511,7 @@ namespace SwarlexBattery
         }
 
         static readonly HashSet<string> chargingBelowFull = new HashSet<string>();   // devices seen charging and not yet full
+        static readonly HashSet<string> chargingBelow80 = new HashSet<string>();     // the same, for "Remind at 80 %"
 
         public static Snapshot Build(List<Gadget> gadgets)
         {
@@ -542,6 +547,12 @@ namespace SwarlexBattery
                 else if (g.Online && g.Pct >= 100 && chargingBelowFull.Remove(g.Id) && Config.Bool("fullNotify", true))
                     snap.Notify.Add(new Notice { Key = "full-" + g.Id, Title = Strings.T("fullTitle", g.Name), Body = Strings.T("fullBody"), Info = true });
                 else if (!g.Charging) chargingBelowFull.Remove(g.Id);   // unplugged before it was full
+                // "Remind at 80 %" (Preferences, off by default): lithium cells last longer when they are not kept full;
+                // once per charge, when a device seen charging below 80 % gets there
+                if (g.Online && g.Charging && g.Pct < 80 && !g.Approx) chargingBelow80.Add(g.Id);
+                else if (g.Online && g.Charging && g.Pct >= 80 && chargingBelow80.Remove(g.Id) && Config.Bool("limitNotify", false))
+                    snap.Notify.Add(new Notice { Key = "limit-" + g.Id, Title = Strings.T("limitTitle", g.Name, g.Pct), Body = Strings.T("limitBody"), Info = true });
+                else if (!g.Charging) chargingBelow80.Remove(g.Id);
             }
             // devices that give no level: name and reason only (no number, no bar, never in the tray icon)
             foreach (var g in gadgets.Where(x => x.Hint != null))

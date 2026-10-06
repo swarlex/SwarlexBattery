@@ -106,5 +106,9 @@
   "fullNotify": "Notify when charged",
   "fullNotifyNote": "when a charging device reaches 100 %",
   "fullTitle": "{0} is charged",
-  "fullBody": "You can unplug it."
+  "fullBody": "You can unplug it.",
+  "limitNotify": "Remind at 80 %",
+  "limitNotifyNote": "unplugging at 80 % keeps the battery healthy longer",
+  "limitTitle": "{0} is at {1} %",
+  "limitBody": "Unplug it now to spare the battery."
 }

@@ -43,6 +43,7 @@
   "iconPercent": false,
   "lowSound": false,
   "fullNotify": true,
+  "limitNotify": false,
   "chargeAnimation": true,
   "openAnimation": true
 }

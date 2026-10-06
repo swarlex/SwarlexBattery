@@ -106,5 +106,9 @@
   "fullNotify": "Melden, wenn geladen",
   "fullNotifyNote": "wenn ein ladendes Gerät 100 % erreicht",
   "fullTitle": "{0} ist geladen",
-  "fullBody": "Du kannst das Kabel abziehen."
+  "fullBody": "Du kannst das Kabel abziehen.",
+  "limitNotify": "Bei 80 % erinnern",
+  "limitNotifyNote": "bei 80 % abziehen schont den Akku",
+  "limitTitle": "{0} ist bei {1} %",
+  "limitBody": "Zieh das Kabel jetzt ab, um den Akku zu schonen."
 }

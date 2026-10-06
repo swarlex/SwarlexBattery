@@ -106,5 +106,9 @@
   "fullNotify": "Avvisa a ricarica completa",
   "fullNotifyNote": "quando un dispositivo in carica arriva al 100%",
   "fullTitle": "{0} è carico",
-  "fullBody": "Puoi scollegarlo."
+  "fullBody": "Puoi scollegarlo.",
+  "limitNotify": "Ricorda all'80%",
+  "limitNotifyNote": "scollegare all'80% allunga la vita della batteria",
+  "limitTitle": "{0} è al {1}%",
+  "limitBody": "Scollegalo ora per preservare la batteria."
 }

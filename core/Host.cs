@@ -55,8 +55,8 @@ namespace SwarlexBattery
             // locked: nobody looks at the tray, so the devices are left alone; unlocked or woken up: read at once
             SystemEvents.SessionSwitch += (s, e) => ui.BeginInvoke(new Action(() =>
             {
-                if (e.Reason == SessionSwitchReason.SessionLock) locked = true;
-                else if (e.Reason == SessionSwitchReason.SessionUnlock) { locked = false; PollSoon(); }
+                if (e.Reason == SessionSwitchReason.SessionLock) { locked = true; tray.Pause(true); }
+                else if (e.Reason == SessionSwitchReason.SessionUnlock) { locked = false; tray.Pause(Win.ForegroundIsFullscreen()); PollSoon(); }
             }));
             SystemEvents.PowerModeChanged += (s, e) => { if (e.Mode == PowerModes.Resume) ui.BeginInvoke(new Action(() => PollSoon())); };
             // once a second is enough for everything below (the closest deadline is a re-read 1.5 s after a plug-in),
@@ -96,7 +96,9 @@ namespace SwarlexBattery
                 bool light = TrayRenderer.IsLightTaskbar();
                 if (light != TrayRenderer.LightTaskbar) { TrayRenderer.LightTaskbar = light; tray.Repaint(); }
                 // notifications held back while a full-screen app was in front: shown once it is gone
-                if (held.Count > 0 && !Gaming()) ShowHeld();
+                bool fullscreen = Win.ForegroundIsFullscreen();
+                if (held.Count > 0 && !(fullscreen && Config.Bool("quietWhileGaming", true))) ShowHeld();
+                tray.Pause(locked || fullscreen);
             }
         }
 

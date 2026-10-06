@@ -291,6 +291,25 @@ namespace SwarlexBatteryTests
             Equal(0, full(new List<Gadget> { G("c3", "gamepad", 100, true, true) }), "coarse levels: no 'charged' notice");
             Equal(0, full(new List<Gadget> { G("c4", "mouse", 60, true) }) + full(new List<Gadget> { G("c4", "mouse", 61) }) + full(new List<Gadget> { G("c4", "mouse", 100) }),
                   "unplugged before it was full: no notice later");
+
+            // "Remind at 80 %": off by default, once per charge when it is on
+            Func<List<Gadget>, int> limit = l => BatteryReader.Build(l).Notify.Count(n => n.Key.StartsWith("limit-"));
+            Equal(0, limit(new List<Gadget> { G("r1", "mouse", 50, true) }) + limit(new List<Gadget> { G("r1", "mouse", 85, true) }), "80 % reminder: off by default");
+            object keep;
+            bool had = Config.Data.TryGetValue("limitNotify", out keep);
+            try
+            {
+                Config.Data["limitNotify"] = true;
+                Equal(0, limit(new List<Gadget> { G("r2", "mouse", 79, true) }), "80 % reminder: not below 80 %");
+                var r = BatteryReader.Build(new List<Gadget> { G("r2", "mouse", 81, true) }).Notify.FirstOrDefault(x => x.Key == "limit-r2");
+                Check(r != null && r.Info && r.Pct < 0 && r.Title.Contains("81"), "80 % reminder: once at 80 %, as information, with the level");
+                Equal(0, limit(new List<Gadget> { G("r2", "mouse", 90, true) }), "80 % reminder: not again in the same charge");
+                Equal(0, limit(new List<Gadget> { G("r3", "mouse", 90, true) }), "80 % reminder: plugged in above 80 %: no notice");
+                Equal(0, limit(new List<Gadget> { G("r4", "gamepad", 50, true, true) }) + limit(new List<Gadget> { G("r4", "gamepad", 100, true, true) }), "80 % reminder: coarse levels: no notice");
+                Equal(0, limit(new List<Gadget> { G("r5", "mouse", 70, true) }) + limit(new List<Gadget> { G("r5", "mouse", 70) }) + limit(new List<Gadget> { G("r5", "mouse", 85, true) }),
+                      "80 % reminder: unplugged and plugged in again above 80 %: no notice");
+            }
+            finally { if (had) Config.Data["limitNotify"] = keep; else Config.Data.Remove("limitNotify"); }
         }
 
         static void NoLevelNote()

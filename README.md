@@ -47,7 +47,8 @@ device in the panel to rename it, give it another icon or hide it.
 - **Honest numbers:** a level is shown only when the device itself answered; levels are never made up. The
   time left is an estimate from how fast each device drains now, and says "about".
 - **Light:** one small C# program, about 10 MB of memory, no services, no vendor software.
-- **Low battery notifications**, quiet while a fullscreen game is running.
+- **Low battery notifications**, quiet while a fullscreen game is running; a note when a device is
+  charged, and optionally at 80 % to spare the battery.
 - **Updates itself** from this page when you click *Update* (SHA-256 checked).
 - **Light and dark** like your taskbar; **English, Turkish, German, Spanish and Italian**; free and open source (GPL-3.0).
 
@@ -116,7 +117,7 @@ published protocols. **Not working for you?** Right-click the tray icon > *Diagn
 <summary>Settings</summary>
 
 Right-click > *Preferences* has the poll interval and the low battery level (- / +), *Estimated time left*,
-*Quiet while gaming*, *Sound with low battery alerts*, *Windows Bluetooth devices*, *Keep the icon next to the
+*Quiet while gaming*, *Sound with low battery alerts*, *Notify when charged*, *Remind at 80 %*, *Windows Bluetooth devices*, *Keep the icon next to the
 clock*, *Percentage in the icon*, *Coloured icon*, the charging and opening animations,
 the theme, the status file, *Start with Windows* and the update settings; *Language* is in the menu. Right-click a device
 in the panel to rename it, choose its icon, give it its own low battery level or hide it; hidden devices come
@@ -132,7 +133,9 @@ devices*. All of it is kept in `%APPDATA%\SwarlexBattery\config.json`, which als
 | `"plugins": { "gadgets": { "interval": 60 } }` | seconds between battery reads (default 30; 5 while the panel is open) |
 | `"monochrome": false` | coloured icons |
 | `"quietWhileGaming": false` | notify during fullscreen apps too |
-| `"lowSound": true` | a sound with low battery alerts (also in the right-click menu) |
+| `"lowSound": true` | a sound with low battery alerts |
+| `"fullNotify": false` | no notification when a device is charged |
+| `"limitNotify": true` | a reminder when a charging device reaches 80 % |
 | `"update": { "check": false }` | no automatic update check |
 | `"statusFile": true` | write every level to `%APPDATA%\SwarlexBattery\status.json` for Rainmeter, Stream Deck or scripts |
 | `"plugins": { "gadgets": { "timeLeft": false } }` | no "time left" estimate |
