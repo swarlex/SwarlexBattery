@@ -102,5 +102,9 @@
   "chargeAnim": "Charging animation",
   "chargeAnimNote": "the ring fills up while a device charges",
   "openAnim": "Opening animation",
-  "openAnimNote": "the panel and the menu slide in"
+  "openAnimNote": "the panel and the menu slide in",
+  "fullNotify": "Notify when charged",
+  "fullNotifyNote": "when a charging device reaches 100 %",
+  "fullTitle": "{0} is charged",
+  "fullBody": "You can unplug it."
 }

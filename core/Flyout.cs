@@ -615,6 +615,7 @@ namespace SwarlexBattery
             root.Children.Add(toggle(Strings.T("timeLeftOpt"), "plugins.gadgets.timeLeft", true, "timeLeftNote", false));
             root.Children.Add(toggle(Strings.T("quietGaming"), "quietWhileGaming", true, "quietGamingNote", false));
             root.Children.Add(toggle(Strings.T("lowSound"), "lowSound", false, "lowSoundNote", false));
+            root.Children.Add(toggle(Strings.T("fullNotify"), "fullNotify", true, "fullNotifyNote", false));
             root.Children.Add(Separator());
             root.Children.Add(toggle(Strings.T("bluetoothOpt"), "plugins.gadgets.bluetooth", true, "bluetoothNote", false));
             root.Children.Add(toggle(Strings.T("pinIcon"), "alwaysShowInTray", true, "pinIconNote", false));

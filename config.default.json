@@ -42,6 +42,7 @@
   "statusFile": false,
   "iconPercent": false,
   "lowSound": false,
+  "fullNotify": true,
   "chargeAnimation": true,
   "openAnimation": true
 }

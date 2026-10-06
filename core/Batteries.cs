@@ -35,7 +35,7 @@ namespace SwarlexBattery
         public TraySpec Copy() { var c = (TraySpec)MemberwiseClone(); if (Rings != null) c.Rings = (double[])Rings.Clone(); return c; }
     }
     class PanelItem { public string Icon, Label, Value, State, Sub; public double Pct; public string Id, OwnName, IconChoice; }
-    class Notice { public string Key, Title, Body; public int Pct = -1; }
+    class Notice { public string Key, Title, Body; public int Pct = -1; public bool Info; }   // Info: good news (charged), not a warning
     class Snapshot { public List<TraySpec> Icons = new List<TraySpec>(); public List<PanelItem> Items = new List<PanelItem>(); public string Empty; public List<Notice> Notify = new List<Notice>(); public string Title; }
 
     class BatteryReader
@@ -506,6 +506,8 @@ namespace SwarlexBattery
             return o;
         }
 
+        static readonly HashSet<string> chargingBelowFull = new HashSet<string>();   // devices seen charging and not yet full
+
         public static Snapshot Build(List<Gadget> gadgets)
         {
             gadgets = View(gadgets);
@@ -534,6 +536,12 @@ namespace SwarlexBattery
                                                Id = g.Id, OwnName = g.OwnName, IconChoice = g.Id != null && iconChoice.ContainsKey(g.Id) ? iconChoice[g.Id] : null });
                 if (lowFor(g) > 0 && g.Online && !g.Charging && g.Pct <= lowFor(g))
                     snap.Notify.Add(new Notice { Key = "low-" + g.Id, Title = Strings.T("lowTitle", g.Name), Body = Strings.T("lowBody", g.Pct), Pct = g.Pct });
+                // "Notify when charged" (Preferences, on by default): once, when a device seen charging below 100 % reaches
+                // 100 % - not when one already full is plugged in, and not for coarse levels (their top step is not "full")
+                if (g.Online && g.Charging && g.Pct < 100 && !g.Approx) chargingBelowFull.Add(g.Id);
+                else if (g.Online && g.Pct >= 100 && chargingBelowFull.Remove(g.Id) && Config.Bool("fullNotify", true))
+                    snap.Notify.Add(new Notice { Key = "full-" + g.Id, Title = Strings.T("fullTitle", g.Name), Body = Strings.T("fullBody"), Info = true });
+                else if (!g.Charging) chargingBelowFull.Remove(g.Id);   // unplugged before it was full
             }
             // devices that give no level: name and reason only (no number, no bar, never in the tray icon)
             foreach (var g in gadgets.Where(x => x.Hint != null))
