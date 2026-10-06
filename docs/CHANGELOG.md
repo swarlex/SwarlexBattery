@@ -2,6 +2,13 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 2.0.1
+### Changed
+- The setup carries its details too (description, product, company, copyright, version under Properties >
+  Details), like the app: antivirus programs that judge a file by machine learning distrust an exe without them.
+- Each release is scanned on VirusTotal by GitHub Actions, and the release notes link to the scans (once the
+  repository has its VirusTotal key).
+
 ## 2.0.0
 A new right-click menu with a **Preferences** window, a menu for each device, animations, an optional coloured
 icon and a more accurate time left.
