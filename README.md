@@ -9,14 +9,14 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/swarlex/SwarlexBattery/releases/latest/download/SwarlexBattery-Setup.exe"><b>â¬‡ Download SwarlexBattery-Setup.exe</b></a>
+  <a href="https://github.com/swarlex/SwarlexBattery/releases/latest/download/SwarlexBattery-Setup.exe"><b>⬇ Download SwarlexBattery-Setup.exe</b></a>
   <br>
-  <sub>Installs per user Â· no administrator rights Â· updates itself</sub>
+  <sub>Installs per user · no administrator rights · updates itself</sub>
 </p>
 
 <p align="center">
-  <a href="#install">Install</a> Â· <a href="#supported-devices">Supported devices</a> Â·
-  <a href="docs/CHANGELOG.md">Changelog</a> Â· <a href="#license">License</a>
+  <a href="#install">Install</a> · <a href="#supported-devices">Supported devices</a> ·
+  <a href="docs/CHANGELOG.md">Changelog</a> · <a href="#license">License</a>
 </p>
 
 ---
@@ -95,7 +95,7 @@ and keeps your settings; uninstall from **Settings > Apps**.
 | **Others** | Bluetooth devices whose battery Windows shows, laptop battery |
 
 Tested on real hardware: Razer BlackShark V2 HyperSpeed, VXE MAD 8K and Darmoshark M3 4K; the other readers follow
-published protocols. **Not working for you?** Right-click the tray icon > *Diagnosticsâ€¦* and attach the file to a
+published protocols. **Not working for you?** Right-click the tray icon > *Diagnostics…* and attach the file to a
 [device report](https://github.com/swarlex/SwarlexBattery/issues/new?template=device_request.yml). How to add a device:
 [CONTRIBUTING](.github/CONTRIBUTING.md). Questions and ideas: [Discussions](https://github.com/swarlex/SwarlexBattery/discussions).
 
