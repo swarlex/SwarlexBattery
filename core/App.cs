@@ -13,9 +13,9 @@ using System.Web.Script.Serialization;
 
 [assembly: AssemblyTitle("SwarlexBattery")]
 [assembly: AssemblyProduct("SwarlexBattery")]
-[assembly: AssemblyDescription("Battery levels of wireless mice, keyboards and headsets in the Windows tray")]
+[assembly: AssemblyDescription("Battery levels of wireless mice, keyboards, headsets and controllers in the Windows tray")]
 [assembly: AssemblyCompany("swarlex")]
-[assembly: AssemblyCopyright("GPL-3.0-or-later")]
+[assembly: AssemblyCopyright("Copyright (C) 2026 swarlex. GPL-3.0-or-later")]
 
 namespace SwarlexBattery
 {

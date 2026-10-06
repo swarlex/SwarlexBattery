@@ -1,6 +1,6 @@
 # Builds SwarlexBattery from this repository on GitHub's own Windows runners, so every binary can be traced
 # back to the source it was built from. The artifacts are the files a release ships (the exe, the setup and
-# the exe's SHA-256). Code signing (SignPath Foundation) is added to this workflow once it is granted.
+# the exe's SHA-256). For a release tag, the files of the release are also scanned on VirusTotal.
 name: Build
 
 on:
@@ -36,3 +36,37 @@ jobs:
             dist/SwarlexBattery-Setup.exe
             dist/SwarlexBattery.exe.sha256
           if-no-files-found: error
+
+  # A release's own files (the ones people download, not this job's build) go to VirusTotal, and the links to
+  # the scans are added to the release notes, so anyone can see what the antivirus engines make of them.
+  # Needs the repository secret VT_API_KEY (a free VirusTotal API key); without it this job does nothing.
+  virustotal:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Scan the release files and link the scans in the release notes
+        env:
+          VT_API_KEY: ${{ secrets.VT_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [ -z "$VT_API_KEY" ]; then echo "No VT_API_KEY secret: nothing scanned."; exit 0; fi
+          # the tag comes first, the files a few seconds later
+          for i in $(seq 1 30); do
+            gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p 'SwarlexBattery*.exe' -D files --clobber 2>/dev/null && [ "$(ls files/*.exe 2>/dev/null | wc -l)" -ge 2 ] && break
+            sleep 10
+          done
+          links=""
+          for f in files/SwarlexBattery-Setup.exe files/SwarlexBattery.exe; do
+            [ -f "$f" ] || continue
+            sha=$(sha256sum "$f" | cut -d' ' -f1)
+            curl -sS --fail -o /dev/null -X POST https://www.virustotal.com/api/v3/files -H "x-apikey: $VT_API_KEY" -F "file=@$f" || echo "upload of $f failed"
+            links="${links}- [$(basename "$f")](https://www.virustotal.com/gui/file/$sha)"$'\n'
+          done
+          [ -n "$links" ] || { echo "No release files found."; exit 0; }
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json body -q .body > notes.md
+          if grep -q 'virustotal.com' notes.md; then echo "Already linked."; exit 0; fi
+          printf '\n\n**VirusTotal scans**\n%s' "$links" >> notes.md
+          gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --notes-file notes.md
