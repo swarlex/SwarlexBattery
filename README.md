@@ -159,8 +159,9 @@ Maintainers release with `.\tools\release.ps1 -Notes "..."` (GitHub CLI).
 ## Code signing policy
 
 Release files are built from this repository by GitHub Actions ([build workflow](.github/workflows/build.yml)),
-so every binary can be traced back to its source. Code signing through the SignPath Foundation is requested;
-until it is granted, releases are not signed.
+so every binary can be traced back to its source. The SignPath Foundation, which signs open-source projects for free, asks for
+a wider following than this young project has yet; until then releases are not signed, and the SHA-256 next to
+each file shows it is the one GitHub Actions built.
 
 | Role | Who |
 |---|---|
