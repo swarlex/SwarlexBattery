@@ -9,6 +9,8 @@ All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBat
   device now counts, and the panel shows the headset's own name.
 - Bluetooth addresses were read from the end of the service GUID that many devices share, so different
   devices could be taken for one.
+- A Bluetooth headset switched off or on shows up in the panel within seconds, not up to half a minute later:
+  the Bluetooth list (well under a millisecond to read) is looked at every 3 s.
 
 ## 2.0.3
 ### Added
