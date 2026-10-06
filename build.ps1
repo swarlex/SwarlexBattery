@@ -87,11 +87,21 @@ Copy-Item -LiteralPath (Join-Path $here 'core\app.manifest') -Destination "$work
 # version from the VERSION file, stamped into the exe (the updater compares it with the latest GitHub release)
 $version = (Get-Content -LiteralPath (Join-Path $here 'VERSION') -Raw).Trim()
 if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "invalid VERSION: $version" }
-$asmInfo = Join-Path $work 'AssemblyInfo.cs'
-Set-Content -LiteralPath $asmInfo -Encoding UTF8 -Value @(
+$versionLines = @(
     "[assembly: System.Reflection.AssemblyVersion(`"$version.0`")]",
     "[assembly: System.Reflection.AssemblyFileVersion(`"$version.0`")]",
     "[assembly: System.Reflection.AssemblyInformationalVersion(`"$version`")]")
+$asmInfo = Join-Path $work 'AssemblyInfo.cs'
+Set-Content -LiteralPath $asmInfo -Encoding UTF8 -Value $versionLines   # the app's other details are in core\App.cs
+# The setup's details (Properties > Details: description, product, company, copyright). Antivirus programs that
+# judge a file by machine learning distrust an exe without them, and the setup is the file people download.
+$setupInfo = Join-Path $work 'SetupInfo.cs'
+Set-Content -LiteralPath $setupInfo -Encoding UTF8 -Value ($versionLines + @(
+    "[assembly: System.Reflection.AssemblyTitle(`"SwarlexBattery Setup`")]",
+    "[assembly: System.Reflection.AssemblyDescription(`"Installs SwarlexBattery for the current user`")]",
+    "[assembly: System.Reflection.AssemblyProduct(`"SwarlexBattery`")]",
+    "[assembly: System.Reflection.AssemblyCompany(`"swarlex`")]",
+    "[assembly: System.Reflection.AssemblyCopyright(`"Copyright (C) 2026 swarlex. GPL-3.0-or-later`")]"))
 $tmpExe = Join-Path $work 'SwarlexBattery.exe'
 $exe = Join-Path $dist 'SwarlexBattery.exe'
 $cscArgs = @('/nologo', '/target:winexe', '/optimize+', '/platform:anycpu', '/codepage:65001', "/out:$tmpExe", "/win32icon:$work\swarlexbattery.ico", "/win32manifest:$work\app.manifest",
@@ -129,7 +139,7 @@ $setupArgs = @('/nologo', '/target:winexe', '/optimize+', '/platform:anycpu', '/
     "/win32icon:$work\swarlexbattery.ico", "/win32manifest:$work\setup.manifest",
     '/reference:System.Windows.Forms.dll', '/reference:System.Drawing.dll', '/reference:System.Core.dll', '/reference:System.Web.Extensions.dll',
     "/resource:$tmpExe,app.exe", "/resource:$work\LICENSE,LICENSE",
-    (Join-Path $here 'core\Setup.cs'), $asmInfo)
+    (Join-Path $here 'core\Setup.cs'), $setupInfo)
 & $csc @setupArgs | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "csc (setup) failed ($LASTEXITCODE)" }
 Copy-Item -LiteralPath $tmpSetup -Destination $setup -Force
