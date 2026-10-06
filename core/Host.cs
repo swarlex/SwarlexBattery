@@ -76,7 +76,7 @@ namespace SwarlexBattery
             {
                 promoteCount++;
                 promoteAt = promoteCount < 18 ? now.AddSeconds(5) : now.AddMinutes(10);
-                try { TrayIcons.Promote(); } catch (Exception e) { Log.Write("promote: " + e.Message); }
+                try { if (TrayIcons.Promote()) tray.Readd(); } catch (Exception e) { Log.Write("promote: " + e.Message); }
             }
             // a device was plugged in or out (receiver, charging cable): refresh after it settles, and once more later
             if (DeviceWatch.Changes != seenChanges)
@@ -191,6 +191,8 @@ namespace SwarlexBattery
             Save(path, !Config.Bool(path, def));
             if (path == "plugins.gadgets.bluetooth") reader.RefreshSlow();
             if ((path == "iconPercent" || path == "monochrome" || path == "chargeAnimation") && Current != null) tray.Sync(Current.Icons);
+            // new icons: Explorer registers them a few seconds after they appear, so they are pinned again for a while
+            if (path == "plugins.gadgets.combine") { promoteCount = 0; promoteAt = DateTime.Now.AddSeconds(2); }
             if (path == "alwaysShowInTray") try { TrayIcons.SetPromoted(Config.Bool(path, true)); } catch (Exception e) { Log.Write("promote: " + e.Message); }
             if (path == "update.check" || path == "update.beta") { Update = null; LastResult = ""; if (Config.Bool("update.check", true)) CheckUpdates(true); }
             PollSoon();

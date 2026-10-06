@@ -2,6 +2,28 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 2.0.6
+### Added
+- **Separate icon per device** in Preferences (it was a config.json setting only): one tray icon for each device
+  instead of the shared ring.
+- AirPods: the line under them says which earbud is in an ear and which is in the case; an earbud charging in
+  the case no longer counts as the one in use, so the panel shows the level of the one you are wearing.
+
+### Fixed
+- AirPods: the left and right earbuds were swapped.
+- AirPods: someone else's pair passing by is no longer taken (a pair must be heard at least three times), and of
+  two pairs side by side the one shown stays instead of taking turns.
+- A setting changed while the batteries were being read could rarely make that read fail; config.json is
+  written whole or not at all (a crash while saving no longer leaves half a file).
+- Switching *Separate icon per device* off moved the icon behind the ^ arrow: icons are now reused, so Windows
+  keeps their place next to the clock, and an icon is added again when it is pinned so the pin takes effect at once.
+- Switching the theme from dark to automatic left copies of text below Preferences for a moment: every theme
+  has a note now, so the window keeps its height.
+- Preferences notes that wrapped onto two lines (Turkish, German, Spanish, Italian) are shorter.
+
+### Changed
+- The AirPods listener gets only Apple's AirPods packets from Windows, not every Bluetooth advertisement around.
+
 ## 2.0.5
 ### Added
 - **AirPods** (and other Apple earbuds) show their level: Windows has none for them, so it is read from the

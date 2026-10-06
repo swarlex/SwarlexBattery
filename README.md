@@ -9,14 +9,14 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/swarlex/SwarlexBattery/releases/latest/download/SwarlexBattery-Setup.exe"><b>⬇ Download SwarlexBattery-Setup.exe</b></a>
+  <a href="https://github.com/swarlex/SwarlexBattery/releases/latest/download/SwarlexBattery-Setup.exe"><b>â¬‡ Download SwarlexBattery-Setup.exe</b></a>
   <br>
-  <sub>Installs per user · no administrator rights · updates itself</sub>
+  <sub>Installs per user Â· no administrator rights Â· updates itself</sub>
 </p>
 
 <p align="center">
-  <a href="#install">Install</a> · <a href="#supported-devices">Supported devices</a> ·
-  <a href="docs/CHANGELOG.md">Changelog</a> · <a href="#license">License</a>
+  <a href="#install">Install</a> Â· <a href="#supported-devices">Supported devices</a> Â·
+  <a href="docs/CHANGELOG.md">Changelog</a> Â· <a href="#license">License</a>
 </p>
 
 ---
@@ -28,8 +28,8 @@ device in the panel to rename it, give it another icon or hide it.
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: light)" srcset="docs/images/panel-2-light.png">
-    <img src="docs/images/panel-2-dark.png" width="320" alt="The panel with battery levels and the time left">
+    <source media="(prefers-color-scheme: light)" srcset="docs/images/panel-3-light.png">
+    <img src="docs/images/panel-3-dark.png" width="320" alt="The panel: a mouse, AirPods with each earbud, and a headset with the time left">
   </picture>
 </p>
 
@@ -91,11 +91,11 @@ and keeps your settings; uninstall from **Settings > Apps**.
 | **Keyboards** | AULA F75 (2.4 GHz), Keychron (Ultra-Link 8K, M5 mouse), Lofree Hyzen; Razer and Logitech wireless keyboards |
 | **Darmoshark** | M3 4K on the 4K receiver; M3, M3S, N3 |
 | **Controllers** | PS5 DualSense / Edge, PS4 DualShock 4, Xbox (USB, wireless adapter, Bluetooth), Switch Pro / Joy-Con, 8BitDo, and other pads in Xbox (XInput) mode |
-| **Apple** | AirPods, AirPods Pro, AirPods Max and Beats on Bluetooth (each earbud and the case) |
+| **Apple** | AirPods, AirPods Pro, AirPods Max and Beats on Bluetooth (each earbud, in ear or in the case, and the case) |
 | **Others** | Bluetooth devices whose battery Windows shows, laptop battery |
 
 Tested on real hardware: Razer BlackShark V2 HyperSpeed, VXE MAD 8K and Darmoshark M3 4K; the other readers follow
-published protocols. **Not working for you?** Right-click the tray icon > *Diagnostics…* and attach the file to a
+published protocols. **Not working for you?** Right-click the tray icon > *Diagnosticsâ€¦* and attach the file to a
 [device report](https://github.com/swarlex/SwarlexBattery/issues/new?template=device_request.yml). How to add a device:
 [CONTRIBUTING](.github/CONTRIBUTING.md). Questions and ideas: [Discussions](https://github.com/swarlex/SwarlexBattery/discussions).
 
@@ -121,7 +121,7 @@ published protocols. **Not working for you?** Right-click the tray icon > *Diagn
 
 Right-click > *Preferences* has the poll interval and the low battery level (- / +), *Estimated time left*,
 *Quiet while gaming*, *Sound with low battery alerts*, *Notify when charged*, *Remind at 80 %*, *Windows Bluetooth devices*, *Keep the icon next to the
-clock*, *Percentage in the icon*, *Coloured icon*, the charging and opening animations,
+clock*, *Separate icon per device*, *Percentage in the icon*, *Coloured icon*, the charging and opening animations,
 the theme, the status file, *Start with Windows* and the update settings; *Language* is in the menu. Right-click a device
 in the panel to rename it, choose its icon, give it its own low battery level or hide it; hidden devices come
 back from the menu's *Hidden

@@ -620,15 +620,18 @@ namespace SwarlexBattery
             root.Children.Add(Separator());
             root.Children.Add(toggle(Strings.T("bluetoothOpt"), "plugins.gadgets.bluetooth", true, "bluetoothNote", false));
             root.Children.Add(toggle(Strings.T("pinIcon"), "alwaysShowInTray", true, "pinIconNote", false));
+            root.Children.Add(toggle(Strings.T("separateIcons"), "plugins.gadgets.combine", true, "separateIconsNote", true));
             root.Children.Add(toggle(Strings.T("iconPercent"), "iconPercent", false, "iconPercentNote", false));
             root.Children.Add(toggle(Strings.T("colorIcon"), "monochrome", true, "colorIconNote", true));
             root.Children.Add(toggle(Strings.T("chargeAnim"), "chargeAnimation", true, "chargeAnimNote", false));
             root.Children.Add(toggle(Strings.T("openAnim"), "openAnimation", true, "openAnimNote", false));
-            // the theme: automatic -> light -> dark
+            // the theme: automatic -> light -> dark. Each has a note, so the row (and the window) keeps its height: a
+            // window that grows while it moves up shows bits of its old picture below for a moment, and from dark to
+            // automatic (dark too) no colour fade hides that
             var mode = Config.Str("theme.mode", "auto").ToLowerInvariant();
             string next = mode == "light" ? "dark" : mode == "dark" ? "auto" : "light";
             root.Children.Add(MenuRow(null, Strings.T("themeOpt", Strings.T(mode == "light" ? "themeLight" : mode == "dark" ? "themeDark" : "themeAuto")),
-                () => ThemeChange(next), false, mode == "light" || mode == "dark" ? null : Strings.T("themeAutoSub")));
+                () => ThemeChange(next), false, Strings.T(mode == "light" ? "themeLightSub" : mode == "dark" ? "themeDarkSub" : "themeAutoSub")));
             root.Children.Add(Separator());
             root.Children.Add(toggle(Strings.T("statusFileOpt"), "statusFile", false, "statusFileNote", false));
             root.Children.Add(MenuRow(null, Strings.T("startWithWindows"), () => { host.ToggleAutostart(); redo(); }, host.Autostart));

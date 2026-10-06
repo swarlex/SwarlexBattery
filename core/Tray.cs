@@ -298,17 +298,27 @@ namespace SwarlexBattery
         readonly Dictionary<string, TraySpec> specs = new Dictionary<string, TraySpec>();
         public event Action<MouseButtons> Click;
 
+        // Icons that are no longer needed are hidden and kept, and a new one takes a kept one first: Windows knows an
+        // icon by its number, and a new number is a new icon it parks behind the ^ arrow (switching "Separate icon
+        // per device" off and on would otherwise lose the place next to the clock)
+        readonly List<NotifyIcon> spare = new List<NotifyIcon>();
+
         public void Sync(List<TraySpec> list)
         {
-            var seen = new HashSet<string>();
+            var seen = new HashSet<string>(list.Select(x => x.Id));
+            foreach (var id in icons.Keys.ToList())
+                if (!seen.Contains(id)) { icons[id].Visible = false; spare.Add(icons[id]); icons.Remove(id); specs.Remove(id); }
             foreach (var sp in list)
             {
-                seen.Add(sp.Id);
                 NotifyIcon ni;
                 if (!icons.TryGetValue(sp.Id, out ni))
                 {
-                    ni = new NotifyIcon();
-                    ni.MouseClick += (s, e) => { try { if (Click != null) Click(e.Button); } catch (Exception ex) { Log.Write("click: " + ex); } };
+                    if (spare.Count > 0) { ni = spare[0]; spare.RemoveAt(0); }
+                    else
+                    {
+                        ni = new NotifyIcon();
+                        ni.MouseClick += (s, e) => { try { if (Click != null) Click(e.Button); } catch (Exception ex) { Log.Write("click: " + ex); } };
+                    }
                     icons[sp.Id] = ni;
                 }
                 specs[sp.Id] = sp;
@@ -318,8 +328,6 @@ namespace SwarlexBattery
                 ni.Text = tip;
                 if (!ni.Visible) ni.Visible = true;
             }
-            foreach (var id in icons.Keys.ToList())
-                if (!seen.Contains(id)) { icons[id].Visible = false; icons[id].Dispose(); icons.Remove(id); specs.Remove(id); }
             UpdateAnimation();
         }
 
@@ -387,16 +395,24 @@ namespace SwarlexBattery
         // Settings > Personalization > Taskbar > Other system tray icons, only for this exe's own icons.
         // "Keep the icon next to the clock" (Preferences, on by default). Turned off, the icon is handed back once
         // (SetPromoted(false)) and from then on stays wherever the user puts it in Windows' own settings.
-        public static void Promote()
+        // true when an icon was switched on just now: Explorer reads the switch when an icon is added, so the icons
+        // are then added again (Readd) to move next to the clock at once
+        public static bool Promote()
         {
-            if (Config.Bool("alwaysShowInTray", true)) SetPromoted(true);
+            return Config.Bool("alwaysShowInTray", true) && SetPromoted(true);
         }
 
-        public static void SetPromoted(bool on)
+        public void Readd()
         {
+            foreach (var ni in icons.Values) if (ni.Visible) { ni.Visible = false; ni.Visible = true; }
+        }
+
+        public static bool SetPromoted(bool on)
+        {
+            bool changed = false;
             using (var root = Registry.CurrentUser.OpenSubKey(@"Control Panel\NotifyIconSettings"))
             {
-                if (root == null) return;
+                if (root == null) return false;
                 string leaf = "\\" + Path.GetFileName(Program.ExePath);
                 foreach (var name in root.GetSubKeyNames())
                 {
@@ -408,16 +424,17 @@ namespace SwarlexBattery
                         if (!(string.Equals(exe, Program.ExePath, StringComparison.OrdinalIgnoreCase) || exe.EndsWith(leaf, StringComparison.OrdinalIgnoreCase))) continue;
                         var v = k.GetValue("IsPromoted");
                         int want = on ? 1 : 0;
-                        if (!(v is int && (int)v == want)) k.SetValue("IsPromoted", want, RegistryValueKind.DWord);
+                        if (!(v is int && (int)v == want)) { k.SetValue("IsPromoted", want, RegistryValueKind.DWord); changed = true; }
                     }
                 }
             }
+            return changed;
         }
 
         public void Dispose()
         {
-            foreach (var ni in icons.Values) { ni.Visible = false; ni.Dispose(); }
-            icons.Clear();
+            foreach (var ni in icons.Values.Concat(spare)) { ni.Visible = false; ni.Dispose(); }
+            icons.Clear(); spare.Clear();
         }
     }
 }

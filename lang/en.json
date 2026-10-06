@@ -113,5 +113,11 @@
   "limitBody": "Unplug it now to spare the battery.",
   "podLeft": "L {0} %",
   "podRight": "R {0} %",
-  "podCase": "case {0} %"
+  "podCase": "case {0} %",
+  "podInEar": "in ear",
+  "podInCase": "in case",
+  "separateIcons": "Separate icon per device",
+  "separateIconsNote": "one tray icon for each device",
+  "themeLightSub": "always light",
+  "themeDarkSub": "always dark"
 }

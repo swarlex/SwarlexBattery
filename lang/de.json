@@ -90,8 +90,8 @@
   "intervalNote": "wie oft die Akkus abgefragt werden",
   "lowAlertNote": "eine Benachrichtigung bei diesem Stand",
   "timeLeftNote": "danach, wie schnell sich jedes Gerät entlädt",
-  "quietGamingNote": "Benachrichtigungen warten bis zum Ende des Vollbildspiels",
-  "lowSoundNote": "auch hörbar, wenn ein Spiel die Benachrichtigung verdeckt",
+  "quietGamingNote": "Meldungen warten bis zum Ende des Vollbildspiels",
+  "lowSoundNote": "hörbar, auch wenn ein Spiel die Meldung verdeckt",
   "bluetoothNote": "die Stände, die Windows für Bluetooth-Geräte zeigt",
   "pinIconNote": "aus: Windows kann es hinter den ^-Pfeil legen",
   "iconPercentNote": "eine Zahl im Ring statt des Symbols",
@@ -113,5 +113,11 @@
   "limitBody": "Zieh das Kabel jetzt ab, um den Akku zu schonen.",
   "podLeft": "L {0} %",
   "podRight": "R {0} %",
-  "podCase": "Etui {0} %"
+  "podCase": "Etui {0} %",
+  "podInEar": "im Ohr",
+  "podInCase": "im Etui",
+  "separateIcons": "Ein Symbol pro Gerät",
+  "separateIconsNote": "jedes Gerät mit eigenem Symbol",
+  "themeLightSub": "immer hell",
+  "themeDarkSub": "immer dunkel"
 }
