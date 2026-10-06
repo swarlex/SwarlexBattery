@@ -617,9 +617,20 @@ namespace SwarlexBattery
         }
         static string Str(IntPtr set, ref SP_DEVINFO_DATA d, DEVPROPKEY key) { int t; var b = Prop(set, ref d, key, out t); return b == null ? null : Encoding.Unicode.GetString(b).TrimEnd('\0'); }
 
+        // the address in an instance id: 12 hex digits after "&", "_" or "\" - not the end of a service GUID
+        // ({0000111E-0000-1000-8000-00805F9B34FB}), which every classic service node has
+        public static string MacOf(string id)
+        {
+            var ms = Regex.Matches(id ?? "", @"(?<=[&_\\])([0-9A-F]{12})(?![0-9A-F])", RegexOptions.IgnoreCase);
+            return ms.Count == 0 ? null : ms[ms.Count - 1].Groups[1].Value.ToUpperInvariant();
+        }
+
         public static List<Device> List()
         {
             var r = new List<Device>();
+            // a device is several nodes, and the level can sit on one that says "not connected" (the G435's Hands-Free AG
+            // node has it, while the headset node itself is connected): any connected node of the address counts
+            var connected = new HashSet<string>(); var names = new Dictionary<string, string>();
             foreach (var en in new[] { "BTHENUM", "BTHLE", "BTHLEDEVICE" })
             {
                 IntPtr set = SetupDiGetClassDevs(IntPtr.Zero, en, IntPtr.Zero, 0x2 | 0x4);   // DIGCF_PRESENT | DIGCF_ALLCLASSES
@@ -629,17 +640,25 @@ namespace SwarlexBattery
                     var d = new SP_DEVINFO_DATA { cbSize = Marshal.SizeOf(typeof(SP_DEVINFO_DATA)) };
                     for (int i = 0; SetupDiEnumDeviceInfo(set, i, ref d); i++)
                     {
-                        int t; var b = Prop(set, ref d, Battery, out t);
-                        if (b == null || b.Length < 1) continue;
-                        var c = Prop(set, ref d, Connected, out t);
+                        int t; var c = Prop(set, ref d, Connected, out t);
+                        bool on = c == null || c.Length == 0 || c[0] != 0;
                         var id = new StringBuilder(512); int req; SetupDiGetDeviceInstanceId(set, ref d, id, id.Capacity, out req);
-                        var m = Regex.Match(id.ToString(), "([0-9A-F]{12})", RegexOptions.IgnoreCase);
+                        string mac = MacOf(id.ToString());
+                        if (on && c != null && c.Length > 0 && mac != null) connected.Add(mac);
+                        // the device node (BTHENUM\DEV_..., BTHLE\DEV_...) carries the plain name: "...Headset", not "...Headset Hands-Free AG"
+                        if (mac != null && id.ToString().IndexOf("\\DEV_", StringComparison.OrdinalIgnoreCase) >= 0) { var dn = Str(set, ref d, FriendlyName); if (!string.IsNullOrEmpty(dn)) names[mac] = dn; }
+                        var b = Prop(set, ref d, Battery, out t);
+                        if (b == null || b.Length < 1) continue;
                         string name = Str(set, ref d, FriendlyName) ?? Str(set, ref d, DeviceDesc) ?? "Bluetooth";
-                        r.Add(new Device { Name = name, Class = Str(set, ref d, ClassName), Mac = m.Success ? m.Groups[1].Value.ToUpperInvariant() : name,
-                                           Level = Math.Min(100, (int)b[0]), Connected = c == null || c.Length == 0 || c[0] != 0 });
+                        r.Add(new Device { Name = name, Class = Str(set, ref d, ClassName), Mac = mac ?? name, Level = Math.Min(100, (int)b[0]), Connected = on });
                     }
                 }
                 finally { SetupDiDestroyDeviceInfoList(set); }
+            }
+            foreach (var x in r)
+            {
+                if (connected.Contains(x.Mac)) x.Connected = true;
+                string n; if (names.TryGetValue(x.Mac, out n)) x.Name = n;
             }
             return r;
         }

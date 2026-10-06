@@ -2,6 +2,14 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 2.0.4
+### Fixed
+- Bluetooth headsets whose level Windows shows were missing from the panel when Windows keeps the level on a
+  node that says "not connected" (e.g. Logitech G435: the Hands-Free AG node); any connected node of the
+  device now counts, and the panel shows the headset's own name.
+- Bluetooth addresses were read from the end of the service GUID that many devices share, so different
+  devices could be taken for one.
+
 ## 2.0.3
 ### Added
 - **Remind at 80 %** (Preferences, off by default): a charging device that reaches 80 % says so once, as
