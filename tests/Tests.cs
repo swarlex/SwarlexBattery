@@ -43,7 +43,7 @@ namespace SwarlexBatteryTests
         {
             // the defaults only: the user's own config.json is never read
             Program_.Init();
-            foreach (var test in new Action[] { Texts, SetupTexts, Atk, RazerMtk, SteelSeries, NovaElite, CloudIIIS, Centurion, GWolves, Jbl, CorsairNxp, Logitech, Names, Versions, LowBattery, Charged, BluetoothIds, NoLevelNote, UserChoices, TrayIcon, Estimate, TimeLeft })
+            foreach (var test in new Action[] { Texts, SetupTexts, Atk, RazerMtk, SteelSeries, NovaElite, CloudIIIS, Centurion, GWolves, Jbl, CorsairNxp, Logitech, Names, Versions, LowBattery, Charged, BluetoothIds, AirPodsAds, NoLevelNote, UserChoices, TrayIcon, Estimate, TimeLeft })
             {
                 try { test(); }
                 catch (Exception e) { failed++; Console.WriteLine("FAIL: " + test.Method.Name + " threw " + (e.InnerException ?? e).Message); }
@@ -320,6 +320,32 @@ namespace SwarlexBatteryTests
             Equal("D32FC1E2B5C6", BluetoothBattery.MacOf(@"BTHLEDEVICE\{00001800-0000-1000-8000-00805F9B34FB}_DEV_VID&02046D_PID&B023_REV&0011_d32fc1e2b5c6\8&2A1B3C4D&0&0010"), "BLE service node: the address");
             Equal("D32FC1E2B5C6", BluetoothBattery.MacOf(@"BTHLE\DEV_d32fc1e2b5c6\8&1A2B3C4D&0&D32FC1E2B5C6"), "BLE device node: the address");
             Check(BluetoothBattery.MacOf(@"BTHHFENUM\BTHHFPAUDIO\8&F03E73A&0&97") == null, "no address: null");
+        }
+
+        static void AirPodsAds()
+        {
+            // captured from AirPods (2nd generation, 0x200F) in the ears, the case closed: left 90 %, right 100 %
+            var mine = AirPods.Parse(Hex("07 19 01 0F 20 01 A9 8F 03 00 04 9E 6A 56 B5 7A 1E 32 76 42 1F D3 C9 B1 59 07 1F"));
+            Check(mine != null && mine.Model == 0x200F, "AirPods: the model from the advertisement");
+            Equal(90, mine.Left, "AirPods: left earbud (status 0x01: the low nibble)");
+            Equal(100, mine.Right, "AirPods: right earbud");
+            Equal(-1, mine.Case, "AirPods: the closed case reports no level");
+            Check(!mine.ChargingLeft && !mine.ChargingRight && !mine.ChargingCase, "AirPods: nothing charging");
+            // someone else's AirPods heard at the same time, far away: only the right earbud out, 80 %
+            var other = AirPods.Parse(Hex("07 19 01 0F 20 22 F8 8F 01 00 06 2B 62 79 C5 B2 1B AE 95 34 12 09 EF F3 37 8C 10"));
+            Check(other != null && other.Left == -1 && other.Right == 80, "AirPods: status 0x22: the high nibble is the left earbud");
+            Check(AirPods.Pick(new[] { Tuple.Create(other, -90.0), Tuple.Create(mine, -60.0) }, 0x200F) == mine, "AirPods: the strongest signal wins");
+            Check(AirPods.Pick(new[] { Tuple.Create(other, -90.0) }, 0x200F) == null, "AirPods: a far-away pair is not taken");
+            Check(AirPods.Pick(new[] { Tuple.Create(mine, -60.0) }, 0x2014) == null, "AirPods: another model is not taken");
+            var charging = AirPods.Parse(Hex("07 19 01 0F 20 01 A9 66 03 00"));
+            Check(charging.ChargingLeft && !charging.ChargingRight && charging.ChargingCase && charging.Case == 60, "AirPods: charging flags and the case level");
+            Check(AirPods.Parse(Hex("10 05 01 18 2C")) == null && AirPods.Parse(Hex("07 19 01 0F 20 01 FF FF")) == null, "AirPods: other Apple messages and empty levels are ignored");
+
+            var dev = new BluetoothBattery.Device { Mac = "AABBCCDDEEFF", Name = "My AirPods", Pid = 0x200F };
+            var g = BatteryReader.AirPodsGadget(dev, mine);
+            Check(g.Pct == 90 && g.Approx && g.Kind == "earbuds" && g.Id == "bt-AABBCCDDEEFF", "AirPods: the panel shows the lower earbud, approximate");
+            Check(g.Detail.Contains("90") && g.Detail.Contains("100"), "AirPods: each earbud under it");
+            Check(BatteryReader.AirPodsGadget(dev, AirPods.Parse(Hex("07 19 01 0F 20 01 FF 85"))) == null, "AirPods: both in the case: not shown");
         }
 
         static void NoLevelNote()

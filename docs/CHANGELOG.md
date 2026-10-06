@@ -2,15 +2,27 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
-## 2.0.4
+## 2.0.5
+### Added
+- **AirPods** (and other Apple earbuds) show their level: Windows has none for them, so it is read from the
+  Bluetooth LE advertisement they send for iPhones, only listened to (nothing is sent) and only while AirPods
+  paired with this PC are connected. The panel shows the lower earbud, and under it each earbud and the case
+  (10 % steps, marked approximate). Other people's AirPods nearby are left out: the model must match the
+  paired one and the strongest nearby signal wins.
+
+### Changed
+- Preferences and the other side windows open on the right of the menu when there is room, like a submenu.
+
 ### Fixed
 - Bluetooth headsets whose level Windows shows were missing from the panel when Windows keeps the level on a
   node that says "not connected" (e.g. Logitech G435: the Hands-Free AG node); any connected node of the
   device now counts, and the panel shows the headset's own name.
 - Bluetooth addresses were read from the end of the service GUID that many devices share, so different
   devices could be taken for one.
-- A Bluetooth headset switched off or on shows up in the panel within seconds, not up to half a minute later:
-  the Bluetooth list (well under a millisecond to read) is looked at every 3 s.
+- Bluetooth devices were read only once a minute, so a headset switched off or on took up to a minute to show;
+  they are read on every poll now (well under a millisecond), and a change is looked for every 3 s.
+- A re-read asked for while a read was running (a device plugged in, a headset switched on) was dropped and
+  waited for the next interval; it now follows right after.
 
 ## 2.0.3
 ### Added

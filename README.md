@@ -91,6 +91,7 @@ and keeps your settings; uninstall from **Settings > Apps**.
 | **Keyboards** | AULA F75 (2.4 GHz), Keychron (Ultra-Link 8K, M5 mouse), Lofree Hyzen; Razer and Logitech wireless keyboards |
 | **Darmoshark** | M3 4K on the 4K receiver; M3, M3S, N3 |
 | **Controllers** | PS5 DualSense / Edge, PS4 DualShock 4, Xbox (USB, wireless adapter, Bluetooth), Switch Pro / Joy-Con, 8BitDo, and other pads in Xbox (XInput) mode |
+| **Apple** | AirPods, AirPods Pro, AirPods Max and Beats on Bluetooth (each earbud and the case) |
 | **Others** | Bluetooth devices whose battery Windows shows, laptop battery |
 
 Tested on real hardware: Razer BlackShark V2 HyperSpeed, VXE MAD 8K and Darmoshark M3 4K; the other readers follow
@@ -105,7 +106,9 @@ published protocols. **Not working for you?** Right-click the tray icon > *Diagn
   either). Over Bluetooth its level is shown, read from Windows.
 - **AULA F75** on its cable and the **Darmoshark 4K** while charging report no level: the last reading
   is shown as charging, marked `~`.
-- Coarse levels (4-step headsets, Logitech voltage readings) are marked *approximate* (`~`).
+- Coarse levels (4-step headsets, Logitech voltage readings, AirPods' 10 % steps) are marked *approximate* (`~`).
+- **AirPods** show while at least one earbud is out of the case; the case's level only while it is open.
+  Beats models that do not send Apple's advertisement are not shown.
 - **PlayStation and 8BitDo controllers on Bluetooth** show their level only while Steam or a game uses
   them: switching them to the report with the battery ourselves would stop some games from reading the
   controller until it is turned off. On USB they always show it. Xbox pads report four steps (`~`).
@@ -139,6 +142,7 @@ devices*. All of it is kept in `%APPDATA%\SwarlexBattery\config.json`, which als
 | `"update": { "check": false }` | no automatic update check |
 | `"statusFile": true` | write every level to `%APPDATA%\SwarlexBattery\status.json` for Rainmeter, Stream Deck or scripts |
 | `"plugins": { "gadgets": { "timeLeft": false } }` | no "time left" estimate |
+| `"plugins": { "gadgets": { "airpods": false } }` | no AirPods levels (no Bluetooth LE listening) |
 
 Other programs can add devices through `%APPDATA%\SwarlexBattery\gadgets\external.json`:
 `[{"id": "speaker", "name": "Speaker", "kind": "speaker", "pct": 64, "charging": false}]`

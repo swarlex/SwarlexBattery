@@ -110,5 +110,8 @@
   "limitNotify": "Recordar al 80 %",
   "limitNotifyNote": "desconectar al 80 % alarga la vida de la batería",
   "limitTitle": "{0} está al {1} %",
-  "limitBody": "Desconéctalo ahora para cuidar la batería."
+  "limitBody": "Desconéctalo ahora para cuidar la batería.",
+  "podLeft": "I {0} %",
+  "podRight": "D {0} %",
+  "podCase": "estuche {0} %"
 }

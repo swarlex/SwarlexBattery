@@ -110,5 +110,8 @@
   "limitNotify": "Ricorda all'80%",
   "limitNotifyNote": "scollegare all'80% allunga la vita della batteria",
   "limitTitle": "{0} è al {1}%",
-  "limitBody": "Scollegalo ora per preservare la batteria."
+  "limitBody": "Scollegalo ora per preservare la batteria.",
+  "podLeft": "S {0}%",
+  "podRight": "D {0}%",
+  "podCase": "custodia {0}%"
 }

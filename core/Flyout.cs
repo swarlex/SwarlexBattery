@@ -261,9 +261,9 @@ namespace SwarlexBattery
             tt.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(tt.Y, 0, dur) { EasingFunction = ease });
         }
 
-        // beside the menu: on its left when there is room (the menu sits at the right, by the clock), else on its
-        // right; its bottom level with the menu's bottom when the taskbar is below, its top with the menu's top
-        // when the taskbar is above; inside the work area
+        // beside the menu: on its right when there is room (like a submenu), else on its left; its bottom level
+        // with the menu's bottom when the taskbar is below, its top with the menu's top when the taskbar is above;
+        // inside the work area
         void PlaceSide(Size dip)
         {
             if (sideHwnd == IntPtr.Zero || hwnd == IntPtr.Zero) return;
@@ -279,8 +279,8 @@ namespace SwarlexBattery
             }
             double scale = Win.DpiScale(anchor);
             int gap = (int)Math.Round(4 * scale), m = (int)Math.Round(8 * scale);
-            int x = r.Left - w - gap;
-            if (x < wa.Left + m) x = r.Right + gap;
+            int x = r.Right + gap;
+            if (x + w > wa.Right - m) x = Math.Max(wa.Left + m, r.Left - w - gap);
             int y = above ? r.Bottom - h : r.Top;
             y = Math.Max(wa.Top + m, Math.Min(wa.Bottom - h - m, y));
             Win.MoveTo(sideHwnd, x, y);

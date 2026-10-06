@@ -85,6 +85,7 @@ namespace SwarlexBattery
                 devicePolls.Clear(); devicePolls.Enqueue(now.AddSeconds(1.5)); devicePolls.Enqueue(now.AddSeconds(6));
             }
             if (devicePolls.Count > 0 && now >= devicePolls.Peek()) { devicePolls.Dequeue(); PollSoon(); }
+            if (AirPods.TakeFresh() && !locked) PollSoon();   // AirPods told a new level
             // Windows marks a Bluetooth headset gone a few seconds after it is switched off, often after the plug-in
             // re-reads above: its list (well under a millisecond) is looked at every 3 s, and a change reads at once
             if (now >= btAt && !locked && !btBusy && Config.Bool("plugins.gadgets.bluetooth", true))
@@ -93,7 +94,7 @@ namespace SwarlexBattery
                 ThreadPool.QueueUserWorkItem(_ =>
                 {
                     string sig = "";
-                    try { sig = string.Join(",", BluetoothBattery.List().Select(d => d.Mac + (d.Connected ? "+" : "-") + d.Level)); } catch { }
+                    try { sig = string.Join(",", BluetoothBattery.List().Select(d => d.Mac + (d.Connected ? "+" : "-") + d.Level)) + "|" + BluetoothBattery.Apple.Count; } catch { }
                     ui.BeginInvoke(new Action(() => { btBusy = false; if (btSig != null && sig != btSig) PollSoon(); btSig = sig; }));
                 });
             }
@@ -117,7 +118,9 @@ namespace SwarlexBattery
         // ------------------------------------------------------------ batteries
         bool locked;
         DateTime btAt; bool btBusy; string btSig;
-        public void PollSoon() { nextPoll = DateTime.MinValue; if (!polling && !locked) Poll(); }
+        // asked while a read is running: one more read right after it (it would otherwise wait a whole interval)
+        bool pollAgain;
+        public void PollSoon() { nextPoll = DateTime.MinValue; if (polling) pollAgain = true; else if (!locked) Poll(); }
 
         void Poll()
         {
@@ -131,7 +134,8 @@ namespace SwarlexBattery
                 {
                     polling = false;
                     // during a full-screen game the devices are asked less often (a plug-in still reads at once)
-                    nextPoll = DateTime.Now.AddSeconds(flyout.Open == "panel" ? 5 : Gaming() ? Math.Max(BatteryReader.PollSeconds, 300) : BatteryReader.PollSeconds);
+                    nextPoll = pollAgain ? DateTime.MinValue : DateTime.Now.AddSeconds(flyout.Open == "panel" ? 5 : Gaming() ? Math.Max(BatteryReader.PollSeconds, 300) : BatteryReader.PollSeconds);
+                    pollAgain = false;
                     if (snap != null && !stopping) Apply(snap);
                 }));
             });
