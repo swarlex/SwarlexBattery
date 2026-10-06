@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
+  - name: Question or idea
+    url: https://github.com/swarlex/SwarlexBattery/discussions
+    about: Ask how something works, share an idea or show your setup in Discussions.
   - name: How to report a device or add one
     url: https://github.com/swarlex/SwarlexBattery/blob/main/.github/CONTRIBUTING.md
     about: Diagnostics, USB captures and pull requests, step by step.

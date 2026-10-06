@@ -95,7 +95,7 @@ and keeps your settings; uninstall from **Settings > Apps**.
 Tested on real hardware: Razer BlackShark V2 HyperSpeed, VXE MAD 8K and Darmoshark M3 4K; the other readers follow
 published protocols. **Not working for you?** Right-click the tray icon > *Diagnostics…* and attach the file to a
 [device report](https://github.com/swarlex/SwarlexBattery/issues/new?template=device_request.yml). How to add a device:
-[CONTRIBUTING](.github/CONTRIBUTING.md).
+[CONTRIBUTING](.github/CONTRIBUTING.md). Questions and ideas: [Discussions](https://github.com/swarlex/SwarlexBattery/discussions).
 
 <details>
 <summary>Known limits</summary>
