@@ -102,7 +102,7 @@ published protocols. **Not working for you?** Right-click the tray icon > *Diagn
 <summary>Known limits</summary>
 
 - **Logitech G435** on its USB receiver: the receiver gives no battery level (Logitech G HUB shows none
-  either). Over Bluetooth it appears when Windows shows its battery.
+  either). Over Bluetooth its level is shown, read from Windows.
 - **AULA F75** on its cable and the **Darmoshark 4K** while charging report no level: the last reading
   is shown as charging, marked `~`.
 - Coarse levels (4-step headsets, Logitech voltage readings) are marked *approximate* (`~`).

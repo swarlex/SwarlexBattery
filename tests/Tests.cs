@@ -43,7 +43,7 @@ namespace SwarlexBatteryTests
         {
             // the defaults only: the user's own config.json is never read
             Program_.Init();
-            foreach (var test in new Action[] { Texts, SetupTexts, Atk, RazerMtk, SteelSeries, NovaElite, CloudIIIS, Centurion, GWolves, Jbl, CorsairNxp, Logitech, Names, Versions, LowBattery, Charged, NoLevelNote, UserChoices, TrayIcon, Estimate, TimeLeft })
+            foreach (var test in new Action[] { Texts, SetupTexts, Atk, RazerMtk, SteelSeries, NovaElite, CloudIIIS, Centurion, GWolves, Jbl, CorsairNxp, Logitech, Names, Versions, LowBattery, Charged, BluetoothIds, NoLevelNote, UserChoices, TrayIcon, Estimate, TimeLeft })
             {
                 try { test(); }
                 catch (Exception e) { failed++; Console.WriteLine("FAIL: " + test.Method.Name + " threw " + (e.InnerException ?? e).Message); }
@@ -310,6 +310,16 @@ namespace SwarlexBatteryTests
                       "80 % reminder: unplugged and plugged in again above 80 %: no notice");
             }
             finally { if (had) Config.Data["limitNotify"] = keep; else Config.Data.Remove("limitNotify"); }
+        }
+
+        static void BluetoothIds()
+        {
+            // instance ids captured from a Logitech G435 on Bluetooth: the level sits on the Hands-Free AG node
+            Equal("405899571DB9", BluetoothBattery.MacOf(@"BTHENUM\{0000111E-0000-1000-8000-00805F9B34FB}_VID&000107E3_PID&2002\7&1B605E42&0&405899571DB9_C00000000"), "service node: the address, not the GUID's end");
+            Equal("405899571DB9", BluetoothBattery.MacOf(@"BTHENUM\DEV_405899571DB9\7&1B605E42&0&BLUETOOTHDEVICE_405899571DB9"), "device node: the same address");
+            Equal("D32FC1E2B5C6", BluetoothBattery.MacOf(@"BTHLEDEVICE\{00001800-0000-1000-8000-00805F9B34FB}_DEV_VID&02046D_PID&B023_REV&0011_d32fc1e2b5c6\8&2A1B3C4D&0&0010"), "BLE service node: the address");
+            Equal("D32FC1E2B5C6", BluetoothBattery.MacOf(@"BTHLE\DEV_d32fc1e2b5c6\8&1A2B3C4D&0&D32FC1E2B5C6"), "BLE device node: the address");
+            Check(BluetoothBattery.MacOf(@"BTHHFENUM\BTHHFPAUDIO\8&F03E73A&0&97") == null, "no address: null");
         }
 
         static void NoLevelNote()
