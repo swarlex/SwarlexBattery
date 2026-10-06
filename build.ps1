@@ -74,7 +74,7 @@ $resArgs = @(
     "/resource:`"$(Join-Path $here 'config.default.json')`",config.default.json",
     "/resource:`"$(Join-Path $here 'core\swarlexbattery-icon.png')`",icon.png")
 foreach ($l in Get-ChildItem -LiteralPath (Join-Path $here 'lang') -Filter '*.json') { $resArgs += "/resource:`"$($l.FullName)`",lang.$($l.Name)" }
-$sources = foreach ($f in 'App', 'Host', 'Batteries', 'Tray', 'Flyout', 'Updater', 'Native', 'Hid', 'Devices') { Join-Path $here "core\$f.cs" }
+$sources = foreach ($f in 'App', 'Host', 'Batteries', 'Tray', 'Flyout', 'Updater', 'Native', 'Hid', 'Devices', 'AirPods') { Join-Path $here "core\$f.cs" }
 $wpf = Join-Path ([Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory()) 'WPF'
 $fwdir = [Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory().TrimEnd('\')
 $winmd = Join-Path $env:WINDIR 'System32\WinMetadata'
@@ -109,7 +109,9 @@ $cscArgs = @('/nologo', '/target:winexe', '/optimize+', '/platform:anycpu', '/co
     "/reference:$wpf\PresentationFramework.dll", "/reference:$wpf\PresentationCore.dll", "/reference:$wpf\WindowsBase.dll",
     # Windows notifications (WinRT): the metadata that ships with Windows, and the .NET bridge to it
     "/reference:$winmd\Windows.UI.winmd", "/reference:$winmd\Windows.Data.winmd", "/reference:$winmd\Windows.Foundation.winmd",
-    "/reference:$fwdir\System.Runtime.WindowsRuntime.dll", "/reference:$fwdir\System.Runtime.dll") +
+    "/reference:$fwdir\System.Runtime.WindowsRuntime.dll", "/reference:$fwdir\System.Runtime.dll",
+    # AirPods levels: Bluetooth LE advertisements (the WinRT event syntax needs the interop facade)
+    "/reference:$winmd\Windows.Devices.winmd", "/reference:$winmd\Windows.Storage.winmd", "/reference:$fwdir\System.Runtime.InteropServices.WindowsRuntime.dll") +
     @($resArgs) + @($sources) + @($asmInfo)
 & $csc @cscArgs | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "csc failed ($LASTEXITCODE)" }

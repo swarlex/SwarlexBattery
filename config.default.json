@@ -36,7 +36,8 @@
       "hid": true,
       "combine": true,
       "interval": 30,
-      "timeLeft": true
+      "timeLeft": true,
+      "airpods": true
     }
   },
   "statusFile": false,

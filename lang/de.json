@@ -110,5 +110,8 @@
   "limitNotify": "Bei 80 % erinnern",
   "limitNotifyNote": "bei 80 % abziehen schont den Akku",
   "limitTitle": "{0} ist bei {1} %",
-  "limitBody": "Zieh das Kabel jetzt ab, um den Akku zu schonen."
+  "limitBody": "Zieh das Kabel jetzt ab, um den Akku zu schonen.",
+  "podLeft": "L {0} %",
+  "podRight": "R {0} %",
+  "podCase": "Etui {0} %"
 }

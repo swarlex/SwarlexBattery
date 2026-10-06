@@ -110,5 +110,8 @@
   "limitNotify": "%80'de hatırlat",
   "limitNotifyNote": "%80'de çıkarmak pilin ömrünü uzatır",
   "limitTitle": "{0} %{1} oldu",
-  "limitBody": "Pilin ömrü için şimdi şarjdan çıkarabilirsin."
+  "limitBody": "Pilin ömrü için şimdi şarjdan çıkarabilirsin.",
+  "podLeft": "sol %{0}",
+  "podRight": "sağ %{0}",
+  "podCase": "kutu %{0}"
 }

@@ -299,9 +299,10 @@ namespace SwarlexBattery
         public List<Gadget> Read()
         {
             var list = new List<Gadget>();
-            // slow sources (power status, Bluetooth device properties) once a minute
+            // the laptop's power status once a minute
             if ((DateTime.UtcNow - slowAt).TotalSeconds > 55) { slow = ReadSlow(); slowAt = DateTime.UtcNow; }
             list.AddRange(slow);
+            ReadBluetooth(list);
             if (Config.Bool(S("hid"), true)) ReadHid(list);
             if (Config.Bool(S("xinput"), true))
             {
@@ -336,12 +337,28 @@ namespace SwarlexBattery
                 }
                 catch (Exception e) { Log.Once("system battery: " + e.Message); }
             }
+            return list;
+        }
+
+        // Bluetooth: every read (the device list takes well under a millisecond), so a headset switched off or on
+        // shows within seconds
+        void ReadBluetooth(List<Gadget> list)
+        {
             if (Config.Bool(S("bluetooth"), true))
             {
                 try
                 {
                     var seen = new HashSet<string>();
-                    foreach (var d in BluetoothBattery.List())
+                    var bt = BluetoothBattery.List();
+                    // AirPods: their own advertisement, listened to only while a paired pair is connected
+                    var apple = BluetoothBattery.Apple;
+                    AirPods.Watch(apple.Count > 0 && Config.Bool(S("airpods"), true));
+                    foreach (var a in apple)
+                    {
+                        var g = AirPodsGadget(a, AirPods.Best(a.Pid));
+                        if (g != null && seen.Add(a.Mac)) Add(list, g);
+                    }
+                    foreach (var d in bt)
                     {
                         if (!d.Connected && !Config.Bool(S("showDisconnected"), false)) continue;
                         if (!seen.Add(d.Mac)) continue;   // one device shows up as several service nodes
@@ -350,7 +367,21 @@ namespace SwarlexBattery
                 }
                 catch (Exception e) { Log.Once("bluetooth: " + e.Message); }
             }
-            return list;
+            else AirPods.Watch(false);
+        }
+
+        // the panel shows the lower earbud (the one that runs out first); the line under it each earbud and the case
+        public static Gadget AirPodsGadget(BluetoothBattery.Device dev, AirPods.Reading r)
+        {
+            if (r == null || (r.Left < 0 && r.Right < 0)) return null;   // both in the closed case: nothing to show
+            var parts = new List<string>();
+            if (r.Left >= 0) parts.Add(Strings.T("podLeft", r.Left));
+            if (r.Right >= 0) parts.Add(Strings.T("podRight", r.Right));
+            if (r.Case >= 0) parts.Add(Strings.T("podCase", r.Case));
+            int pct = r.Left < 0 ? r.Right : r.Right < 0 ? r.Left : Math.Min(r.Left, r.Right);
+            bool charging = (r.Left == pct && r.ChargingLeft) || (r.Right == pct && r.ChargingRight);
+            return new Gadget { Id = "bt-" + dev.Mac, Name = dev.Name, Kind = dev.Pid == 0x200A || dev.Pid == 0x201F ? "headphones" : "earbuds",
+                                Pct = pct, Charging = charging, Approx = true, Online = true, Detail = string.Join(" · ", parts) };
         }
 
         void ReadHid(List<Gadget> list)
@@ -594,7 +625,10 @@ namespace SwarlexBattery
     // ---------------------------------------------------------------- Bluetooth battery (the value Windows Settings shows)
     static class BluetoothBattery
     {
-        public class Device { public string Name, Class, Mac; public int Level; public bool Connected; }
+        public class Device { public string Name, Class, Mac; public int Level, Pid; public bool Connected; }
+
+        // connected Apple audio devices (AirPods, Beats) seen by the last List(): Windows gives no level for them, AirPods.cs reads it
+        public static List<Device> Apple = new List<Device>();
 
         [StructLayout(LayoutKind.Sequential)] struct SP_DEVINFO_DATA { public int cbSize; public Guid ClassGuid; public int DevInst; public IntPtr Reserved; }
         [StructLayout(LayoutKind.Sequential)] struct DEVPROPKEY { public Guid fmtid; public int pid; public DEVPROPKEY(string g, int p) { fmtid = new Guid(g); pid = p; } }
@@ -630,7 +664,7 @@ namespace SwarlexBattery
             var r = new List<Device>();
             // a device is several nodes, and the level can sit on one that says "not connected" (the G435's Hands-Free AG
             // node has it, while the headset node itself is connected): any connected node of the address counts
-            var connected = new HashSet<string>(); var names = new Dictionary<string, string>();
+            var connected = new HashSet<string>(); var names = new Dictionary<string, string>(); var apple = new Dictionary<string, int>();
             foreach (var en in new[] { "BTHENUM", "BTHLE", "BTHLEDEVICE" })
             {
                 IntPtr set = SetupDiGetClassDevs(IntPtr.Zero, en, IntPtr.Zero, 0x2 | 0x4);   // DIGCF_PRESENT | DIGCF_ALLCLASSES
@@ -647,6 +681,9 @@ namespace SwarlexBattery
                         if (on && c != null && c.Length > 0 && mac != null) connected.Add(mac);
                         // the device node (BTHENUM\DEV_..., BTHLE\DEV_...) carries the plain name: "...Headset", not "...Headset Hands-Free AG"
                         if (mac != null && id.ToString().IndexOf("\\DEV_", StringComparison.OrdinalIgnoreCase) >= 0) { var dn = Str(set, ref d, FriendlyName); if (!string.IsNullOrEmpty(dn)) names[mac] = dn; }
+                        // Apple's vendor id on the service nodes: ..._VID&0001004C_PID&200F\... (the PID is the model)
+                        var am = Regex.Match(id.ToString(), @"VID&0001004C_PID&([0-9A-F]{4})", RegexOptions.IgnoreCase);
+                        if (am.Success && mac != null) apple[mac] = Convert.ToInt32(am.Groups[1].Value, 16);
                         var b = Prop(set, ref d, Battery, out t);
                         if (b == null || b.Length < 1) continue;
                         string name = Str(set, ref d, FriendlyName) ?? Str(set, ref d, DeviceDesc) ?? "Bluetooth";
@@ -660,6 +697,7 @@ namespace SwarlexBattery
                 if (connected.Contains(x.Mac)) x.Connected = true;
                 string n; if (names.TryGetValue(x.Mac, out n)) x.Name = n;
             }
+            Apple = apple.Where(a => connected.Contains(a.Key)).Select(a => { string n; return new Device { Mac = a.Key, Pid = a.Value, Connected = true, Name = names.TryGetValue(a.Key, out n) ? n : "AirPods" }; }).ToList();
             return r;
         }
     }
