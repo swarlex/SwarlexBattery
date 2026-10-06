@@ -102,5 +102,9 @@
   "chargeAnim": "Şarj animasyonu",
   "chargeAnimNote": "cihaz şarj olurken halka dolar",
   "openAnim": "Açılış animasyonu",
-  "openAnimNote": "panel ve menü kayarak açılır"
+  "openAnimNote": "panel ve menü kayarak açılır",
+  "fullNotify": "Şarj dolunca bildir",
+  "fullNotifyNote": "şarj olan cihaz %100'e ulaşınca",
+  "fullTitle": "{0} şarj oldu",
+  "fullBody": "Şarjdan çıkarabilirsin."
 }

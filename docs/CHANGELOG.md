@@ -2,6 +2,12 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 2.0.2
+### Added
+- **Notify when charged** (Preferences, on by default): when a device that was charging reaches 100 %, a
+  notification says so, once - not when a device already full is plugged in, and not for devices that report
+  only rough steps. It waits until a full-screen game ends, like the low battery alert.
+
 ## 2.0.1
 ### Changed
 - The setup carries its details too (description, product, company, copyright, version under Properties >

@@ -131,7 +131,7 @@ namespace SwarlexBattery
             var now = DateTime.Now;
             foreach (var n in snap.Notify)
             {
-                if (!notified.ContainsKey(n.Key)) Toast(n.Title, n.Body, ToolTipIcon.Warning);
+                if (!notified.ContainsKey(n.Key)) Toast(n.Title, n.Body, n.Info ? ToolTipIcon.Info : ToolTipIcon.Warning);
                 notified[n.Key] = now;
             }
             foreach (var k in notified.Keys.ToList()) if ((now - notified[k]).TotalMinutes > 30) notified.Remove(k);

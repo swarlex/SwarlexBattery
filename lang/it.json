@@ -102,5 +102,9 @@
   "chargeAnim": "Animazione di ricarica",
   "chargeAnimNote": "l'anello si riempie mentre un dispositivo si ricarica",
   "openAnim": "Animazione di apertura",
-  "openAnimNote": "il pannello e il menu scorrono in vista"
+  "openAnimNote": "il pannello e il menu scorrono in vista",
+  "fullNotify": "Avvisa a ricarica completa",
+  "fullNotifyNote": "quando un dispositivo in carica arriva al 100%",
+  "fullTitle": "{0} è carico",
+  "fullBody": "Puoi scollegarlo."
 }

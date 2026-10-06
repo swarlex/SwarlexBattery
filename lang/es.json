@@ -102,5 +102,9 @@
   "chargeAnim": "Animación de carga",
   "chargeAnimNote": "el anillo se llena mientras un dispositivo se carga",
   "openAnim": "Animación de apertura",
-  "openAnimNote": "el panel y el menú se deslizan al abrirse"
+  "openAnimNote": "el panel y el menú se deslizan al abrirse",
+  "fullNotify": "Avisar al terminar la carga",
+  "fullNotifyNote": "cuando un dispositivo en carga llega al 100 %",
+  "fullTitle": "{0} está cargado",
+  "fullBody": "Ya puedes desconectarlo."
 }

@@ -102,5 +102,9 @@
   "chargeAnim": "Ladeanimation",
   "chargeAnimNote": "der Ring füllt sich, während ein Gerät lädt",
   "openAnim": "Öffnungsanimation",
-  "openAnimNote": "Panel und Menü gleiten herein"
+  "openAnimNote": "Panel und Menü gleiten herein",
+  "fullNotify": "Melden, wenn geladen",
+  "fullNotifyNote": "wenn ein ladendes Gerät 100 % erreicht",
+  "fullTitle": "{0} ist geladen",
+  "fullBody": "Du kannst das Kabel abziehen."
 }

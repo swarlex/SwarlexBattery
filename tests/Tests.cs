@@ -43,7 +43,7 @@ namespace SwarlexBatteryTests
         {
             // the defaults only: the user's own config.json is never read
             Program_.Init();
-            foreach (var test in new Action[] { Texts, SetupTexts, Atk, RazerMtk, SteelSeries, NovaElite, CloudIIIS, Centurion, GWolves, Jbl, CorsairNxp, Logitech, Names, Versions, LowBattery, NoLevelNote, UserChoices, TrayIcon, Estimate, TimeLeft })
+            foreach (var test in new Action[] { Texts, SetupTexts, Atk, RazerMtk, SteelSeries, NovaElite, CloudIIIS, Centurion, GWolves, Jbl, CorsairNxp, Logitech, Names, Versions, LowBattery, Charged, NoLevelNote, UserChoices, TrayIcon, Estimate, TimeLeft })
             {
                 try { test(); }
                 catch (Exception e) { failed++; Console.WriteLine("FAIL: " + test.Method.Name + " threw " + (e.InnerException ?? e).Message); }
@@ -277,6 +277,20 @@ namespace SwarlexBatteryTests
             Equal(0, BatteryReader.Build(new List<Gadget> { G("m", "mouse", low + 1) }).Notify.Count, "no notice above it");
             Equal(0, BatteryReader.Build(new List<Gadget> { G("m", "mouse", 5, true) }).Notify.Count, "no notice while charging");
             Equal(0, BatteryReader.Build(new List<Gadget> { new Gadget { Id = "m", Name = "m", Kind = "mouse", Pct = 5, Online = false, Asleep = true } }).Notify.Count, "no notice for a sleeping device");
+        }
+
+        static void Charged()
+        {
+            Func<List<Gadget>, int> full = l => BatteryReader.Build(l).Notify.Count(n => n.Key.StartsWith("full-"));
+            Equal(0, full(new List<Gadget> { G("c1", "headphones", 80, true) }), "charging at 80 %: no 'charged' notice yet");
+            var notice = BatteryReader.Build(new List<Gadget> { G("c1", "headphones", 100, true) }).Notify.FirstOrDefault(x => x.Key == "full-c1");
+            Check(notice != null && notice.Info && notice.Pct < 0, "reaching 100 % while charging: one 'charged' notice, as information, no low battery sound");
+            Equal(0, full(new List<Gadget> { G("c1", "headphones", 100, true) }), "still full on the cable: not again");
+            Equal(0, full(new List<Gadget> { G("c2", "mouse", 100, true) }), "plugged in already full: no notice");
+            Equal(0, full(new List<Gadget> { G("c3", "gamepad", 75, true, true) }), "coarse levels: not tracked");
+            Equal(0, full(new List<Gadget> { G("c3", "gamepad", 100, true, true) }), "coarse levels: no 'charged' notice");
+            Equal(0, full(new List<Gadget> { G("c4", "mouse", 60, true) }) + full(new List<Gadget> { G("c4", "mouse", 61) }) + full(new List<Gadget> { G("c4", "mouse", 100) }),
+                  "unplugged before it was full: no notice later");
         }
 
         static void NoLevelNote()
