@@ -85,6 +85,18 @@ namespace SwarlexBattery
                 devicePolls.Clear(); devicePolls.Enqueue(now.AddSeconds(1.5)); devicePolls.Enqueue(now.AddSeconds(6));
             }
             if (devicePolls.Count > 0 && now >= devicePolls.Peek()) { devicePolls.Dequeue(); PollSoon(); }
+            // Windows marks a Bluetooth headset gone a few seconds after it is switched off, often after the plug-in
+            // re-reads above: its list (well under a millisecond) is looked at every 3 s, and a change reads at once
+            if (now >= btAt && !locked && !btBusy && Config.Bool("plugins.gadgets.bluetooth", true))
+            {
+                btAt = now.AddSeconds(3); btBusy = true;
+                ThreadPool.QueueUserWorkItem(_ =>
+                {
+                    string sig = "";
+                    try { sig = string.Join(",", BluetoothBattery.List().Select(d => d.Mac + (d.Connected ? "+" : "-") + d.Level)); } catch { }
+                    ui.BeginInvoke(new Action(() => { btBusy = false; if (btSig != null && sig != btSig) PollSoon(); btSig = sig; }));
+                });
+            }
             if (!polling && !locked && now >= nextPoll) Poll();
 
             if (UpdateBusy == null && Config.Bool("update.check", true) && now >= nextUpdateCheck) CheckUpdates(false);
@@ -104,6 +116,7 @@ namespace SwarlexBattery
 
         // ------------------------------------------------------------ batteries
         bool locked;
+        DateTime btAt; bool btBusy; string btSig;
         public void PollSoon() { nextPoll = DateTime.MinValue; if (!polling && !locked) Poll(); }
 
         void Poll()
