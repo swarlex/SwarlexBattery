@@ -74,7 +74,7 @@ $resArgs = @(
     "/resource:`"$(Join-Path $here 'config.default.json')`",config.default.json",
     "/resource:`"$(Join-Path $here 'core\swarlexbattery-icon.png')`",icon.png")
 foreach ($l in Get-ChildItem -LiteralPath (Join-Path $here 'lang') -Filter '*.json') { $resArgs += "/resource:`"$($l.FullName)`",lang.$($l.Name)" }
-$sources = foreach ($f in 'App', 'Host', 'Batteries', 'Tray', 'Flyout', 'Updater', 'Native', 'Hid', 'Devices', 'AirPods') { Join-Path $here "core\$f.cs" }
+$sources = foreach ($f in 'App', 'Host', 'Batteries', 'Tray', 'Flyout', 'Updater', 'Native', 'Hid', 'Devices', 'AirPods', 'History') { Join-Path $here "core\$f.cs" }
 $wpf = Join-Path ([Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory()) 'WPF'
 $fwdir = [Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory().TrimEnd('\')
 $winmd = Join-Path $env:WINDIR 'System32\WinMetadata'

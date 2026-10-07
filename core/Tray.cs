@@ -97,6 +97,7 @@ namespace SwarlexBattery
                     // glyph as a path, filled and outlined: line-style Fluent glyphs read as solid in the tray
                     if (number) DrawNumber(g, B, spec.Percent, glyphColor);
                     else if (IsPad(spec.Icon) && !(spec.Charging && hasRing)) DrawGamepad(g, B, hasRing, glyphColor, spec.Icon);
+                    else if (spec.Icon == Pods && !(spec.Charging && hasRing)) DrawPods(g, B, hasRing, glyphColor);
                     else using (var path = new GraphicsPath())
                     {
                         if (spec.Charging && hasRing)
@@ -179,6 +180,33 @@ namespace SwarlexBattery
                 }
             }
             return o.ToArray();
+        }
+
+        // AirPods: two earbuds side by side, each a round head with its stem going down (no brand logo). Drawn as
+        // solid shapes, thick enough to read at 16 px. PodShape is the same outline for the panel (0..1 square).
+        public const string Pods = "PODS";
+
+        public static RectangleF[] PodShape()
+        {
+            // per earbud: the head (an ellipse) and the stem (a rounded bar), the right one mirrored
+            return new[] { new RectangleF(0.06f, 0.08f, 0.38f, 0.36f), new RectangleF(0.25f, 0.26f, 0.17f, 0.66f),
+                           new RectangleF(0.56f, 0.08f, 0.38f, 0.36f), new RectangleF(0.58f, 0.26f, 0.17f, 0.66f) };
+        }
+
+        static void DrawPods(Graphics g, float B, bool ring, Color c)
+        {
+            float size = ring ? B * 0.56f : B * 0.94f, o = (B - size) / 2;
+            using (var path = new GraphicsPath { FillMode = FillMode.Winding })
+            {
+                var s = PodShape();
+                for (int i = 0; i < s.Length; i++)
+                {
+                    var r = new RectangleF(o + s[i].X * size, o + s[i].Y * size, s[i].Width * size, s[i].Height * size);
+                    if (i % 2 == 0) path.AddEllipse(r);
+                    else { float d = r.Width; path.AddArc(r.X, r.Y, d, d, 180, 180); path.AddArc(r.X, r.Bottom - d, d, d, 0, 180); path.CloseFigure(); }
+                }
+                using (var brush = new SolidBrush(c)) g.FillPath(brush, path);
+            }
         }
 
         static void DrawGamepad(Graphics g, float B, bool ring, Color c, string style)

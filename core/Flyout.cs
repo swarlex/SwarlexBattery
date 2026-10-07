@@ -35,6 +35,8 @@ namespace SwarlexBattery
         Window side; IntPtr sideHwnd; ScrollViewer sideScroll; bool sideOpen;
         bool hiddenOpen;                          // the menu's list of hidden devices is expanded
         string actionsFor, renaming;              // the panel: a device's options shown, its name being edited
+        string graphFor; bool graphWeek;          // the panel: a device's battery history shown (a click), over 24 h or 7 days
+        long graphHover;                          // the time under the pointer in the graph (0: none); kept when the panel redraws
 
         static Brush MakeBrush(string c) { var b = (Brush)new BrushConverter().ConvertFromString(c); b.Freeze(); return b; }
 
@@ -135,7 +137,7 @@ namespace SwarlexBattery
             if (Open != null) { lastClosed = Open; lastClosedAt = DateTime.Now; }
             Open = null; win.Hide();
             CloseSide();
-            renaming = null;
+            renaming = null; graphHover = 0;
             TrimSoon();
         }
 
@@ -191,7 +193,7 @@ namespace SwarlexBattery
         {
             var root = new StackPanel();
             if (it == null) return root;
-            root.Children.Add(MenuRow(null, Strings.T("iconAuto"), () => { CloseSide(); host.SetIcon(it.Id, null); }, it.IconChoice == null));
+            root.Children.Add(MenuRow(null, Strings.T("iconAuto"), () => { CloseSide(); host.SetIcon(it.Id, null); }, it.IconChoice == null, null, false, null, true));
             foreach (var k in BatteryReader.IconChoices)
             {
                 var kind = k;
@@ -400,6 +402,21 @@ namespace SwarlexBattery
         TextBlock Glyph(string hex, Brush brush, double size)
         {
             if (hex.StartsWith("PAD:")) hex = "E7FC";   // the panel uses the font's gamepad for every controller
+            if (hex == TrayRenderer.Pods)
+            {
+                // AirPods: the tray icon's earbuds, drawn at the glyph's size (the font has no earbuds)
+                var geo = new GeometryGroup { FillRule = FillRule.Nonzero };
+                var s = TrayRenderer.PodShape();
+                for (int i = 0; i < s.Length; i++)
+                {
+                    var r = new Rect(s[i].X * size, s[i].Y * size, s[i].Width * size, s[i].Height * size);
+                    if (i % 2 == 0) geo.Children.Add(new EllipseGeometry(r));
+                    else geo.Children.Add(new RectangleGeometry(r, r.Width / 2, r.Width / 2));
+                }
+                var box = new TextBlock { Width = size, Height = size };
+                box.Inlines.Add(new System.Windows.Documents.InlineUIContainer(new System.Windows.Shapes.Path { Data = geo, Fill = brush, Width = size, Height = size, Margin = new Thickness(0, size * 0.15, 0, 0) }) { BaselineAlignment = BaselineAlignment.Center });
+                return box;
+            }
             var t = Text(((char)Convert.ToInt32(hex, 16)).ToString(), brush, size); t.FontFamily = iconFont; return t;
         }
         Brush StateBrush(string s) { return s == "warn" ? warn : s == "error" ? error : s == "off" ? muted : s == "ok" ? ok : fg; }
@@ -436,7 +453,7 @@ namespace SwarlexBattery
                     var item = it;
                     var box = new StackPanel { Background = Brushes.Transparent };   // a background, so a right click anywhere on the row is seen
                     var g = new Grid { Margin = new Thickness(0, 3, 0, 3) };
-                    foreach (var w in new[] { GridLength.Auto, new GridLength(1, GridUnitType.Star), GridLength.Auto }) g.ColumnDefinitions.Add(new ColumnDefinition { Width = w });
+                    foreach (var w in new[] { GridLength.Auto, new GridLength(1, GridUnitType.Star), GridLength.Auto, GridLength.Auto }) g.ColumnDefinitions.Add(new ColumnDefinition { Width = w });
                     // the pictogram and the number stay plain; only a low (red) or sleeping (grey) device colours them,
                     // "Coloured icon" colours the bar alone
                     var plain = it.State == "ok" || it.State == "warn" ? fg : StateBrush(it.State);
@@ -464,13 +481,22 @@ namespace SwarlexBattery
                     if (!string.IsNullOrEmpty(it.Sub)) sp.Children.Add(Text(it.Sub, muted, 11));
                     g.Children.Add(sp);
                     var v = Text(it.Value, plain, 12); v.TextWrapping = TextWrapping.NoWrap; v.Margin = new Thickness(10, 1, 0, 0); Grid.SetColumn(v, 2); g.Children.Add(v);
+                    // a small chevron: the row opens (the battery history below it); up while it is open
+                    if (it.Id != null) { var chev = Glyph(graphFor == it.Id ? "E70E" : "E70D", muted, 9); chev.Margin = new Thickness(7, 4, 0, 0); Grid.SetColumn(chev, 3); g.Children.Add(chev); }
                     box.Children.Add(g);
                     if (it.Pct < 0) g.Margin = new Thickness(0, 3, 0, 9);   // no level known: no bar
                     else box.Children.Add(new ProgressBar { Minimum = 0, Maximum = 1, Value = it.Pct, Height = 4, Margin = new Thickness(0, 0, 0, 6),
                                                             Foreground = string.IsNullOrEmpty(it.State) ? fg : StateBrush(it.State), Background = track, BorderThickness = new Thickness(0) });
                     if (it.Id != null)
+                    {
                         box.MouseRightButtonUp += (s, e) => { actionsFor = actionsFor == item.Id ? null : item.Id; CloseSide(); renaming = null; RenderPanel(true); e.Handled = true; };
-                    root.Children.Add(box);
+                        box.MouseLeftButtonUp += (s, e) => { if (renaming != null) return; graphFor = graphFor == item.Id ? null : item.Id; RenderPanel(true); e.Handled = true; };
+                        box.Cursor = Cursors.Hand;
+                    }
+                    // the row lights up under the pointer like the menu's rows, so it reads as something to click
+                    root.Children.Add(it.Id == null ? (UIElement)box : new Border { Child = box, Style = rowStyle, CornerRadius = new CornerRadius(6),
+                                                                                    Margin = new Thickness(-6, 0, -6, 0), Padding = new Thickness(6, 0, 6, 0) });
+                    if (graphFor != null && graphFor == it.Id) root.Children.Add(Graph(it));
                     if (actionsFor != null && actionsFor == it.Id) DeviceActions(root, it);
                 }
                 if (snap.Items.Count > 0 && actionsFor == null)
@@ -484,6 +510,109 @@ namespace SwarlexBattery
                 var ed = editor;
                 ed.Dispatcher.BeginInvoke(new Action(() => { ed.Focus(); Keyboard.Focus(ed); ed.SelectAll(); }), System.Windows.Threading.DispatcherPriority.Input);
             }
+        }
+
+        // A device's battery history below it (a left click on the device): the level over the last 24 hours or 7
+        // days, the line broken where it was off or asleep, dashed while it charged. With a time-left estimate a
+        // quarter of the width is the future: a dashed line from now down to where the estimate says it runs out.
+        // The pointer shows the time and the level under it.
+        UIElement Graph(PanelItem it)
+        {
+            const double H = 54;
+            double W = Math.Max(160, win.ActualWidth > 0 ? win.ActualWidth - 30 : Config.Num("panel.width", 320) - 30);
+            long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds(), span = graphWeek ? 7 * 86400 : 86400, from = now - span;
+            bool filling = it.HoursToFull > 0;                          // charging, with an estimate of when it is full
+            long ahead = it.HoursLeft > 0 || filling ? span / 4 : 0;    // the future part, when there is an estimate
+            double nowX = W * span / (span + ahead);
+            var pts = History.Since(it.Id, from - History.Gap);
+            var box = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
+            // the range: two small switches on the right; the reading under the pointer on the left
+            var head = new DockPanel { LastChildFill = false, Margin = new Thickness(0, 0, 0, 3) };
+            foreach (var week in new[] { true, false })
+            {
+                bool w = week;
+                var t = Text(Strings.T(w ? "hist7d" : "hist24h"), graphWeek == w ? fg : muted, 11);
+                t.FontWeight = graphWeek == w ? FontWeights.SemiBold : FontWeights.Normal; t.Margin = new Thickness(10, 0, 0, 0); t.Cursor = Cursors.Hand;
+                t.MouseLeftButtonUp += (s, e) => { graphWeek = w; graphHover = 0; RenderPanel(true); e.Handled = true; };
+                DockPanel.SetDock(t, Dock.Right); head.Children.Add(t);
+            }
+            var hoverText = Text("", fg, 11); hoverText.TextWrapping = TextWrapping.NoWrap; DockPanel.SetDock(hoverText, Dock.Left); head.Children.Add(hoverText);
+            box.Children.Add(head);
+            // the reading shown now continues the line to "now" when the last point is recent
+            if (pts.Count > 0 && it.Pct >= 0 && now - pts[pts.Count - 1][0] <= History.Gap)
+                pts.Add(new[] { now, (long)Math.Round(it.Pct * 100), pts[pts.Count - 1][2] });
+            // less than half an hour recorded: a line would be a dot at the right edge
+            if (pts.Count < 2 || pts[pts.Count - 1][0] - pts[0][0] < 1800) { box.Children.Add(Text(Strings.T("histEmpty"), muted, 11)); return box; }
+
+            var c = new Canvas { Width = W, Height = H, Background = Brushes.Transparent, ClipToBounds = true };
+            Func<long, double> x = t => Math.Max(0, Math.Min(W, (t - from) * nowX / span));
+            Func<double, double> y = p => H - p * (H - 2) / 100.0 - 1;
+            foreach (var lvl in new[] { 0.0, 50.0, 100.0 })   // 0, 50 and 100 %
+                c.Children.Add(new System.Windows.Shapes.Line { X1 = 0, X2 = W, Y1 = y(lvl), Y2 = y(lvl), Stroke = muted, StrokeThickness = 1, Opacity = 0.55, StrokeDashArray = new DoubleCollection { 3, 3 } });
+            System.Windows.Shapes.Polyline line = null; long prevT = 0, prevC = -1;
+            foreach (var p in pts)
+            {
+                // a new piece after a gap, or where charging starts or stops (dashed)
+                if (line == null || p[0] - prevT > History.Gap || p[2] != prevC)
+                {
+                    var carry = line != null && p[0] - prevT <= History.Gap ? line.Points[line.Points.Count - 1] : (Point?)null;
+                    line = new System.Windows.Shapes.Polyline { Stroke = fg, StrokeThickness = 1.6, StrokeDashArray = p[2] != 0 ? new DoubleCollection { 2, 1.5 } : null,
+                                                                StrokeLineJoin = PenLineJoin.Round };
+                    if (carry.HasValue) line.Points.Add(carry.Value);
+                    c.Children.Add(line);
+                }
+                // steps: a level holds until the next reading
+                if (line.Points.Count > 0) line.Points.Add(new Point(x(p[0]), line.Points[line.Points.Count - 1].Y));
+                line.Points.Add(new Point(x(p[0]), y(p[1])));
+                prevT = p[0]; prevC = p[2];
+            }
+            if (ahead > 0)
+            {
+                // the future: a thin line at "now", and the estimate as a dashed slope (it may run past the edge)
+                c.Children.Add(new System.Windows.Shapes.Line { X1 = nowX, X2 = nowX, Y1 = 0, Y2 = H, Stroke = muted, StrokeThickness = 1, Opacity = 0.55 });
+                double endX = nowX + (W - nowX) * (filling ? it.HoursToFull : it.HoursLeft) * 3600 / ahead;
+                c.Children.Add(new System.Windows.Shapes.Line { X1 = nowX, Y1 = y(it.Pct * 100), X2 = endX, Y2 = y(filling ? 100 : 0), Stroke = muted, StrokeThickness = 1.4, StrokeDashArray = new DoubleCollection { 3, 2 } });
+            }
+            // the pointer: a thin line, and "14:30 - 72 %" above the graph (the reading at that time, or the estimate)
+            var cursor = new System.Windows.Shapes.Line { Y1 = 0, Y2 = H, Stroke = fg, StrokeThickness = 1, Opacity = 0.5, Visibility = Visibility.Collapsed };
+            c.Children.Add(cursor);
+            Func<double, long> timeAt = px => px <= nowX ? from + (long)(px / nowX * span) : now + (long)((px - nowX) / Math.Max(1, W - nowX) * ahead);
+            Action<long> show = t =>
+            {
+                bool future = t > now && ahead > 0;
+                // a time past now kept from before a redraw that has no future part any more (it stopped charging)
+                if (t > now && ahead == 0) { cursor.Visibility = Visibility.Collapsed; hoverText.Text = ""; return; }
+                long[] at = null;
+                foreach (var p in pts) { if (p[0] <= t) at = p; else break; }
+                if (!future && (at == null || t - at[0] > History.Gap)) { cursor.Visibility = Visibility.Collapsed; hoverText.Text = ""; return; }
+                var when = DateTimeOffset.FromUnixTimeSeconds(t).LocalDateTime;
+                string clock = graphWeek ? when.ToString("ddd HH:mm", Strings.Culture) : when.ToString("HH:mm", Strings.Culture);
+                if (future)
+                {
+                    double p0 = it.Pct * 100, f = (t - now) / ((filling ? it.HoursToFull : it.HoursLeft) * 3600);
+                    double lvl = filling ? p0 + (100 - p0) * f : p0 * (1 - f);
+                    hoverText.Text = clock + " - ~" + Strings.T("percent", (int)Math.Max(0, Math.Min(100, Math.Round(lvl))));
+                }
+                else hoverText.Text = clock + " - " + Strings.T("percent", at[1]) + (at[2] != 0 ? " " + Strings.T("shortCharging").Trim() : "");
+                double cx = future ? nowX + (t - now) * (W - nowX) / ahead : x(t);
+                cursor.X1 = cursor.X2 = cx; cursor.Visibility = Visibility.Visible;
+            };
+            c.MouseMove += (s, e) => { graphHover = timeAt(e.GetPosition(c).X); show(graphHover); };
+            c.MouseLeave += (s, e) => { graphHover = 0; cursor.Visibility = Visibility.Collapsed; hoverText.Text = ""; };
+            if (graphHover > 0) show(graphHover);   // the panel was redrawn under the pointer
+            box.Children.Add(c);
+            var foot = new Grid();
+            foot.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(nowX) });
+            foot.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            var l = Text(Strings.T(graphWeek ? "hist7dAgo" : "hist24hAgo"), muted, 10); l.HorizontalAlignment = HorizontalAlignment.Left; foot.Children.Add(l);
+            var r = Text(Strings.T("histNow"), muted, 10); r.HorizontalAlignment = HorizontalAlignment.Right; foot.Children.Add(r);
+            if (ahead > 0)
+            {
+                var f = Text(Strings.T(graphWeek ? "histAhead7d" : "histAhead24h"), muted, 10); f.HorizontalAlignment = HorizontalAlignment.Right;
+                Grid.SetColumn(f, 1); foot.Children.Add(f);
+            }
+            box.Children.Add(foot);
+            return box;
         }
 
         // a device's options, below it in the panel
@@ -507,12 +636,15 @@ namespace SwarlexBattery
             root.Children.Add(box);
         }
 
-        Border MenuRow(string icon, string text, Action action, bool check = false, string sub = null, bool marked = false, string tail = null)
+        // The icon column (26 px) is there when the row has an icon, or "indent" keeps it empty: rows without icons line
+        // up with the ones that have one (the icon picker) or sit inside the row above (hidden devices). Lists with no
+        // icons at all (Preferences, the languages) start at the edge, level with the counters.
+        Border MenuRow(string icon, string text, Action action, bool check = false, string sub = null, bool marked = false, string tail = null, bool indent = false)
         {
             var b = new Border { Padding = new Thickness(10, 7, 10, 7), CornerRadius = new CornerRadius(4), Cursor = Cursors.Hand,
                                  Style = marked ? rowStyleMarked : rowStyle };   // no local Background: it would override the trigger
             var g = new Grid();
-            foreach (var w in new[] { new GridLength(26), new GridLength(1, GridUnitType.Star), GridLength.Auto }) g.ColumnDefinitions.Add(new ColumnDefinition { Width = w });
+            foreach (var w in new[] { new GridLength(icon != null || indent ? 26 : 0), new GridLength(1, GridUnitType.Star), GridLength.Auto }) g.ColumnDefinitions.Add(new ColumnDefinition { Width = w });
             if (icon != null) { var ic = Glyph(icon, fg, 13); ic.VerticalAlignment = VerticalAlignment.Center; g.Children.Add(ic); }
             if (tail != null) { var t = Glyph(tail, muted, 10); t.VerticalAlignment = VerticalAlignment.Center; Grid.SetColumn(t, 2); g.Children.Add(t); }
             UIElement label = Text(text, fg, 13);
@@ -551,7 +683,7 @@ namespace SwarlexBattery
                     foreach (var kv in hidden.OrderBy(x => x.Value))
                     {
                         var id = kv.Key;
-                        root.Children.Add(MenuRow(null, Strings.T("showAgain", kv.Value), () => { host.Unhide(id); Refresh(); }));
+                        root.Children.Add(MenuRow(null, Strings.T("showAgain", kv.Value), () => { host.Unhide(id); Refresh(); }, false, null, false, null, true));
                     }
             }
             if (Config.Str("update.repo", "") != "")
@@ -587,8 +719,8 @@ namespace SwarlexBattery
         // "label   -  value  +", with an optional note below the label
         Grid Counter(string label, string value, Action minus, Action plus, string note = null)
         {
-            var g = new Grid { Margin = new Thickness(10, 4, 4, 4) };
-            foreach (var w in new[] { new GridLength(1, GridUnitType.Star), GridLength.Auto, new GridLength(58), GridLength.Auto }) g.ColumnDefinitions.Add(new ColumnDefinition { Width = w });
+            var g = new Grid { Margin = new Thickness(10, 6, 4, 6) };   // level with the rows below: their text starts 10 px in
+            foreach (var w in new[] { new GridLength(1, GridUnitType.Star), GridLength.Auto, new GridLength(76), GridLength.Auto }) g.ColumnDefinitions.Add(new ColumnDefinition { Width = w });
             UIElement l = Text(label, fg, 13);
             if (!string.IsNullOrEmpty(note)) { var two = new StackPanel(); two.Children.Add(l); two.Children.Add(Text(note, muted, 11)); l = two; }
             ((FrameworkElement)l).VerticalAlignment = VerticalAlignment.Center; g.Children.Add(l);

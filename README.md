@@ -23,8 +23,9 @@
 
 The battery of your wireless **mouse, keyboard and headset** next to the clock, without vendor
 software running in the background. One small icon: the left half of the ring is the mouse, the
-right half the headset. Left click for details, right click for the menu and *Preferences*; right-click a
-device in the panel to rename it, give it another icon or hide it.
+right half the headset. Left click for details, right click for the menu and *Preferences*. In the panel,
+left-click a device for its battery history (24 hours or 7 days); right-click it to rename it, give it another icon
+or hide it.
 
 <p align="center">
   <picture>

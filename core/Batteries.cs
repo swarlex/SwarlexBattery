@@ -22,10 +22,12 @@ namespace SwarlexBattery
         public string Id, Name, Kind, Detail, Glyph;   // Glyph: tray / panel icon when it is not the kind's default
         public string Hint;                              // a device that gives no level at all: why (shown instead of a level)
         public string OwnName;                           // the device's own name when the user renamed it
+        public string LowPart;                           // AirPods: which earbud a low battery notice is about
         public Gadget Copy() { return (Gadget)MemberwiseClone(); }
         public int Pct;
         public bool Charging, Approx, Online, Asleep;
         public double HoursLeft = -1;                     // estimated hours of use left, -1 = no estimate
+        public double HoursToFull = -1;                   // charging: estimated hours until full, -1 = no estimate
     }
 
     class TraySpec
@@ -34,7 +36,7 @@ namespace SwarlexBattery
         public bool[] RingCharging;              // which ring belongs to a charging device (the charging animation)
         public TraySpec Copy() { var c = (TraySpec)MemberwiseClone(); if (Rings != null) c.Rings = (double[])Rings.Clone(); return c; }
     }
-    class PanelItem { public string Icon, Label, Value, State, Sub; public double Pct; public string Id, OwnName, IconChoice; }
+    class PanelItem { public string Icon, Label, Value, State, Sub; public double Pct, HoursLeft = -1, HoursToFull = -1; public string Id, OwnName, IconChoice; }
     class Notice { public string Key, Title, Body; public int Pct = -1; public bool Info; }   // Info: good news (charged), not a warning
     class Snapshot { public List<TraySpec> Icons = new List<TraySpec>(); public List<PanelItem> Items = new List<PanelItem>(); public string Empty; public List<Notice> Notify = new List<Notice>(); public string Title; }
 
@@ -79,8 +81,17 @@ namespace SwarlexBattery
             foreach (var g in list)
             {
                 if (!g.Online || g.Asleep) continue;
-                if (g.Charging) { if (tracks.Remove(g.Id)) histDirty = true; continue; }    // a new charge starts a new history
-                if (g.Approx) continue;                                                     // coarse steps make no slope
+                if (g.Charging)
+                {
+                    if (tracks.Remove(g.Id)) histDirty = true;                                // a new charge starts a new history
+                    g.HoursToFull = History.HoursToFull(g.Id, g.Pct, now);
+                    continue;
+                }
+                // the drain this device usually has (the battery history of the last 7 days), so an estimate is there
+                // right after a charge, and for devices in coarse steps (AirPods, Xbox pads), whose own slope says little
+                double usual = History.DrainRate(g.Id, g.Approx), usualH = usual > 0 ? g.Pct / usual / 3600 : -1;
+                if (usualH >= 500) usualH = -1;
+                if (g.Approx) { g.HoursLeft = usualH; continue; }
                 Track t;
                 if (!tracks.TryGetValue(g.Id, out t)) { t = new Track(); tracks[g.Id] = t; }
                 if (t.Pts.Count > 0 && g.Pct > t.Pts[t.Pts.Count - 1][1] + 5) { t = new Track(); tracks[g.Id] = t; }  // charged somewhere else
@@ -92,7 +103,7 @@ namespace SwarlexBattery
                 {
                     t.Pts.Add(new[] { t.Use, (double)g.Pct }); if (t.Pts.Count > 400) t.Pts.RemoveAt(0); histDirty = true;
                 }
-                g.HoursLeft = HoursLeft(t.Pts, t.Use, g.Pct);
+                g.HoursLeft = Blend(HoursLeft(t.Pts, t.Use, g.Pct), usualH);
             }
             if (histDirty && now - histSavedAt >= 300)
             {
@@ -147,6 +158,21 @@ namespace SwarlexBattery
             if (since > 0) rate = Math.Max(rate / 3, Math.Min(rate, step / since));
             double hours = (Math.Min(pct, last[1]) / rate - since) / 3600;
             return hours > 0 && hours < 500 ? hours : -1;
+        }
+
+        // this charge's own estimate, kept within half and twice what the device usually lasts: a headset left on
+        // the desk drains slower for a while, and that alone must not make "19 h" turn into "36 h"
+        public static double Blend(double now, double usual)
+        {
+            if (now <= 0) return usual;
+            if (usual <= 0) return now;
+            return Math.Max(usual / 2, Math.Min(usual * 2, now));
+        }
+
+        public static string FullIn(double hours)
+        {
+            if (hours < 1) return Strings.T("fullInM", Math.Max(5, (int)Math.Round(hours * 12) * 5));
+            return Strings.T("fullInH", hours < 10 ? Math.Round(hours * 2) / 2 : Math.Round(hours));
         }
 
         public static string TimeLeft(double hours)
@@ -381,13 +407,16 @@ namespace SwarlexBattery
             if (r.Left >= 0) parts.Add(pod("podLeft", r.Left, r.ChargingLeft, r.LeftInEar));
             if (r.Right >= 0) parts.Add(pod("podRight", r.Right, r.ChargingRight, r.RightInEar));
             if (r.Case >= 0) parts.Add(Strings.T("podCase", r.Case));
-            var out_ = new List<int>();
-            if (r.Left >= 0 && !r.ChargingLeft) out_.Add(r.Left);
-            if (r.Right >= 0 && !r.ChargingRight) out_.Add(r.Right);
-            bool charging = out_.Count == 0;   // both in the case, charging
-            int pct = charging ? Math.Min(r.Left < 0 ? 100 : r.Left, r.Right < 0 ? 100 : r.Right) : out_.Min();
-            return new Gadget { Id = "bt-" + dev.Mac, Name = dev.Name, Kind = dev.Pid == 0x200A || dev.Pid == 0x201F ? "headphones" : "earbuds",
-                                Pct = pct, Charging = charging, Approx = true, Online = true, Detail = string.Join(" · ", parts) };
+            bool leftOut = r.Left >= 0 && !r.ChargingLeft, rightOut = r.Right >= 0 && !r.ChargingRight;
+            bool charging = !leftOut && !rightOut;   // both in the case, charging
+            int pct = charging ? Math.Min(r.Left < 0 ? 100 : r.Left, r.Right < 0 ? 100 : r.Right)
+                    : Math.Min(leftOut ? r.Left : 100, rightOut ? r.Right : 100);
+            // which earbud the low battery notice is about: the lower one in use, or both when they are level
+            string part = charging ? null : leftOut && rightOut && r.Left == r.Right ? Strings.T("podBoth")
+                        : leftOut && r.Left == pct ? Strings.T("podLeftName") : Strings.T("podRightName");
+            bool max = dev.Pid == 0x200A || dev.Pid == 0x201F;   // AirPods Max: over-ear, the headset icon and no earbuds
+            return new Gadget { Id = "bt-" + dev.Mac, Name = dev.Name, Kind = max ? "headphones" : "earbuds", Glyph = max ? null : TrayRenderer.Pods,
+                                Pct = pct, Charging = charging, Approx = true, Online = true, Detail = string.Join(" · ", parts), LowPart = max ? null : part };
         }
 
         void ReadHid(List<Gadget> list)
@@ -575,12 +604,17 @@ namespace SwarlexBattery
                 // the details stay while it charges, instead of "charging" (AirPods in their case: each earbud "in case",
                 // and the case - not "on its cable")
                 if (g.Charging && g.Online && !string.IsNullOrEmpty(g.Detail)) sub = g.Detail;
+                // charging: when it will be full ("charging - full in about 40 min")
+                if (g.Charging && g.Online && g.Pct < 100 && (g.HoursToFull > 0 || g.HoursToFull == History.AlmostFull))
+                    sub = string.Join(" - ", new[] { sub, g.HoursToFull > 0 ? FullIn(g.HoursToFull) : Strings.T("almostFull") }.Where(x => x != ""));
                 if (g.Approx) sub = string.Join(" - ", new[] { sub, Strings.T("approx") }.Where(x => x != ""));
                 if (g.HoursLeft > 0 && g.Online && !g.Charging) sub = string.Join(" - ", new[] { sub, TimeLeft(g.HoursLeft) }.Where(x => x != ""));
                 snap.Items.Add(new PanelItem { Icon = g.Glyph ?? IconFor(g.Kind), Label = g.Name, Value = g.Pct + "%", Pct = g.Pct / 100.0, State = state, Sub = sub,
+                                               HoursLeft = g.Online && !g.Charging ? g.HoursLeft : -1, HoursToFull = g.Online && g.Charging ? g.HoursToFull : -1,
                                                Id = g.Id, OwnName = g.OwnName, IconChoice = g.Id != null && iconChoice.ContainsKey(g.Id) ? iconChoice[g.Id] : null });
                 if (lowFor(g) > 0 && g.Online && !g.Charging && g.Pct <= lowFor(g))
-                    snap.Notify.Add(new Notice { Key = "low-" + g.Id, Title = Strings.T("lowTitle", g.Name), Body = Strings.T("lowBody", g.Pct), Pct = g.Pct });
+                    snap.Notify.Add(new Notice { Key = "low-" + g.Id, Title = Strings.T("lowTitle", g.Name),
+                                                Body = g.LowPart != null ? Strings.T("lowBodyPart", g.LowPart, g.Pct) : Strings.T("lowBody", g.Pct), Pct = g.Pct });
                 // "Notify when charged" (Preferences, on by default): once, when a device seen charging below 100 % reaches
                 // 100 % - not when one already full is plugged in, and not for coarse levels (their top step is not "full")
                 if (g.Online && g.Charging && g.Pct < 100 && !g.Approx) chargingBelowFull.Add(g.Id);
@@ -668,6 +702,14 @@ namespace SwarlexBattery
             return ms.Count == 0 ? null : ms[ms.Count - 1].Groups[1].Value.ToUpperInvariant();
         }
 
+        // Apple's vendor id on a service node: ..._VID&0001004C_PID&200F\... (the PID is the model). Only earbuds and
+        // headphones (AirPods, Beats: 0x20xx) count, not a Magic Keyboard, Mouse or Trackpad; -1 otherwise
+        public static int ApplePid(string id)
+        {
+            var m = Regex.Match(id ?? "", @"VID&0001004C_PID&(20[0-9A-F]{2})(?![0-9A-F])", RegexOptions.IgnoreCase);
+            return m.Success ? Convert.ToInt32(m.Groups[1].Value, 16) : -1;
+        }
+
         public static List<Device> List()
         {
             var r = new List<Device>();
@@ -690,9 +732,8 @@ namespace SwarlexBattery
                         if (on && c != null && c.Length > 0 && mac != null) connected.Add(mac);
                         // the device node (BTHENUM\DEV_..., BTHLE\DEV_...) carries the plain name: "...Headset", not "...Headset Hands-Free AG"
                         if (mac != null && id.ToString().IndexOf("\\DEV_", StringComparison.OrdinalIgnoreCase) >= 0) { var dn = Str(set, ref d, FriendlyName); if (!string.IsNullOrEmpty(dn)) names[mac] = dn; }
-                        // Apple's vendor id on the service nodes: ..._VID&0001004C_PID&200F\... (the PID is the model)
-                        var am = Regex.Match(id.ToString(), @"VID&0001004C_PID&([0-9A-F]{4})", RegexOptions.IgnoreCase);
-                        if (am.Success && mac != null) apple[mac] = Convert.ToInt32(am.Groups[1].Value, 16);
+                        int pid = ApplePid(id.ToString());
+                        if (pid > 0 && mac != null) apple[mac] = pid;
                         var b = Prop(set, ref d, Battery, out t);
                         if (b == null || b.Length < 1) continue;
                         string name = Str(set, ref d, FriendlyName) ?? Str(set, ref d, DeviceDesc) ?? "Bluetooth";

@@ -272,6 +272,8 @@ namespace SwarlexBattery
     static class Strings
     {
         public static string Lang = "en";
+        // dates and day names in the app's language (the graph's "Mon 14:30")
+        public static CultureInfo Culture { get { try { return CultureInfo.GetCultureInfo(Lang); } catch { return CultureInfo.InvariantCulture; } } }
         static Dictionary<string, object> en, cur;
         // code and name (in that language) of every lang/<code>.json, in menu order
         public static readonly string[][] Languages = {

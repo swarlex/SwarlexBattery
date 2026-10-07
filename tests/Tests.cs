@@ -43,7 +43,7 @@ namespace SwarlexBatteryTests
         {
             // the defaults only: the user's own config.json is never read
             Program_.Init();
-            foreach (var test in new Action[] { Texts, SetupTexts, Atk, RazerMtk, SteelSeries, NovaElite, CloudIIIS, Centurion, GWolves, Jbl, CorsairNxp, Logitech, Names, Versions, LowBattery, Charged, BluetoothIds, AirPodsAds, NoLevelNote, UserChoices, TrayIcon, Estimate, TimeLeft })
+            foreach (var test in new Action[] { Texts, SetupTexts, Atk, RazerMtk, SteelSeries, NovaElite, CloudIIIS, Centurion, GWolves, Jbl, CorsairNxp, Logitech, Names, Versions, LowBattery, Charged, BluetoothIds, AirPodsAds, HistoryLog, Forecast, NoLevelNote, UserChoices, TrayIcon, Estimate, TimeLeft })
             {
                 try { test(); }
                 catch (Exception e) { failed++; Console.WriteLine("FAIL: " + test.Method.Name + " threw " + (e.InnerException ?? e).Message); }
@@ -320,6 +320,10 @@ namespace SwarlexBatteryTests
             Equal("D32FC1E2B5C6", BluetoothBattery.MacOf(@"BTHLEDEVICE\{00001800-0000-1000-8000-00805F9B34FB}_DEV_VID&02046D_PID&B023_REV&0011_d32fc1e2b5c6\8&2A1B3C4D&0&0010"), "BLE service node: the address");
             Equal("D32FC1E2B5C6", BluetoothBattery.MacOf(@"BTHLE\DEV_d32fc1e2b5c6\8&1A2B3C4D&0&D32FC1E2B5C6"), "BLE device node: the address");
             Check(BluetoothBattery.MacOf(@"BTHHFENUM\BTHHFPAUDIO\8&F03E73A&0&97") == null, "no address: null");
+            // captured from AirPods (2nd generation): the model is in the service node's id
+            Equal(0x200F, BluetoothBattery.ApplePid(@"BTHENUM\{0000111E-0000-1000-8000-00805F9B34FB}_VID&0001004C_PID&200F\7&1B605E42&0&1C0EC2DB82CE_C00000000"), "Apple earbuds: the model from the id");
+            Equal(-1, BluetoothBattery.ApplePid(@"BTHENUM\{00001124-0000-1000-8000-00805F9B34FB}_VID&0001004C_PID&0267\7&1B605E42&0&AABBCCDDEEFF_C00000000"), "a Magic Keyboard is not earbuds");
+            Equal(-1, BluetoothBattery.ApplePid(@"BTHENUM\{0000111E-0000-1000-8000-00805F9B34FB}_VID&000107E3_PID&2002\7&1B605E42&0&405899571DB9_C00000000"), "another vendor's 0x2002 (G435) is not Apple");
         }
 
         static void AirPodsAds()
@@ -375,6 +379,148 @@ namespace SwarlexBatteryTests
             Check(both.Pct == 50 && both.Charging && both.Detail.Contains("60"), "AirPods: both charging in the open case: the lower one, charging, and the case");
             Check(BatteryReader.AirPodsGadget(dev, AirPods.Parse(Hex("07 19 01 0F 20 01 FF 85"))) == null, "AirPods: no earbud reported: not shown");
             Check(BatteryReader.AirPodsGadget(dev, worn).Detail.Contains(Strings.T("podInEar")), "AirPods: an earbud in an ear says so");
+
+            // the low battery notice names the earbud; the AirPods icon (AirPods Max keep the headset's)
+            Check(g.LowPart == Strings.T("podRightName") && g.Glyph == TrayRenderer.Pods, "AirPods: the lower earbud in use is named, with the AirPods icon");
+            Check(one.LowPart == Strings.T("podRightName"), "AirPods: one earbud charging: the notice is about the one in use");
+            Check(BatteryReader.AirPodsGadget(dev, worn).LowPart == Strings.T("podBoth") && both.LowPart == null, "AirPods: level earbuds: both; both in the case: no notice part");
+            var lowPods = BatteryReader.AirPodsGadget(dev, AirPods.Parse(Hex("07 19 01 0F 20 2B 21 8F 00")));
+            var notice = BatteryReader.Build(new List<Gadget> { lowPods }).Notify.FirstOrDefault();
+            Check(notice != null && notice.Body.Contains(Strings.T("podLeftName")) && notice.Body.Contains("10"), "AirPods: the low battery notice says which earbud (left 10 %)");
+            var max = BatteryReader.AirPodsGadget(new BluetoothBattery.Device { Mac = "AABBCCDDEE00", Name = "Max", Pid = 0x200A }, mine);
+            Check(max.Kind == "headphones" && max.Glyph == null && max.LowPart == null, "AirPods Max: the headset icon, no earbud names");
+            foreach (var ring in new double?[] { 0.5, null })
+                Check(TrayRenderer.Get(new TraySpec { Id = "pods", Icon = TrayRenderer.Pods, Ring = ring, Tooltip = "AirPods" }) != null, "AirPods: the tray icon draws" + (ring == null ? " without a ring" : " in the ring"));
+        }
+
+        static void HistoryLog()
+        {
+            // the graph's history: a point when something changes, else every 15 minutes; 7 days kept
+            History.Clear();
+            long t0 = 1760000000;
+            History.Add("m", t0, 80, false);
+            History.Add("m", t0 + 60, 80, false);                       // the same a minute later: no point
+            History.Add("m", t0 + 120, 79, false);                      // the level changed
+            History.Add("m", t0 + 180, 79, true);                       // charging started
+            History.Add("m", t0 + 180 + History.Beat, 79, true);        // 15 minutes the same: one point to show it was there
+            var all = History.Since("m", 0);
+            Equal(4, all.Count, "history: points on changes and every 15 minutes");
+            Check(all[2][2] == 1 && all[1][1] == 79, "history: level and charging kept");
+            Equal(2, History.Since("m", t0 + 150).Count, "history: points since a time");
+            History.Add("m", t0 + 8 * 86400, 60, false);                // 8 days later: older ones are dropped
+            Equal(1, History.Since("m", 0).Count, "history: 7 days kept");
+            Check(History.Since("none", 0).Count == 0 && History.Since(null, 0).Count == 0, "history: an unknown device has none");
+            History.Clear();
+        }
+
+        static void Forecast()
+        {
+            long t0 = 1760000000;
+            // the usual drain: a mouse losing 1 point every 10 minutes for 3 hours, with a 2-hour gap (switched off)
+            // and a jump up off the charger in between, which are not use
+            History.Clear();
+            int lvl = 90; long t = t0;
+            for (int i = 0; i < 18; i++) { History.Add("m", t, lvl, false); t += 600; lvl--; }
+            t += 7200; History.Add("m", t, 95, false);
+            for (int i = 0; i < 6; i++) { t += 600; History.Add("m", t, 95 - i - 1, false); }
+            double r = History.DrainRate("m", false);
+            Check(r > 0 && Math.Abs(r * 600 - 1) < 0.05, "forecast: the usual drain, 1 point per 10 minutes (gaps and jumps left out)");
+            Check(Math.Abs(70 / r / 3600 - 11.67) < 0.5, "forecast: 70 % at that drain lasts about 11.7 h");
+            Check(History.DrainRate("none", false) < 0, "forecast: no history, no drain");
+            // coarse steps (AirPods, 10 %): two steps down are needed
+            History.Clear();
+            History.Add("p", t0, 90, false); History.Add("p", t0 + 900, 90, false); History.Add("p", t0 + 1800, 80, false); History.Add("p", t0 + 3700, 80, false);
+            Check(History.DrainRate("p", true) < 0, "forecast: one 10 % step is not enough for a coarse device");
+            History.Add("p", t0 + 4600, 70, false);
+            Check(History.DrainRate("p", true) > 0, "forecast: two steps are");
+
+            // charging: before, 1 point a minute up to 80, then 0.6 and 0.3 a minute; now at 50 % and 1 a minute
+            History.Clear();
+            t = t0; lvl = 20;
+            while (lvl < 80) { History.Add("c", t, lvl, true); t += 60; lvl++; }
+            while (lvl < 95) { History.Add("c", t, lvl, true); t += 100; lvl++; }
+            while (lvl < 100) { History.Add("c", t, lvl, true); t += 200; lvl++; }
+            History.Add("c", t, 100, true); t += 86400;
+            History.Add("c", t, 40, false);
+            for (int i = 0; i <= 10; i++) History.Add("c", t + 600 + i * 60, 40 + i, true);
+            long now = t + 600 + 600;
+            double h = History.HoursToFull("c", 50, now);
+            // 30 points at 1/min + 15 at 0.6/min + 5 at 0.3/min = 30 + 25 + 16.7 = 71.7 min
+            Check(h > 0 && Math.Abs(h * 60 - 71.7) < 3, "forecast: full in about 72 minutes, slower above 80 and 95 % (got " + Math.Round(h * 60, 1) + ")");
+            Check(Math.Abs(History.HoursToFull("c", 90, now) * 60 - 25) < 3, "forecast: from 90 %, only the slow parts: 5 at 0.6 + 5 at 0.3 a minute = 25 min (got " + Math.Round(History.HoursToFull("c", 90, now) * 60, 1) + ")");
+            Equal(0.0, History.HoursToFull("c", 100, now), "forecast: full is full");
+            // a device never seen charging: this charge's own speed and the usual slowdown
+            History.Clear();
+            for (int i = 0; i <= 10; i++) History.Add("n", t0 + i * 60, 30 + i, true);
+            double hn = History.HoursToFull("n", 40, t0 + 600);
+            Check(hn > 0 && Math.Abs(hn * 60 - (40 + 15 / 0.6 + 5 / 0.3)) < 3, "forecast: no earlier charge: this one's speed, slower near full");
+            Check(History.HoursToFull("n", 40, t0 + 600 + 5000) > 0, "forecast: back after a gap: the speed it charged at before still gives an estimate");
+            Check(History.HoursToFull("x", 40, t0) < 0, "forecast: never seen: no estimate");
+            // seen on a mouse: 65 -> 90 % in 7 minutes (5 % steps), now at 90: the slow parts are not taken at that speed
+            History.Clear();
+            for (int i = 0; i <= 5; i++) History.Add("f", t0 + i * 84, 65 + i * 5, true);
+            double hf = History.HoursToFull("f", 90, t0 + 430);
+            Check(hf > 0 && Math.Abs(hf * 60 - 7) < 1.2, "forecast: after a fast start the parts above 80 % are slower (got " + Math.Round(hf * 60, 1) + " min)");
+            // ... then it sat on 95 % for 16 minutes (seen on that mouse): the estimate grows with the wait, not "5 min"
+            // ... then 95 %: in 5 % steps that is the last one it reports on the cable (the same mouse showed 95 %
+            // "charging" for 20 minutes, then 100 % when unplugged): "almost full", no time
+            History.Add("f", t0 + 500, 95, true);
+            Equal(History.AlmostFull, History.HoursToFull("f", 95, t0 + 500 + 16 * 60), "forecast: 95 % in 5 % steps: almost full");
+            // still on the cable 2 hours later (15-minute points on 95 %): still "almost full", not a growing time
+            for (int i = 1; i <= 8; i++) History.Add("f", t0 + 500 + i * History.Beat, 95, true);
+            Equal(History.AlmostFull, History.HoursToFull("f", 95, t0 + 500 + 8 * History.Beat + 60), "forecast: almost full after hours on the cable too");
+
+            // AirPods: the lower earbud taken out of the case (70 -> 50 % at once) is not drain; the 10 % steps are
+            History.Clear();
+            long ta = t0;
+            foreach (var lv in new[] { 90, 80, 70 }) { History.Add("a", ta, lv, false); ta += 1800; }
+            History.Add("a", ta - 1770, 50, false);   // 30 s later: the other earbud out
+            foreach (var lv in new[] { 50, 40 }) { History.Add("a", ta, lv, false); ta += 1800; }
+            double ra = History.DrainRate("a", true);
+            // 30 points over 7170 s of use (the 1770 s on 50 % count as use); with the swap it would be 50 points
+            Check(ra > 0 && Math.Abs(ra * 1800 - 7.5) < 0.3, "forecast: AirPods: the earbud swap left out (got " + Math.Round(ra * 1800, 1) + " per 30 min)");
+
+            // the clock set back: a point from the past is not added out of order
+            History.Clear();
+            History.Add("k", t0, 80, false); History.Add("k", t0 - 3600, 70, false); History.Add("k", t0 + 600, 79, false);
+            var kp = History.Since("k", 0);
+            Check(kp.Count == 2 && kp[0][0] < kp[1][0], "history: a clock set back does not break the time order");
+            // a clock behind at start (flat CMOS battery, before time sync): the saved days stay, the readings wait
+            History.Clear();
+            History.Add("y", t0, 80, false); History.Add("y", t0 + 600, 79, false);
+            History.Add("y", t0 - 20 * 365 * 86400, 79, false);
+            Check(History.Since("y", 0).Count == 2, "history: a clock behind for a moment does not delete the saved days");
+            // 5 minutes behind the last point, even with no wait at all: deletes nothing (the 600 s rule)
+            double wait0 = History.BehindWaitMs; History.BehindWaitMs = 0;
+            try { History.Add("y", t0 + 300, 79, false); }
+            finally { History.BehindWaitMs = wait0; }
+            Check(History.Since("y", 0).Count == 2, "history: a clock a few minutes behind does not delete points");
+            // a clock that was a year ahead and has been corrected: after the clock stayed behind for a while (the wait is
+            // 30 minutes of real time; 0 here), those points go and the history goes on
+            History.Clear();
+            double keepWait = History.BehindWaitMs; History.BehindWaitMs = 0;
+            try
+            {
+                History.Add("y", t0 + 365 * 86400, 80, false); History.Add("y", t0, 70, false); History.Add("y", t0 + 600, 69, false);
+                var yp = History.Since("y", 0);
+                Check(yp.Count == 2 && yp[0][1] == 70 && yp[1][1] == 69, "history: points from a clock a year ahead go once the clock has stayed back");
+            }
+            finally { History.BehindWaitMs = keepWait; History.Clear(); }
+            // a device in 1 % steps that sat on 97 % for 16 minutes: the next step takes about as long again
+            History.Clear();
+            for (int i = 0; i <= 10; i++) History.Add("w", t0 + i * 60, 87 + i, true);
+            History.Add("w", t0 + 660, 97, true);
+            double hw = History.HoursToFull("w", 97, t0 + 660 + 16 * 60);
+            Check(hw * 60 >= 40 && hw * 60 <= 60, "forecast: waiting on 97 %: about 16 minutes a step (got " + Math.Round(hw * 60, 1) + " min)");
+            History.Clear();
+
+            // the session estimate is kept near the usual one
+            Equal(10.0, BatteryReader.Blend(10, 12), "forecast: close to usual: as it is");
+            Equal(24.0, BatteryReader.Blend(36, 12), "forecast: a headset left idle: at most twice the usual");
+            Equal(6.0, BatteryReader.Blend(2, 12), "forecast: at least half the usual");
+            Equal(12.0, BatteryReader.Blend(-1, 12), "forecast: right after a charge: the usual");
+            Equal(5.0, BatteryReader.Blend(5, -1), "forecast: no history yet: the session's own");
+            Check(BatteryReader.FullIn(0.66).Contains("40") && BatteryReader.FullIn(2.4).Contains("2.5") || BatteryReader.FullIn(2.4).Contains("2,5"), "forecast: full in 40 min / 2.5 h");
         }
 
         static void NoLevelNote()
