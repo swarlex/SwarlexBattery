@@ -116,7 +116,7 @@ namespace SwarlexBattery
             lock (heard)
             {
                 var now = DateTime.UtcNow;
-                foreach (var k in heard.Where(x => (now - x.Value.At).TotalSeconds > 60).Select(x => x.Key).ToList()) heard.Remove(k);
+                foreach (var k in heard.Where(x => (now - x.Value.At).TotalSeconds > 30).Select(x => x.Key).ToList()) heard.Remove(k);   // quiet for 30 s: gone
                 ulong last; chosen.TryGetValue(model, out last);
                 var h = Pick(heard.Values, model, last);
                 if (h == null) { chosen.Remove(model); return null; }

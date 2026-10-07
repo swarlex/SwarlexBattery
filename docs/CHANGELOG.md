@@ -2,6 +2,35 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## 2.0.7
+### Added
+- **Battery history:** left-click a device in the panel to see its level over the last 24 hours or 7 days, the line
+  broken where it was off or asleep and dashed while it charged. The pointer shows the time and the level under it
+  ("14:30 - 72 %"), and with a time-left estimate the graph runs on past now as a dashed line down to where the
+  battery would run out. The rows light up under the pointer and show a chevron, so they read as something to open.
+
+- **Full in about…:** while a device charges, the panel says when it will be full ("full in about 40 min"), and the
+  graph runs on up to full. Lithium cells slow down near full, so the level is taken in three parts (up to 80 %,
+  80-95 %, 95-100 %): each with the speed this device charged at in it before, and the speed of this charge in each
+  part it has passed. A device that sits on one level for a while is taken to need at least as long again for the
+  next step. A device in 5 % steps on 95 % says "almost full": an ATK / VXE mouse on its cable never reports more
+  (it showed 95 % "charging" for 20 minutes, then 100 % when unplugged).
+- **Time left for AirPods and Xbox pads** (devices that report in coarse steps), from the drain they usually have.
+
+### Changed
+- The time left is steadier and there right after a charge: it is kept within half and twice the drain the
+  device had over the last 7 days (a headset left on the desk no longer goes from "19 h" to "36 h" while its level
+  stays the same), and until this charge has enough readings, the usual drain gives the estimate.
+- Turkish: hours and minutes are written out ("19 saat", "3 dakika") instead of "sa" and "dk".
+- Preferences, the languages and the low battery level list start at the edge like the counters at the top (no
+  empty icon column); German, Spanish and Italian texts that wrapped onto two lines are shorter.
+- AirPods: the low battery notice says which earbud is low ("Left earbud: 10% left"), or both when they are level.
+- AirPods have their own icon in the tray and the panel (two earbuds); AirPods Max keep the headset icon.
+
+### Fixed
+- AirPods: a reading is dropped 30 s after the earbuds go quiet (it was 60 s).
+- A connected Magic Keyboard, Mouse or Trackpad no longer starts the AirPods listener for nothing.
+
 ## 2.0.6
 ### Added
 - **Separate icon per device** in Preferences (it was a config.json setting only): one tray icon for each device

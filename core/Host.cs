@@ -58,7 +58,13 @@ namespace SwarlexBattery
                 if (e.Reason == SessionSwitchReason.SessionLock) { locked = true; tray.Pause(true); }
                 else if (e.Reason == SessionSwitchReason.SessionUnlock) { locked = false; tray.Pause(Win.ForegroundIsFullscreen()); PollSoon(); }
             }));
-            SystemEvents.PowerModeChanged += (s, e) => { if (e.Mode == PowerModes.Resume) ui.BeginInvoke(new Action(() => PollSoon())); };
+            SystemEvents.PowerModeChanged += (s, e) =>
+            {
+                if (e.Mode == PowerModes.Resume) ui.BeginInvoke(new Action(() => PollSoon()));
+                else if (e.Mode == PowerModes.Suspend) History.Save(DateTimeOffset.UtcNow.ToUnixTimeSeconds());   // sleep may become a shutdown
+            };
+            // signing out or shutting down: the battery history of the last minutes (it is written every 10 minutes)
+            SystemEvents.SessionEnding += (s, e) => History.Save(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
             // once a second is enough for everything below (the closest deadline is a re-read 1.5 s after a plug-in),
             // and every wake-up of an idle tray app costs a little battery on a laptop
             timer = new DispatcherTimer(DispatcherPriority.Background, ui) { Interval = TimeSpan.FromSeconds(1) };
@@ -128,7 +134,11 @@ namespace SwarlexBattery
             ThreadPool.QueueUserWorkItem(_ =>
             {
                 Snapshot snap = null;
-                try { var gadgets = reader.Read(); snap = BatteryReader.Build(gadgets); BatteryReader.WriteStatus(gadgets); }
+                try
+                {
+                    var gadgets = reader.Read(); snap = BatteryReader.Build(gadgets); BatteryReader.WriteStatus(gadgets);
+                    History.Record(gadgets, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+                }
                 catch (Exception e) { Log.Once("poll: " + e); }
                 ui.BeginInvoke(new Action(() =>
                 {
@@ -456,6 +466,7 @@ namespace SwarlexBattery
         public void Exit()
         {
             if (stopping) return; stopping = true;
+            History.Save(DateTimeOffset.UtcNow.ToUnixTimeSeconds());   // the last minutes of the battery history
             timer.Stop();
             System.Windows.Application.Current.Shutdown();
         }
