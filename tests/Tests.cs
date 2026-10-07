@@ -315,15 +315,15 @@ namespace SwarlexBatteryTests
         static void BluetoothIds()
         {
             // instance ids captured from a Logitech G435 on Bluetooth: the level sits on the Hands-Free AG node
-            Equal("405899571DB9", BluetoothBattery.MacOf(@"BTHENUM\{0000111E-0000-1000-8000-00805F9B34FB}_VID&000107E3_PID&2002\7&1B605E42&0&405899571DB9_C00000000"), "service node: the address, not the GUID's end");
-            Equal("405899571DB9", BluetoothBattery.MacOf(@"BTHENUM\DEV_405899571DB9\7&1B605E42&0&BLUETOOTHDEVICE_405899571DB9"), "device node: the same address");
-            Equal("D32FC1E2B5C6", BluetoothBattery.MacOf(@"BTHLEDEVICE\{00001800-0000-1000-8000-00805F9B34FB}_DEV_VID&02046D_PID&B023_REV&0011_d32fc1e2b5c6\8&2A1B3C4D&0&0010"), "BLE service node: the address");
-            Equal("D32FC1E2B5C6", BluetoothBattery.MacOf(@"BTHLE\DEV_d32fc1e2b5c6\8&1A2B3C4D&0&D32FC1E2B5C6"), "BLE device node: the address");
+            Equal("A1B2C3D4E5F6", BluetoothBattery.MacOf(@"BTHENUM\{0000111E-0000-1000-8000-00805F9B34FB}_VID&000107E3_PID&2002\7&1B605E42&0&A1B2C3D4E5F6_C00000000"), "service node: the address, not the GUID's end");
+            Equal("A1B2C3D4E5F6", BluetoothBattery.MacOf(@"BTHENUM\DEV_A1B2C3D4E5F6\7&1B605E42&0&BLUETOOTHDEVICE_A1B2C3D4E5F6"), "device node: the same address");
+            Equal("C1A2B3C4D5E6", BluetoothBattery.MacOf(@"BTHLEDEVICE\{00001800-0000-1000-8000-00805F9B34FB}_DEV_VID&02046D_PID&B023_REV&0011_c1a2b3c4d5e6\8&2A1B3C4D&0&0010"), "BLE service node: the address");
+            Equal("C1A2B3C4D5E6", BluetoothBattery.MacOf(@"BTHLE\DEV_c1a2b3c4d5e6\8&1A2B3C4D&0&C1A2B3C4D5E6"), "BLE device node: the address");
             Check(BluetoothBattery.MacOf(@"BTHHFENUM\BTHHFPAUDIO\8&F03E73A&0&97") == null, "no address: null");
             // captured from AirPods (2nd generation): the model is in the service node's id
-            Equal(0x200F, BluetoothBattery.ApplePid(@"BTHENUM\{0000111E-0000-1000-8000-00805F9B34FB}_VID&0001004C_PID&200F\7&1B605E42&0&1C0EC2DB82CE_C00000000"), "Apple earbuds: the model from the id");
+            Equal(0x200F, BluetoothBattery.ApplePid(@"BTHENUM\{0000111E-0000-1000-8000-00805F9B34FB}_VID&0001004C_PID&200F\7&1B605E42&0&0A1B2C3D4E5F_C00000000"), "Apple earbuds: the model from the id");
             Equal(-1, BluetoothBattery.ApplePid(@"BTHENUM\{00001124-0000-1000-8000-00805F9B34FB}_VID&0001004C_PID&0267\7&1B605E42&0&AABBCCDDEEFF_C00000000"), "a Magic Keyboard is not earbuds");
-            Equal(-1, BluetoothBattery.ApplePid(@"BTHENUM\{0000111E-0000-1000-8000-00805F9B34FB}_VID&000107E3_PID&2002\7&1B605E42&0&405899571DB9_C00000000"), "another vendor's 0x2002 (G435) is not Apple");
+            Equal(-1, BluetoothBattery.ApplePid(@"BTHENUM\{0000111E-0000-1000-8000-00805F9B34FB}_VID&000107E3_PID&2002\7&1B605E42&0&A1B2C3D4E5F6_C00000000"), "another vendor's 0x2002 (G435) is not Apple");
         }
 
         static void AirPodsAds()

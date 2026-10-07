@@ -30,7 +30,8 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: SwarlexBattery-${{ github.ref_name }}
+          # a pull request's ref is "29/merge", and "/" is not allowed in an artifact name
+          name: SwarlexBattery-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref_name }}
           path: |
             dist/SwarlexBattery.exe
             dist/SwarlexBattery-Setup.exe
