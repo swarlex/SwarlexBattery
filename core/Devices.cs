@@ -708,7 +708,9 @@ namespace SwarlexBattery
         static void ReadAmInfinity(List<HidInfo> devs, List<Reading> outp)
         {
             var c = devs.FirstOrDefault(d => d.Pid == 0x5007 && d.UsagePage == 0xFFFF && d.Usage == 0x0002 && d.FeatLen >= 4); if (c == null) return;
-            var r = new Reading { Id = "aminfinity-mouse", Name = "AM Infinity 8K Mouse", Kind = "mouse", Source = "aminfinity", Receiver = true };
+            // the same receiver ships with AJAZZ mice (AJ159 APEX etc.), which name it "AJAZZ 2.4G 8K"
+            bool ajazz = devs.Any(d => (d.Product ?? "").IndexOf("AJAZZ", StringComparison.OrdinalIgnoreCase) >= 0);
+            var r = new Reading { Id = "aminfinity-mouse", Name = ajazz ? "AJAZZ 8K Mouse" : "AM Infinity 8K Mouse", Kind = "mouse", Source = "aminfinity", Receiver = true };
             using (var h = OpenQuery(c.Path))
             {
                 if (!h.IsInvalid)
@@ -718,7 +720,12 @@ namespace SwarlexBattery
                     {
                         Thread.Sleep(30);
                         var x = GetFeature(h, 0x05, c.FeatLen);
-                        if (x != null && x[0] == 0x05 && x[1] == 0 && x[2] == 0 && x[3] > 0) r.Level = Math.Min((int)x[3], 100);
+                        if (x != null && x[0] == 0x05 && x[1] == 0 && x[2] == 0 && x[3] > 0)
+                        {
+                            r.Level = Math.Min((int)x[3], 100);
+                            // AJAZZ AJ159 APEX: [10] is 01 while on its cable / dock and 00 off it (seen both ways)
+                            r.Charging = x.Length > 10 && x[10] == 0x01;
+                        }
                     }
                 }
             }
@@ -1569,11 +1576,14 @@ namespace SwarlexBattery
                     }
                     outp.Add(r);
                 }
-                else if (pid == 0x05B7 || pid == 0x0C9D)
+                else if (pid == 0x05B7 || pid == 0x0C9D || pid == 0x0995 || pid == 0x069F)
                 {
                     // Cloud III Wireless: FF13:0001, report 0x66; 89 battery ([4] when [2]|[3] != 0), 8A charging ([2] 1/2)
+                    // Cloud II Core Wireless (0995 / 069F) speaks the same protocol (HyperHeadset cloud_ii_core_wireless.rs;
+                    // verified on 0995: 66 89 0f 7a 43 = 3962 mV, 67 %)
                     var c = Pick(g, 0xFF13, 0x0001); if (c == null) continue;
-                    var r = new Reading { Id = "hyperx-cloud3", Name = "HyperX Cloud III Wireless", Kind = "headphones", Source = "hyperx", Receiver = true };
+                    bool core = pid == 0x0995 || pid == 0x069F;
+                    var r = new Reading { Id = core ? "hyperx-cloud2core" : "hyperx-cloud3", Name = core ? "HyperX Cloud II Core Wireless" : "HyperX Cloud III Wireless", Kind = "headphones", Source = "hyperx", Receiver = true };
                     using (var h = Open(c.Path))
                     {
                         if (h.IsInvalid) continue;
