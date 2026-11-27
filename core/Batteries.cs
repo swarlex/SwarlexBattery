@@ -491,6 +491,11 @@ namespace SwarlexBattery
                     // reading, marked approximate - the charge is at least that
                     Add(list, new Gadget { Id = id, Name = name, Kind = r.Kind, Pct = Convert.ToInt32(prev["pct"]), Charging = true, Approx = true, Online = true });
                 }
+                else if (r.Charging)
+                {
+                    // the same with no reading in the last week: listed with the reason instead of left out
+                    list.Add(new Gadget { Id = id, Name = name, Kind = r.Kind, Pct = -1, Hint = Strings.T("chargingNoLevel") });
+                }
                 else if (prev != null)
                 {
                     long age = now - Convert.ToInt64(prev["ts"]);

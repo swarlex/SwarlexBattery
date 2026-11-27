@@ -56,6 +56,7 @@
   "iconPercent": "İkonda yüzde göster",
   "beta": "Beta sürümleri al",
   "noLevelReceiver": "alıcısı pil seviyesini vermiyor; Bluetooth ile bağlanınca görünür",
+  "chargingNoLevel": "şarj oluyor; şarj olurken seviye bildirmiyor",
   "lowSound": "Düşük pilde sesli uyarı",
   "prefs": "Tercihler",
   "interval": "Okuma aralığı",

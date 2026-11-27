@@ -56,6 +56,7 @@
   "iconPercent": "Prozent im Symbol",
   "beta": "Beta-Versionen erhalten",
   "noLevelReceiver": "kein Akkustand über den Empfänger; erscheint bei Verbindung über Bluetooth",
+  "chargingNoLevel": "lädt; meldet beim Laden keinen Akkustand",
   "lowSound": "Ton bei niedrigem Akkustand",
   "prefs": "Einstellungen",
   "interval": "Abfrageintervall",
