@@ -2,7 +2,7 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
-## Unreleased
+## 2.0.13
 ### Fixed
 - Renaming a device (or resetting its name) shows the new name at once, instead of the old one until the next read.
 - With the automatic theme, the open panel or menu turns light or dark with the taskbar, instead of keeping the old
