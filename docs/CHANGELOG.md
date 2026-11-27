@@ -2,7 +2,7 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
-## Unreleased
+## 2.0.11
 ### Fixed
 - Opening a device's battery history while another device's is open no longer makes the panel drop to the bare list
   and grow again: the old history folds away while the new one unfolds, in the same frames.
