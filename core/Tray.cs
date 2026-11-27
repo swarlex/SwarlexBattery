@@ -350,7 +350,9 @@ namespace SwarlexBattery
                     icons[sp.Id] = ni;
                 }
                 specs[sp.Id] = sp;
-                var icon = TrayRenderer.Get(sp);
+                // while the charging animation runs, a poll draws the frame it is on: the still icon would show
+                // until the next frame, the ring dropping back to the real level in the middle of a fill
+                var icon = TrayRenderer.Get(anim != null ? Frame(sp) : sp);
                 if (ni.Icon != icon) ni.Icon = icon;
                 var tip = (sp.Tooltip ?? "").Trim(); if (tip.Length > 63) tip = tip.Substring(0, 62) + "…";
                 ni.Text = tip;
@@ -389,18 +391,27 @@ namespace SwarlexBattery
         void Step()
         {
             frame = (frame + 1) % Frames;
-            double t = Math.Min(1.0, frame / 10.0);
             foreach (var kv in icons)
             {
                 var sp = specs[kv.Key];
-                if (sp.RingCharging == null || !sp.RingCharging.Any(c => c)) continue;
-                var f = sp.Copy();
-                if (f.Rings != null)
-                    for (int i = 0; i < f.Rings.Length && i < sp.RingCharging.Length; i++) { if (sp.RingCharging[i]) f.Rings[i] = Fill(f.Rings[i], t); }
-                else if (f.Ring.HasValue && sp.RingCharging[0]) f.Ring = Fill(f.Ring.Value, t);
+                var f = Frame(sp);
+                if (f == sp) continue;
                 var icon = TrayRenderer.Get(f);
                 if (kv.Value.Icon != icon) kv.Value.Icon = icon;
             }
+        }
+
+        // an icon as the animation's current frame shows it: the rings of its charging devices filled that far
+        // (the icon itself when nothing in it charges)
+        TraySpec Frame(TraySpec sp)
+        {
+            if (sp.RingCharging == null || !sp.RingCharging.Any(c => c)) return sp;
+            double t = Math.Min(1.0, frame / 10.0);
+            var f = sp.Copy();
+            if (f.Rings != null)
+                for (int i = 0; i < f.Rings.Length && i < sp.RingCharging.Length; i++) { if (sp.RingCharging[i]) f.Rings[i] = Fill(f.Rings[i], t); }
+            else if (f.Ring.HasValue && sp.RingCharging[0]) f.Ring = Fill(f.Ring.Value, t);
+            return f;
         }
 
         static double Fill(double level, double t) { return Math.Round((level + (1 - level) * t) * 20) / 20; }
@@ -408,7 +419,7 @@ namespace SwarlexBattery
         // taskbar theme switched: repaint everything and free the old images
         public void Repaint()
         {
-            foreach (var kv in icons) kv.Value.Icon = TrayRenderer.Get(specs[kv.Key]);
+            foreach (var kv in icons) kv.Value.Icon = TrayRenderer.Get(anim != null ? Frame(specs[kv.Key]) : specs[kv.Key]);
             TrayRenderer.Clear(icons.Values.Select(n => n.Icon));
         }
 
