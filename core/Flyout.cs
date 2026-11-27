@@ -39,6 +39,8 @@ namespace SwarlexBattery
         string graphFor; bool graphWeek;          // the panel: a device's battery history shown (a click), over 24 h or 7 days
         long graphHover;                          // the time under the pointer in the graph (0: none); kept when the panel redraws
         string reveal;                            // what a click just opened ("graph:id", "hidden"): drawn with a fade once
+        string fold;                              // the history that one replaces ("graph:id"): drawn once more, folding away meanwhile
+        Border foldPart;                          // its holder as just drawn, until the unfold takes it along
 
         static Brush MakeBrush(string c) { var b = (Brush)new BrushConverter().ConvertFromString(c); b.Freeze(); return b; }
 
@@ -139,7 +141,7 @@ namespace SwarlexBattery
             if (Open != null) { lastClosed = Open; lastClosedAt = DateTime.Now; }
             Open = null; win.Hide();
             CloseSide();
-            renaming = null; graphHover = 0; reveal = null; closing = null; animUntil = DateTime.MinValue;   // a fold still running ends without effect
+            renaming = null; graphHover = 0; reveal = null; fold = null; foldPart = null; closing = null; animUntil = DateTime.MinValue;   // a fold still running ends without effect
             if (stopAnim != null) stopAnim();
             parts.Clear();
             TrimSoon();
@@ -306,8 +308,10 @@ namespace SwarlexBattery
             if (!Config.Bool("openAnimation", true)) return holder;
             holder.Height = 0; el.Opacity = 0;   // the window keeps its height until the unfold starts
             RoutedEventHandler loaded = null;
-            loaded = (s, e) => { holder.Loaded -= loaded; Unfold(holder, true, null); };
+            loaded = (s, e) => { holder.Loaded -= loaded; var other = foldPart; foldPart = null; Unfold(holder, true, null, other); };
             holder.Loaded += loaded;
+            // until it is laid out and the unfold starts, a refresh or another click waits as it does during the slide
+            animUntil = DateTime.Now + TimeSpan.FromMilliseconds(300);
             return holder;
         }
 
@@ -322,8 +326,10 @@ namespace SwarlexBattery
 
         // Each frame: the holder's height and the part's opacity follow the eased time, and the window takes the
         // height its content now asks for (a list taller than the screen stops at its scroll height) in one move-and-
-        // resize, its bottom (taskbar below) or top (taskbar above) staying where it is.
-        void Unfold(Border holder, bool open, Action done)
+        // resize, its bottom (taskbar below) or top (taskbar above) staying where it is. "other" is the part this
+        // one replaces (another device's history): it folds away in the same frames, so the window goes straight
+        // from one height to the other instead of dropping to the bare list first.
+        void Unfold(Border holder, bool open, Action done, Border other = null)
         {
             var el = holder.Child as FrameworkElement;
             var content = win.Content as FrameworkElement;
@@ -332,11 +338,13 @@ namespace SwarlexBattery
             if (el == null || content == null || hwnd == IntPtr.Zero || src == null || src.CompositionTarget == null || holder.ActualWidth <= 0)
             {
                 holder.ClearValue(FrameworkElement.HeightProperty); if (el != null) el.Opacity = 1;
+                if (other != null) other.Visibility = Visibility.Collapsed;
                 if (done != null) done();
                 return;
             }
             el.Measure(new Size(holder.ActualWidth, double.PositiveInfinity));
             double h = open ? el.DesiredSize.Height : holder.ActualHeight;
+            double ho = other != null ? other.ActualHeight : 0;
             double sy = src.CompositionTarget.TransformToDevice.M22;
             var r = Win.WindowRect(hwnd);
             double startContent = content.ActualHeight;
@@ -356,6 +364,7 @@ namespace SwarlexBattery
                 scroll.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
                 if (open) holder.ClearValue(FrameworkElement.HeightProperty);
                 el.Opacity = open ? 1 : 0;
+                if (other != null) other.Visibility = Visibility.Collapsed;
                 win.SizeToContent = SizeToContent.Height;
                 if (done != null) done();
             };
@@ -367,6 +376,7 @@ namespace SwarlexBattery
                     t = Math.Min(1, clock.Elapsed.TotalMilliseconds / dur);
                     double p = ease.Ease(open ? t : 1 - t);
                     holder.Height = h * p; el.Opacity = p;
+                    if (other != null) { other.Height = ho * (1 - p); other.Opacity = 1 - p; }
                     content.Measure(new Size(content.ActualWidth, double.PositiveInfinity));
                     int hp = Math.Max(1, r.Height + (int)Math.Ceiling((content.DesiredSize.Height - startContent) * sy - 0.01));
                     Win.MoveSize(hwnd, r.Left, above ? r.Bottom - hp : r.Top, r.Width, hp);
@@ -604,6 +614,9 @@ namespace SwarlexBattery
             if (renaming != null && !force) return;
             var snap = host.Current;
             sideRow = null;
+            // another device's history was open when this one was clicked: drawn once more, to fold away
+            string folding = reveal != null && Config.Bool("openAnimation", true) ? fold : null;
+            fold = null; foldPart = null;
             var root = new StackPanel();
             var title = Text(snap != null ? snap.Title : Strings.T("title"), fg, 15, true); title.Margin = new Thickness(0, 0, 0, 6); root.Children.Add(title);
             TextBox editor = null;
@@ -675,6 +688,7 @@ namespace SwarlexBattery
                                 Collapse("graph:" + item.Id, () => { if (graphFor == item.Id) { graphFor = null; graphHover = 0; if (Open == "panel") RenderPanel(true); } });
                                 return;
                             }
+                            fold = graphFor != null ? "graph:" + graphFor : null;
                             graphFor = item.Id; graphHover = 0;   // a pointer time from another graph does not carry over
                             reveal = "graph:" + item.Id;
                             RenderPanel(true);
@@ -692,7 +706,16 @@ namespace SwarlexBattery
                         root.Children.Add(rowBorder);
                     }
                     if (graphFor != null && graphFor == it.Id) root.Children.Add(Reveal(Graph(it), "graph:" + it.Id));
+                    else if (it.Id != null && folding == "graph:" + it.Id)
+                    {
+                        foldPart = new Border { Child = Graph(it), ClipToBounds = true, IsHitTestVisible = false };
+                        root.Children.Add(foldPart);
+                    }
                 }
+                // the clicked device is gone, so nothing unfolds: the old history does not stay behind, and the
+                // device does not unfold its history by itself when it is back
+                if (foldPart != null && reveal != null) { root.Children.Remove(foldPart); foldPart = null; }
+                reveal = null;
                 if (snap.Items.Count > 0)
                 {
                     var hint = Text(Strings.T("deviceHint"), muted, 11); hint.Margin = new Thickness(0, 4, 0, 0); root.Children.Add(hint);

@@ -2,6 +2,13 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## Unreleased
+### Fixed
+- Opening a device's battery history while another device's is open no longer makes the panel drop to the bare list
+  and grow again: the old history folds away while the new one unfolds, in the same frames.
+- The charging animation of the tray icon no longer jumps back to the real level for a moment each time the
+  batteries are read (every 5 seconds while the panel is open): a read draws the frame the animation is on.
+
 ## 2.0.10
 ### Changed
 - A device's options (right-click it in the panel) open in a small window beside the panel, level with the device,
