@@ -708,17 +708,19 @@ namespace SwarlexBattery
         // AJAZZ AJ159 APEX on its cable without the receiver (3151:4026): the mouse gives no level there (F7 and the
         // vendor's 83 GET_BATTERY both answer with zeros; ajazz-control-center: the vendor driver shows battery 0 for
         // wired mice), so nothing is asked - it is shown charging with the last level, as the AULA F75 on its cable.
+        // VID 3151 is shared by several brands, so 4026 counts only with "AJAZZ" in its product string.
         static void ReadAmInfinity(List<HidInfo> devs, List<Reading> outp)
         {
+            Func<HidInfo, bool> ajazzName = d => (d.Product ?? "").IndexOf("AJAZZ", StringComparison.OrdinalIgnoreCase) >= 0;
             var c = devs.FirstOrDefault(d => d.Pid == 0x5007 && d.UsagePage == 0xFFFF && d.Usage == 0x0002 && d.FeatLen >= 4);
             if (c == null)
             {
-                if (devs.Any(d => d.Pid == 0x4026))
+                if (devs.Any(d => d.Pid == 0x4026 && ajazzName(d)))
                     outp.Add(new Reading { Id = "aminfinity-mouse", Name = "AJAZZ 8K Mouse", Kind = "mouse", Source = "aminfinity", Charging = true });
                 return;
             }
             // the same receiver ships with AJAZZ mice (AJ159 APEX etc.), which name it "AJAZZ 2.4G 8K"
-            bool ajazz = devs.Any(d => (d.Product ?? "").IndexOf("AJAZZ", StringComparison.OrdinalIgnoreCase) >= 0);
+            bool ajazz = devs.Any(ajazzName);
             var r = new Reading { Id = "aminfinity-mouse", Name = ajazz ? "AJAZZ 8K Mouse" : "AM Infinity 8K Mouse", Kind = "mouse", Source = "aminfinity", Receiver = true };
             using (var h = OpenQuery(c.Path))
             {
@@ -732,8 +734,9 @@ namespace SwarlexBattery
                         if (x != null && x[0] == 0x05 && x[1] == 0 && x[2] == 0 && x[3] > 0)
                         {
                             r.Level = Math.Min((int)x[3], 100);
-                            // AJAZZ AJ159 APEX: [10] is 01 while on its cable / dock and 00 off it (seen both ways)
-                            r.Charging = x.Length > 10 && x[10] == 0x01;
+                            // AJAZZ AJ159 APEX: [10] is 01 while on its cable / dock and 00 off it (seen both ways);
+                            // only seen on AJAZZ mice, so not read for a plain AM Infinity mouse
+                            r.Charging = ajazz && x.Length > 10 && x[10] == 0x01;
                         }
                     }
                 }
@@ -1588,8 +1591,9 @@ namespace SwarlexBattery
                 else if (pid == 0x05B7 || pid == 0x0C9D || pid == 0x0995 || pid == 0x069F)
                 {
                     // Cloud III Wireless: FF13:0001, report 0x66; 89 battery ([4] when [2]|[3] != 0), 8A charging ([2] 1/2)
-                    // Cloud II Core Wireless (0995 / 069F) speaks the same protocol (HyperHeadset cloud_ii_core_wireless.rs;
-                    // verified on 0995: 66 89 0f 7a 43 = 3962 mV, 67 %)
+                    // Cloud II Core Wireless (0995 / 069F) speaks the same protocol (LennardKittner/HyperHeadset
+                    // src/devices/cloud_ii_core_wireless.rs line 9: PRODUCT_IDS [0x069F, 0x0995], battery command 137 = 0x89;
+                    // verified on 0995: 66 89 0f 7a 43 = 3962 mV, 67 %; 069F is not tested on hardware)
                     var c = Pick(g, 0xFF13, 0x0001); if (c == null) continue;
                     bool core = pid == 0x0995 || pid == 0x069F;
                     var r = new Reading { Id = core ? "hyperx-cloud2core" : "hyperx-cloud3", Name = core ? "HyperX Cloud II Core Wireless" : "HyperX Cloud III Wireless", Kind = "headphones", Source = "hyperx", Receiver = true };
