@@ -708,19 +708,20 @@ namespace SwarlexBattery
         // AJAZZ AJ159 APEX on its cable without the receiver (3151:4026): the mouse gives no level there (F7 and the
         // vendor's 83 GET_BATTERY both answer with zeros; ajazz-control-center: the vendor driver shows battery 0 for
         // wired mice), so nothing is asked - it is shown charging with the last level, as the AULA F75 on its cable.
-        // VID 3151 is shared by several brands, so 4026 counts only with "AJAZZ" in its product string.
+        // VID 3151 is shared by several brands, so 4026 counts only as a mouse (a 0001:0002 collection) with "AJAZZ" in
+        // its product string, and the receiver is AJAZZ only by its own name.
         static void ReadAmInfinity(List<HidInfo> devs, List<Reading> outp)
         {
             Func<HidInfo, bool> ajazzName = d => (d.Product ?? "").IndexOf("AJAZZ", StringComparison.OrdinalIgnoreCase) >= 0;
             var c = devs.FirstOrDefault(d => d.Pid == 0x5007 && d.UsagePage == 0xFFFF && d.Usage == 0x0002 && d.FeatLen >= 4);
             if (c == null)
             {
-                if (devs.Any(d => d.Pid == 0x4026 && ajazzName(d)))
+                if (devs.Any(d => d.Pid == 0x4026 && d.UsagePage == 0x0001 && d.Usage == 0x0002 && ajazzName(d)))
                     outp.Add(new Reading { Id = "aminfinity-mouse", Name = "AJAZZ 8K Mouse", Kind = "mouse", Source = "aminfinity", Charging = true });
                 return;
             }
             // the same receiver ships with AJAZZ mice (AJ159 APEX etc.), which name it "AJAZZ 2.4G 8K"
-            bool ajazz = devs.Any(ajazzName);
+            bool ajazz = devs.Any(d => d.Pid == 0x5007 && ajazzName(d));
             var r = new Reading { Id = "aminfinity-mouse", Name = ajazz ? "AJAZZ 8K Mouse" : "AM Infinity 8K Mouse", Kind = "mouse", Source = "aminfinity", Receiver = true };
             using (var h = OpenQuery(c.Path))
             {

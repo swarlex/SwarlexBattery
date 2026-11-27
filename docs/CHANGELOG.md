@@ -11,7 +11,7 @@ All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBat
 
 ### Changed
 - A device that charges on its cable without giving a level, with no reading in the last week, is listed with that
-  reason ("charging on its cable; the level shows again on its receiver") instead of being left out.
+  reason ("charging; it gives no level while it charges") instead of being left out.
 
 ## 2.0.13
 ### Fixed

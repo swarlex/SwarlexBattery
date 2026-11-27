@@ -56,7 +56,7 @@
   "iconPercent": "Percentuale nell'icona",
   "beta": "Ricevi versioni beta",
   "noLevelReceiver": "il ricevitore non fornisce il livello della batteria; appare se collegato via Bluetooth",
-  "chargingNoLevel": "in carica via cavo; il livello riappare con il ricevitore",
+  "chargingNoLevel": "in carica; durante la carica non indica il livello",
   "lowSound": "Suono con l'avviso di batteria scarica",
   "prefs": "Preferenze",
   "interval": "Intervallo di lettura",
