@@ -391,6 +391,22 @@ namespace SwarlexBatteryTests
             Check(max.Kind == "headphones" && max.Glyph == null && max.LowPart == null, "AirPods Max: the headset icon, no earbud names");
             foreach (var ring in new double?[] { 0.5, null })
                 Check(TrayRenderer.Get(new TraySpec { Id = "pods", Icon = TrayRenderer.Pods, Ring = ring, Tooltip = "AirPods" }) != null, "AirPods: the tray icon draws" + (ring == null ? " without a ring" : " in the ring"));
+
+            // an icon the tray shows stays usable however many others are drawn after it: Windows may ask for it again
+            // at any time (Explorer restarting adds every icon anew), and a disposed one then throws
+            var shown = TrayRenderer.Get(new TraySpec { Id = "a", Icon = "E962", Ring = 0.42 });
+            for (int i = 0; i < 320; i++) TrayRenderer.Get(new TraySpec { Id = "b", Icon = (0xE700 + i).ToString("X4"), Ring = 0.5 });
+            bool usable;
+            try { using (shown.ToBitmap()) { } usable = true; } catch (ObjectDisposedException) { usable = false; }
+            Check(usable, "tray: an icon in use is not disposed when the icon cache fills up");
+            TrayRenderer.Clear(new[] { shown });
+            Check(TrayRenderer.Count == 1, "tray: trimming the icon cache frees all but the icons in use");
+
+            // the name shown for a device (the panel reads it from the settings as they are now)
+            var given = new Dictionary<string, string> { { "atk-mouse", "My mouse" }, { "Old Headset", "Desk headset" } };
+            Check(BatteryReader.NameFor(given, "atk-mouse", "MAD R") == "My mouse", "names: a name given by id");
+            Check(BatteryReader.NameFor(given, "bt-x", "Old Headset") == "Desk headset", "names: a name set by hand for the device's own name");
+            Check(BatteryReader.NameFor(given, "bt-y", "Keyboard") == "Keyboard" && BatteryReader.NameFor(given, null, null) == null, "names: no name given: its own");
         }
 
         static void HistoryLog()

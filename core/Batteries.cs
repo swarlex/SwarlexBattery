@@ -57,6 +57,16 @@ namespace SwarlexBattery
         Dictionary<string, Track> tracks = new Dictionary<string, Track>();
         long histSavedAt; bool histDirty;
 
+        // Written beside the file, on the disk (not only in the cache), then swapped in: a power cut while saving leaves
+        // the old file or the new one, never half of one or an empty one (a damaged file loses every device's estimate)
+        static void WriteWhole(string file, string text)
+        {
+            var tmp = file + ".tmp";
+            var bytes = new UTF8Encoding(false).GetBytes(text);
+            using (var f = new FileStream(tmp, FileMode.Create, FileAccess.Write)) { f.Write(bytes, 0, bytes.Length); f.Flush(true); }
+            if (File.Exists(file)) File.Replace(tmp, file, null); else File.Move(tmp, file);
+        }
+
         void LoadHistory()
         {
             try
@@ -110,7 +120,7 @@ namespace SwarlexBattery
                 try
                 {
                     var o = tracks.ToDictionary(kv => kv.Key, kv => (object)new Dictionary<string, object> { { "last", kv.Value.Last }, { "use", kv.Value.Use }, { "pts", kv.Value.Pts } });
-                    File.WriteAllText(histFile, Json.Serialize(o), new UTF8Encoding(false)); histSavedAt = now; histDirty = false;
+                    WriteWhole(histFile, Json.Serialize(o)); histSavedAt = now; histDirty = false;
                 }
                 catch { }
             }
@@ -514,7 +524,7 @@ namespace SwarlexBattery
             var sig = string.Join(";", last.OrderBy(kv => kv.Key).Select(kv => kv.Key + "=" + kv.Value["pct"] + "/" + kv.Value["charging"] + "/" + kv.Value["name"]));
             if (sig != lastSaved || now - lastSavedAt >= 300)
             {
-                try { File.WriteAllText(lastFile, Json.Serialize(last), new UTF8Encoding(false)); lastSaved = sig; lastSavedAt = now; } catch { }
+                try { WriteWhole(lastFile, Json.Serialize(last)); lastSaved = sig; lastSavedAt = now; } catch { }
             }
         }
         string lastSaved; long lastSavedAt;
@@ -572,13 +582,20 @@ namespace SwarlexBattery
             {
                 if (g.Id != null && hidden.ContainsKey(g.Id)) continue;
                 var c = g.Copy(); c.OwnName = g.Name;
-                string n;
-                if ((g.Id != null && names.TryGetValue(g.Id, out n)) || (g.Name != null && names.TryGetValue(g.Name, out n))) c.Name = n;
+                c.Name = NameFor(names, g.Id, g.Name);
                 string k;
                 if (g.Id != null && icons.TryGetValue(g.Id, out k) && Array.IndexOf(IconChoices, k) >= 0) { c.Kind = k; c.Glyph = k == "gamepad" ? PadGlyph(g.Id, g.Name) : null; }
                 o.Add(c);
             }
             return o;
+        }
+
+        // the name a device is shown with: the one given in the panel (by id, or by its own name as set by hand in
+        // config.json before), else its own (plugins.gadgets.names)
+        public static string NameFor(Dictionary<string, string> names, string id, string own)
+        {
+            string n;
+            return (id != null && names.TryGetValue(id, out n)) || (own != null && names.TryGetValue(own, out n)) ? n : own;
         }
 
         static readonly HashSet<string> chargingBelowFull = new HashSet<string>();   // devices seen charging and not yet full

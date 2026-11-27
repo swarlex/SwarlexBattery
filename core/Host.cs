@@ -50,7 +50,7 @@ namespace SwarlexBattery
             SystemEvents.DisplaySettingsChanged += (s, e) => ui.BeginInvoke(new Action(() =>
             {
                 int size = Win.TrayIconSize();
-                if (size != TrayRenderer.Size) { TrayRenderer.Size = size; TrayRenderer.Clear(); if (Current != null) tray.Sync(Current.Icons); }
+                if (size != TrayRenderer.Size) { TrayRenderer.Size = size; tray.Repaint(); }   // frees the old size's icons once the new ones are shown
             }));
             // locked: nobody looks at the tray, so the devices are left alone; unlocked or woken up: read at once
             SystemEvents.SessionSwitch += (s, e) => ui.BeginInvoke(new Action(() =>
@@ -113,7 +113,12 @@ namespace SwarlexBattery
             {
                 themeAt = now.AddSeconds(5);
                 bool light = TrayRenderer.IsLightTaskbar();
-                if (light != TrayRenderer.LightTaskbar) { TrayRenderer.LightTaskbar = light; tray.Repaint(); }
+                if (light != TrayRenderer.LightTaskbar)
+                {
+                    TrayRenderer.LightTaskbar = light; tray.Repaint();
+                    // (a colour in config.json that cannot be read must not skip the held notifications below)
+                    try { flyout.TaskbarTheme(); } catch (Exception e) { Log.Once("theme: " + e.Message); }
+                }
                 // notifications held back while a full-screen app was in front: shown once it is gone
                 bool fullscreen = Win.ForegroundIsFullscreen();
                 if (held.Count > 0 && !(fullscreen && Config.Bool("quietWhileGaming", true))) ShowHeld();

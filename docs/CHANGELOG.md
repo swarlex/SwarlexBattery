@@ -13,6 +13,27 @@ All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBat
 - A device that charges on its cable without giving a level, with no reading in the last week, is listed with that
   reason ("charging on its cable; the level shows again on its receiver") instead of being left out.
 
+## 2.0.13
+### Fixed
+- Renaming a device (or resetting its name) shows the new name at once, instead of the old one until the next read.
+- With the automatic theme, the open panel or menu turns light or dark with the taskbar, instead of keeping the old
+  colours until it is opened again (while a name is being edited, at the next opening).
+- The files behind "time left" and "last reading N min ago" are written to the disk whole before they replace the old
+  ones: a power cut while saving no longer leaves a damaged file that loses every device's estimate.
+
+## 2.0.12
+### Fixed
+- Restarting Explorer could raise an error on a tray icon whose image had been freed: after some days of running
+  (once 300 different icons had been drawn), after a display scale change, or - for the icon of a device that had
+  gone away - after a taskbar theme change or the end of a charge. Only images no tray icon holds are freed now.
+
+## 2.0.11
+### Fixed
+- Opening a device's battery history while another device's is open no longer makes the panel drop to the bare list
+  and grow again: the old history folds away while the new one unfolds, in the same frames.
+- The charging animation of the tray icon no longer jumps back to the real level for a moment each time the
+  batteries are read (every 5 seconds while the panel is open): a read draws the frame the animation is on.
+
 ## 2.0.10
 ### Changed
 - A device's options (right-click it in the panel) open in a small window beside the panel, level with the device,
