@@ -2,6 +2,12 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## Unreleased
+### Fixed
+- Restarting Explorer could raise an error on a tray icon whose image had been freed: after some days of running
+  (once 300 different icons had been drawn), after a display scale change, or - for the icon of a device that had
+  gone away - after a taskbar theme change or the end of a charge. Only images no tray icon holds are freed now.
+
 ## 2.0.11
 ### Fixed
 - Opening a device's battery history while another device's is open no longer makes the panel drop to the bare list
