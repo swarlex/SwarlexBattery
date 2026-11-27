@@ -2,6 +2,14 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## Unreleased
+### Fixed
+- Renaming a device (or resetting its name) shows the new name at once, instead of the old one until the next read.
+- With the automatic theme, the open panel or menu turns light or dark with the taskbar, instead of keeping the old
+  colours until it is opened again (while a name is being edited, at the next opening).
+- The files behind "time left" and "last reading N min ago" are written to the disk whole before they replace the old
+  ones: a power cut while saving no longer leaves a damaged file that loses every device's estimate.
+
 ## 2.0.12
 ### Fixed
 - Restarting Explorer could raise an error on a tray icon whose image had been freed: after some days of running

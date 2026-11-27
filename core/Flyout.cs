@@ -553,6 +553,15 @@ namespace SwarlexBattery
             finally { win.ShowActivated = true; }
         }
 
+        // the taskbar turned light or dark while the panel or the menu is open: it follows at once ("auto" theme)
+        public void TaskbarTheme()
+        {
+            // not while a name is being edited: the panel is not redrawn then, and its text would keep the old colour on
+            // the new background (it takes the theme the next time it opens)
+            if (Open == null || renaming != null) return;
+            ApplyTheme(); Refresh();
+        }
+
         public void Refresh()
         {
             if (Open != null && Busy()) return;
@@ -624,9 +633,13 @@ namespace SwarlexBattery
             else
             {
                 if (snap.Empty != null) root.Children.Add(Text(snap.Empty, muted, 12));
+                // the names as saved now: a name just given (or reset) shows at once, not after the next read - and a
+                // read that was already running when it was saved does not bring the old one back for a moment
+                var names = Config.Map("plugins.gadgets.names");
                 foreach (var it in snap.Items)
                 {
                     var item = it;
+                    var label = it.OwnName != null ? BatteryReader.NameFor(names, it.Id, it.OwnName) : it.Label;
                     var box = new StackPanel { Background = Brushes.Transparent };   // a background, so a right click anywhere on the row is seen
                     var g = new Grid { Margin = new Thickness(0, 3, 0, 3) };
                     foreach (var w in new[] { GridLength.Auto, new GridLength(1, GridUnitType.Star), GridLength.Auto, GridLength.Auto }) g.ColumnDefinitions.Add(new ColumnDefinition { Width = w });
@@ -637,7 +650,7 @@ namespace SwarlexBattery
                     var sp = new StackPanel(); Grid.SetColumn(sp, 1);
                     if (renaming != null && renaming == it.Id)
                     {
-                        editor = new TextBox { Text = it.Label, FontSize = 13, Foreground = fg, Background = Brushes.Transparent, CaretBrush = fg, BorderBrush = accent,
+                        editor = new TextBox { Text = label, FontSize = 13, Foreground = fg, Background = Brushes.Transparent, CaretBrush = fg, BorderBrush = accent,
                                                BorderThickness = new Thickness(0, 0, 0, 1), Padding = new Thickness(0), FocusVisualStyle = null };
                         var ed = editor;
                         ed.KeyDown += (s, e) =>
@@ -653,7 +666,7 @@ namespace SwarlexBattery
                         };
                         sp.Children.Add(ed);
                     }
-                    else sp.Children.Add(Text(it.Label));
+                    else sp.Children.Add(Text(label));
                     if (!string.IsNullOrEmpty(it.Sub)) sp.Children.Add(Text(it.Sub, muted, 11));
                     g.Children.Add(sp);
                     var v = Text(it.Value, plain, 12); v.TextWrapping = TextWrapping.NoWrap; v.Margin = new Thickness(10, 1, 0, 0); Grid.SetColumn(v, 2); g.Children.Add(v);
@@ -843,7 +856,7 @@ namespace SwarlexBattery
             if (it == null) return box;
             box.Children.Add(MenuRow("E8AC", Strings.T("rename"), () => { if (Sliding()) return; LeaveSide(); renaming = it.Id; RenderPanel(true); }));
             if (it.OwnName != null && it.OwnName != it.Label)
-                box.Children.Add(MenuRow("E7A7", Strings.T("resetName"), () => { LeaveSide(); host.Rename(it.Id, null); }));
+                box.Children.Add(MenuRow("E7A7", Strings.T("resetName"), () => { host.Rename(it.Id, null); LeaveSide(); }));   // renamed first: LeaveSide redraws
             box.Children.Add(MenuRow("E790", Strings.T("iconOpt", it.IconChoice == null ? Strings.T("iconAuto") : KindLabel(it.IconChoice)),
                                      () => SwitchSide("icon"), false, null, false, "E76C"));
             if (it.Pct >= 0)

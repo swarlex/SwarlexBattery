@@ -401,6 +401,12 @@ namespace SwarlexBatteryTests
             Check(usable, "tray: an icon in use is not disposed when the icon cache fills up");
             TrayRenderer.Clear(new[] { shown });
             Check(TrayRenderer.Count == 1, "tray: trimming the icon cache frees all but the icons in use");
+
+            // the name shown for a device (the panel reads it from the settings as they are now)
+            var given = new Dictionary<string, string> { { "atk-mouse", "My mouse" }, { "Old Headset", "Desk headset" } };
+            Check(BatteryReader.NameFor(given, "atk-mouse", "MAD R") == "My mouse", "names: a name given by id");
+            Check(BatteryReader.NameFor(given, "bt-x", "Old Headset") == "Desk headset", "names: a name set by hand for the device's own name");
+            Check(BatteryReader.NameFor(given, "bt-y", "Keyboard") == "Keyboard" && BatteryReader.NameFor(given, null, null) == null, "names: no name given: its own");
         }
 
         static void HistoryLog()
