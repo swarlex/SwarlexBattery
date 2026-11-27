@@ -137,8 +137,7 @@ namespace SwarlexBattery
                     IntPtr h = bmp.GetHicon();
                     // a managed copy owns its handle; the GDI one is released right away
                     var icon = (Icon)Icon.FromHandle(h).Clone(); IconUtil.Destroy(h);
-                    if (Cache.Count > 300) Clear();
-                    Cache[key] = icon;
+                    Cache[key] = icon;   // trimmed by the tray (TrayIcons.Trim), which knows the icons it shows
                     return icon;
                 }
             }
@@ -254,6 +253,8 @@ namespace SwarlexBattery
             p.CloseFigure();
         }
 
+        public static int Count { get { return Cache.Count; } }
+
         // icons still assigned to a NotifyIcon are not disposed (the tray keeps showing them)
         public static void Clear(IEnumerable<Icon> inUse = null)
         {
@@ -358,8 +359,15 @@ namespace SwarlexBattery
                 ni.Text = tip;
                 if (!ni.Visible) ni.Visible = true;
             }
+            Trim();
             UpdateAnimation();
         }
+
+        // Every level, charging frame and theme is an icon of its own: past 300 the ones not shown are freed. Never one
+        // a NotifyIcon holds, shown or kept aside: when Explorer restarts, Windows Forms adds every NotifyIcon again,
+        // hidden ones too, and one whose image was freed throws.
+        void Trim() { if (TrayRenderer.Count > 300) TrayRenderer.Clear(Held()); }
+        IEnumerable<Icon> Held() { return icons.Values.Concat(spare).Select(n => n.Icon); }
 
         // "Charging animation" (Preferences, on by default): the ring of a charging device fills from its level to
         // full, again and again. The frames are rounded to 5 % steps and cached, so a charge draws few new icons
@@ -384,7 +392,7 @@ namespace SwarlexBattery
             {
                 anim.Stop(); anim = null;
                 foreach (var kv in icons) kv.Value.Icon = TrayRenderer.Get(specs[kv.Key]);   // the still icon again
-                TrayRenderer.Clear(icons.Values.Select(n => n.Icon));
+                TrayRenderer.Clear(Held());
             }
         }
 
@@ -399,6 +407,7 @@ namespace SwarlexBattery
                 var icon = TrayRenderer.Get(f);
                 if (kv.Value.Icon != icon) kv.Value.Icon = icon;
             }
+            Trim();
         }
 
         // an icon as the animation's current frame shows it: the rings of its charging devices filled that far
@@ -420,7 +429,7 @@ namespace SwarlexBattery
         public void Repaint()
         {
             foreach (var kv in icons) kv.Value.Icon = TrayRenderer.Get(anim != null ? Frame(specs[kv.Key]) : specs[kv.Key]);
-            TrayRenderer.Clear(icons.Values.Select(n => n.Icon));
+            TrayRenderer.Clear(Held());
         }
 
         public void Balloon(string title, string body, ToolTipIcon kind)

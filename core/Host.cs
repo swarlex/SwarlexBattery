@@ -50,7 +50,7 @@ namespace SwarlexBattery
             SystemEvents.DisplaySettingsChanged += (s, e) => ui.BeginInvoke(new Action(() =>
             {
                 int size = Win.TrayIconSize();
-                if (size != TrayRenderer.Size) { TrayRenderer.Size = size; TrayRenderer.Clear(); if (Current != null) tray.Sync(Current.Icons); }
+                if (size != TrayRenderer.Size) { TrayRenderer.Size = size; tray.Repaint(); }   // frees the old size's icons once the new ones are shown
             }));
             // locked: nobody looks at the tray, so the devices are left alone; unlocked or woken up: read at once
             SystemEvents.SessionSwitch += (s, e) => ui.BeginInvoke(new Action(() =>
