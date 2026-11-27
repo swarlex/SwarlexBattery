@@ -2,7 +2,7 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
-## Unreleased
+## 2.0.12
 ### Fixed
 - Restarting Explorer could raise an error on a tray icon whose image had been freed: after some days of running
   (once 300 different icons had been drawn), after a display scale change, or - for the icon of a device that had
