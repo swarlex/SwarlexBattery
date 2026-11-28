@@ -131,7 +131,7 @@ namespace SwarlexBattery
                 if (!loaded || !dirty) return;
                 try
                 {
-                    var file = File_; var tmp = file + ".tmp";
+                    var file = File_;
                     Directory.CreateDirectory(Path.GetDirectoryName(file));
                     var sb = new StringBuilder("{");
                     bool first = true;
@@ -143,8 +143,7 @@ namespace SwarlexBattery
                         sb.Append(']');
                     }
                     sb.Append('}');
-                    File.WriteAllText(tmp, sb.ToString(), new UTF8Encoding(false));
-                    if (File.Exists(file)) File.Replace(tmp, file, null); else File.Move(tmp, file);
+                    Files.WriteWhole(file, sb.ToString());   // a damaged file would cost the saved days
                     savedAt = now; dirty = false;
                 }
                 catch (Exception e) { Log.Once("history save: " + e.GetType().Name); }

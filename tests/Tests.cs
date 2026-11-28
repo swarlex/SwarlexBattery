@@ -407,6 +407,64 @@ namespace SwarlexBatteryTests
             Check(BatteryReader.NameFor(given, "atk-mouse", "MAD R") == "My mouse", "names: a name given by id");
             Check(BatteryReader.NameFor(given, "bt-x", "Old Headset") == "Desk headset", "names: a name set by hand for the device's own name");
             Check(BatteryReader.NameFor(given, "bt-y", "Keyboard") == "Keyboard" && BatteryReader.NameFor(given, null, null) == null, "names: no name given: its own");
+
+            // settings and history files are written whole: a new file, then one replaced, nothing left beside it
+            var dir = Path.Combine(Path.GetTempPath(), "swarlexbattery-tests-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            try
+            {
+                var f = Path.Combine(dir, "config.json");
+                Files.WriteWhole(f, "{\"a\":1}");
+                Check(File.ReadAllText(f) == "{\"a\":1}", "files: a new file is written");
+                Files.WriteWhole(f, "{\"b\":\"ü\"}");
+                Check(File.ReadAllText(f, System.Text.Encoding.UTF8) == "{\"b\":\"ü\"}" && File.ReadAllBytes(f)[0] == (byte)'{', "files: an existing file is replaced, UTF-8 without a byte order mark");
+                Check(!File.Exists(f + ".tmp") && Directory.GetFiles(dir).Length == 1, "files: no temporary file is left beside it");
+
+                // a settings file that cannot be read is never saved over: the one change would replace every other setting
+                var keepDir = SwarlexBattery.Program.DataDir; var keepData = Config.Data;
+                try
+                {
+                    SwarlexBattery.Program.DataDir = Path.Combine(dir, "settings"); Directory.CreateDirectory(SwarlexBattery.Program.DataDir);
+                    const string broken = "{\"language\":\"tr\",\"brok";
+                    File.WriteAllText(Config.UserFile, broken);
+                    bool threw = false;
+                    try { Config.SetPath("lowSound", true); } catch { threw = true; }
+                    Check(threw && File.ReadAllText(Config.UserFile) == broken && Config.Bool("lowSound", false),
+                          "settings: a change is not saved over a config.json that cannot be read, and still applies until the app closes");
+                    File.WriteAllText(Config.UserFile, "{\"language\":\"tr\"}");
+                    Config.SetPath("plugins.gadgets.interval", 60);
+                    var json = new JavaScriptSerializer();
+                    var saved = json.Deserialize<Dictionary<string, object>>(File.ReadAllText(Config.UserFile));
+                    Check(saved.ContainsKey("language") && saved.ContainsKey("plugins") && saved.ContainsKey("lowSound"),
+                          "settings: a change keeps the other settings, and brings the one that could not be saved before");
+                    // held by another program: nothing written, the change kept and saved with the next one
+                    using (new FileStream(Config.UserFile, FileMode.Open, FileAccess.Read, FileShare.None))
+                    {
+                        threw = false;
+                        try { Config.SetMapEntry("plugins.gadgets.hidden", "bt-x", "Old"); } catch { threw = true; }
+                        Check(threw && Config.Map("plugins.gadgets.hidden").ContainsKey("bt-x"), "settings: a locked config.json is not written; the change is in use");
+                    }
+                    Config.SetPath("fullNotify", false);
+                    saved = json.Deserialize<Dictionary<string, object>>(File.ReadAllText(Config.UserFile));
+                    Check(saved.ContainsKey("fullNotify") && File.ReadAllText(Config.UserFile).Contains("bt-x") && saved.ContainsKey("language"),
+                          "settings: the change made while it was locked is saved with the next one");
+                    // locked at start: the defaults until it can be read, then the saved settings
+                    using (new FileStream(Config.UserFile, FileMode.Open, FileAccess.Read, FileShare.None)) Config.Load();
+                    Check(Config.Str("language", "auto") == "auto" && File.ReadAllText(Config.UserFile).Contains("\"tr\""), "settings: locked at start: the defaults, the file untouched");
+                    Config.SetPath("lowSound", false);
+                    Check(Config.Str("language", "auto") == "tr" && Config.Map("plugins.gadgets.hidden").ContainsKey("bt-x"), "settings: once it can be read, the saved settings are in use");
+                    File.WriteAllText(Config.UserFile, "");
+                    Config.SetPath("lowSound", false);
+                    Check(File.ReadAllText(Config.UserFile).Contains("lowSound"), "settings: an empty config.json (nothing to lose) is written again");
+                    File.WriteAllText(Config.UserFile, broken);
+                    Config.Load();
+                    var bads = Directory.GetFiles(SwarlexBattery.Program.DataDir, "config.json.bad-*");
+                    Check(bads.Length == 1 && File.ReadAllText(bads[0]) == broken && File.ReadAllText(Config.UserFile) == "{}" && Config.Str("language", "auto") == "auto",
+                          "settings: a damaged config.json is kept beside it with the time at start, an empty one replaces it, and the defaults apply");
+                }
+                finally { SwarlexBattery.Program.DataDir = keepDir; Config.Data = keepData; }
+            }
+            finally { try { Directory.Delete(dir, true); } catch { } }
         }
 
         static void HistoryLog()
