@@ -149,23 +149,57 @@ namespace SwarlexBattery
         static readonly JavaScriptSerializer Json = new JavaScriptSerializer();
         public static string UserFile { get { return Path.Combine(Program.DataDir, "config.json"); } }
 
+        static Dictionary<string, object> defaults;   // config.default.json
+        static bool unread;                           // config.json could not be read at start: the defaults are in use until it can
+        // changes not saved yet because config.json could not be read, in order: saved with the next change that can be
+        static readonly List<Action<Dictionary<string, object>>> unsaved = new List<Action<Dictionary<string, object>>>();
+
+        // (errors are logged by type only: their messages hold the path, with the user's name, or the file's content,
+        // and the log goes into the diagnostics report)
         public static void Load()
         {
-            var def = Json.Deserialize<Dictionary<string, object>>(Resources.Text("config.default.json"));
-            Dictionary<string, object> user = null;
+            defaults = Json.Deserialize<Dictionary<string, object>>(Resources.Text("config.default.json"));
+            Dictionary<string, object> user = null; unread = false;
             if (File.Exists(UserFile))
             {
-                try { user = Json.Deserialize<Dictionary<string, object>>(File.ReadAllText(UserFile)); }
-                catch (Exception e) { Log.Write("could not read config.json: " + e.Message); }
+                // held by another program for a moment (a backup, the antivirus, OneDrive): tried again for a second; still
+                // unreadable, it is left as it is, the defaults are used and nothing is saved over it (Save)
+                string text = null;
+                for (int i = 0; i < 5 && text == null; i++)
+                {
+                    try { text = File.ReadAllText(UserFile); }
+                    catch (Exception e)
+                    {
+                        if (i < 4) Thread.Sleep(200);
+                        else Log.Write("could not read config.json (" + e.GetType().Name + "): default settings until it can be read");
+                    }
+                }
+                if (text == null) unread = true;
+                else
+                {
+                    try { user = Parse(text); }
+                    catch (Exception e)
+                    {
+                        // damaged (a typo when edited by hand, a power cut): kept beside it with the time, so a second
+                        // damage does not overwrite the first, and an empty settings file starts afresh
+                        var bad = UserFile + ".bad-" + DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
+                        try { File.Copy(UserFile, bad, true); Files.WriteWhole(UserFile, "{}"); Log.Write("config.json is damaged (" + e.GetType().Name + "): kept as " + Path.GetFileName(bad) + ", default settings"); }
+                        catch (Exception c) { Log.Write("config.json is damaged (" + e.GetType().Name + ") and could not be set aside (" + c.GetType().Name + ")"); }
+                    }
+                }
             }
             else
             {
-                // the app used to be called WinBar: keep a config made with that version
+                // the app used to be called WinBar: keep a config made with that version (one that cannot be read is left out)
                 var old = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "WinBar", "config.json");
-                try { if (File.Exists(old)) { File.Copy(old, UserFile); user = Json.Deserialize<Dictionary<string, object>>(File.ReadAllText(UserFile)); } else File.WriteAllText(UserFile, Resources.Text("config.default.json"), new UTF8Encoding(false)); }
-                catch { }
+                try
+                {
+                    if (File.Exists(old)) { var t = File.ReadAllText(old); user = Parse(t); Files.WriteWhole(UserFile, t); }
+                    else Files.WriteWhole(UserFile, Resources.Text("config.default.json"));
+                }
+                catch { user = null; }
             }
-            Data = Merge(def, user);
+            Data = Merge(defaults, user);
         }
 
         static Dictionary<string, object> Merge(Dictionary<string, object> a, Dictionary<string, object> b)
@@ -217,22 +251,44 @@ namespace SwarlexBattery
 
         static void SetParts(string[] parts, object value)
         {
-            Dictionary<string, object> user = null;
-            try { if (File.Exists(UserFile)) user = Json.Deserialize<Dictionary<string, object>>(File.ReadAllText(UserFile)); } catch { }
-            if (user == null) user = new Dictionary<string, object>();
-            Put(user, parts, value);
             // the settings in use are changed on a copy and swapped in at once: a battery read on another thread
             // keeps reading the old ones whole, never a dictionary that is being changed
             var copy = new Dictionary<string, object>(Data); Put(copy, parts, value); Data = copy;
-            WriteUser(user);
+            Save(u => Put(u, parts, value));
         }
 
-        // written beside it and swapped in: a crash or power loss in the middle leaves the old file, not half of one
-        static void WriteUser(Dictionary<string, object> user)
+        // A change to config.json, read as it is now: everything else in it is kept. One that cannot be read (held by
+        // another program for a moment, or damaged since the start) throws, and nothing is written over it - the change
+        // alone would replace every other setting. The change is kept and saved with the next one that can be; it is in
+        // use already. Written whole: a power cut leaves the old file or the new one, never an empty one.
+        static void Save(Action<Dictionary<string, object>> change)
         {
-            var tmp = UserFile + ".tmp";
-            File.WriteAllText(tmp, Json.Serialize(user), new UTF8Encoding(false));
-            if (File.Exists(UserFile)) File.Replace(tmp, UserFile, null); else File.Move(tmp, UserFile);
+            unsaved.Add(change);
+            Dictionary<string, object> user;
+            if (!File.Exists(UserFile)) user = new Dictionary<string, object>();
+            else
+            {
+                string text;
+                try { text = File.ReadAllText(UserFile); }
+                catch (Exception e) { throw new IOException("config.json could not be read (" + e.GetType().Name + "): the change is kept and saved with the next one"); }
+                try { user = Parse(text); }
+                catch (Exception e) { throw new FormatException("config.json is damaged (" + e.GetType().Name + "): the change applies until the app closes"); }
+            }
+            foreach (var c in unsaved) c(user);
+            try { Files.WriteWhole(UserFile, Json.Serialize(user)); }
+            catch (Exception e) { throw new IOException("config.json could not be saved (" + e.GetType().Name + "): the change is kept and saved with the next one"); }
+            unsaved.Clear();
+            // read at last after a start that could not: the settings in use become the saved ones (with these changes)
+            if (unread) { unread = false; Data = Merge(defaults, user); }
+        }
+
+        // an empty file holds no settings (nothing to lose); anything else must be a JSON object
+        static Dictionary<string, object> Parse(string text)
+        {
+            if (text.Trim() == "") return new Dictionary<string, object>();
+            var o = Json.Deserialize<Dictionary<string, object>>(text);
+            if (o == null) throw new FormatException("not a JSON object");
+            return o;
         }
 
         static void Put(Dictionary<string, object> d, string[] parts, object value)
@@ -259,12 +315,8 @@ namespace SwarlexBattery
         // changes one top-level value in the user's config.json and keeps everything else
         public static void SetUser(string key, object value)
         {
-            Dictionary<string, object> user = null;
-            try { if (File.Exists(UserFile)) user = Json.Deserialize<Dictionary<string, object>>(File.ReadAllText(UserFile)); } catch { }
-            if (user == null) user = new Dictionary<string, object>();
-            user[key] = value;
-            WriteUser(user);
             var copy = new Dictionary<string, object>(Data); copy[key] = value; Data = copy;
+            Save(u => u[key] = value);
         }
     }
 
@@ -304,6 +356,19 @@ namespace SwarlexBattery
                 if (s == null) return null;
                 using (var r = new StreamReader(s, Encoding.UTF8)) return r.ReadToEnd();
             }
+        }
+    }
+
+    static class Files
+    {
+        // Written beside the file, on the disk (not only in Windows' write cache), then swapped in: a power cut while
+        // saving leaves the old file or the new one, never half of one or an empty one
+        public static void WriteWhole(string file, string text)
+        {
+            var tmp = file + ".tmp";
+            var bytes = new UTF8Encoding(false).GetBytes(text);
+            using (var f = new FileStream(tmp, FileMode.Create, FileAccess.Write)) { f.Write(bytes, 0, bytes.Length); f.Flush(true); }
+            if (File.Exists(file)) File.Replace(tmp, file, null); else File.Move(tmp, file);
         }
     }
 }

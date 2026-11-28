@@ -57,16 +57,6 @@ namespace SwarlexBattery
         Dictionary<string, Track> tracks = new Dictionary<string, Track>();
         long histSavedAt; bool histDirty;
 
-        // Written beside the file, on the disk (not only in the cache), then swapped in: a power cut while saving leaves
-        // the old file or the new one, never half of one or an empty one (a damaged file loses every device's estimate)
-        static void WriteWhole(string file, string text)
-        {
-            var tmp = file + ".tmp";
-            var bytes = new UTF8Encoding(false).GetBytes(text);
-            using (var f = new FileStream(tmp, FileMode.Create, FileAccess.Write)) { f.Write(bytes, 0, bytes.Length); f.Flush(true); }
-            if (File.Exists(file)) File.Replace(tmp, file, null); else File.Move(tmp, file);
-        }
-
         void LoadHistory()
         {
             try
@@ -120,7 +110,7 @@ namespace SwarlexBattery
                 try
                 {
                     var o = tracks.ToDictionary(kv => kv.Key, kv => (object)new Dictionary<string, object> { { "last", kv.Value.Last }, { "use", kv.Value.Use }, { "pts", kv.Value.Pts } });
-                    WriteWhole(histFile, Json.Serialize(o)); histSavedAt = now; histDirty = false;
+                    Files.WriteWhole(histFile, Json.Serialize(o)); histSavedAt = now; histDirty = false;
                 }
                 catch { }
             }
@@ -524,7 +514,7 @@ namespace SwarlexBattery
             var sig = string.Join(";", last.OrderBy(kv => kv.Key).Select(kv => kv.Key + "=" + kv.Value["pct"] + "/" + kv.Value["charging"] + "/" + kv.Value["name"]));
             if (sig != lastSaved || now - lastSavedAt >= 300)
             {
-                try { WriteWhole(lastFile, Json.Serialize(last)); lastSaved = sig; lastSavedAt = now; } catch { }
+                try { Files.WriteWhole(lastFile, Json.Serialize(last)); lastSaved = sig; lastSavedAt = now; } catch { }
             }
         }
         string lastSaved; long lastSavedAt;

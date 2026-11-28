@@ -2,6 +2,18 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
+## Unreleased
+### Fixed
+- A change in the menu could wipe every other setting: when config.json could not be read (left empty by a power
+  cut while saving, damaged, or held by another program for a moment), the change was saved over it alone. Now:
+  - settings and the battery history are written to the disk whole before they replace the old files;
+  - a change is never saved over a config.json that cannot be read: it is in use at once and saved with the next
+    change once the file can be read again;
+  - a config.json held by another program at start is tried again for a second, and once it can be read its
+    settings are in use;
+  - a damaged config.json is kept beside it as config.json.bad-<date and time> at start, and the settings start
+    afresh.
+
 ## 2.0.14
 ### Added
 - **HyperX Cloud II Core Wireless** (03F0:0995 / 069F): the Cloud III Wireless protocol, level and charging.
