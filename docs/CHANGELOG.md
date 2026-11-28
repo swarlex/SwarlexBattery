@@ -2,7 +2,7 @@
 
 All notable changes. Downloads: [Releases](https://github.com/swarlex/SwarlexBattery/releases).
 
-## Unreleased
+## 2.0.15
 ### Fixed
 - A change in the menu could wipe every other setting: when config.json could not be read (left empty by a power
   cut while saving, damaged, or held by another program for a moment), the change was saved over it alone. Now:
